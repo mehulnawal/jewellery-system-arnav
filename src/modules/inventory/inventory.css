@@ -19,3 +19,7 @@ html[data-theme="dark"] .inventory-search input{background:#182231!important;col
 .inventory-table{min-width:1180px}.inventory-box-value{background:transparent;border:0;color:#17845b;cursor:pointer;font:600 14px inherit;padding:4px 0}.inventory-box-input{border:1px solid #36a879;border-radius:4px;box-sizing:border-box;color:#354152;font:inherit;padding:4px 6px;width:78px}
 
 .inventory-row-actions{align-items:center;display:flex;gap:6px}.inventory-row-actions button{align-items:center;background:transparent;border:0;border-radius:5px;color:#5d6a79;cursor:pointer;display:inline-flex;height:30px;justify-content:center;padding:6px;width:30px}.inventory-row-actions button:hover{background:#eef7f2;color:#168459}.inventory-row-actions .inventory-row-delete{color:#c45151}.inventory-row-actions .inventory-row-delete:hover{background:#fff0f0;color:#b93e3e}.inventory-row-actions .inventory-svg{height:17px;width:17px}
+
+.inventory-field.has-error input,.inventory-field.has-error select{border-color:#d84f4f!important;box-shadow:0 0 0 3px #fde8e8!important}.inventory-field-error{color:#c74343;font-size:12px;font-weight:600;line-height:1.25;margin-top:-2px}.inventory-box-input:invalid{border-color:#d84f4f}
+
+.inventory-box-editor{display:grid;gap:3px}.inventory-box-editor small{color:#c74343;font-size:11px;font-weight:600;line-height:1.15;white-space:normal}.inventory-box-input.has-error{border-color:#d84f4f;box-shadow:0 0 0 2px #fde8e8}
