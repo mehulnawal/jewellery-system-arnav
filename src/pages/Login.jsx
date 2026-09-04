@@ -1,0 +1,1 @@
+export default function Login() { return <main className="grid min-h-screen place-items-center p-5"><section className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm"><h1 className="text-2xl font-bold">Sign in</h1><p className="mt-2 text-sm text-slate-600">Authentication will be connected in a later phase.</p></section></main> }
