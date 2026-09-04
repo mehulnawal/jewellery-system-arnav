@@ -5,3 +5,14 @@
 
 .dashboard-sidebar-footer{margin-top:auto}.dashboard-theme-toggle{align-items:center;background:transparent;border:0;border-radius:8px;color:#718095;cursor:pointer;display:flex;font:inherit;height:40px;padding:0;width:100%}.dashboard-theme-toggle .dashboard-icon{margin:0 10px}.dashboard-theme-toggle span,.dashboard-collapse em{display:none;font-size:14px;font-style:normal;font-weight:600}.sidebar-expanded .dashboard-theme-toggle span,.sidebar-expanded .dashboard-collapse em{display:block}.dashboard-theme-toggle:hover{background:#f1f7f4;color:#16875c}.dashboard-collapse{margin-top:3px}.sidebar-expanded .dashboard-collapse{justify-content:flex-start}.sidebar-expanded .dashboard-collapse>span{margin:0 10px}.inventory-layout .dashboard-collapse:before{display:none}.inventory-layout .dashboard-collapse{border-top:1px solid #edf0f2;padding-top:13px}
 .dashboard-content{position:relative}.dashboard-page-loading{align-items:center;background:color-mix(in srgb,var(--ui-surface) 88%,transparent);color:var(--ui-text);display:flex;font-size:14px;font-weight:600;gap:9px;inset:0;justify-content:center;position:absolute;z-index:20}.dashboard-page-loading i{animation:dashboard-spin .75s linear infinite;border:2px solid #c5d6ce;border-radius:50%;border-right-color:#16875c;height:15px;width:15px}@keyframes dashboard-spin{to{transform:rotate(360deg)}}
+
+
+
+/* Keep the theme row visually identical to a sidebar navigation item. */
+.dashboard-theme-toggle{align-items:center;border-radius:10px;color:#9ca3af;display:flex;height:42px;justify-content:center;padding:0;text-align:left}
+.dashboard-theme-toggle .dashboard-icon{flex:none;height:20px!important;margin:0;width:20px!important}
+.dashboard-theme-toggle:hover{background:#f1f7f4;color:#16875c}
+.sidebar-expanded .dashboard-theme-toggle{justify-content:flex-start}
+.sidebar-expanded .dashboard-theme-toggle .dashboard-icon{margin:0 10px}
+html[data-theme="dark"] .dashboard-theme-toggle{color:#aebaca}
+html[data-theme="dark"] .dashboard-theme-toggle:hover{background:#223142;color:#8ce0ba}

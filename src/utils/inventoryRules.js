@@ -47,6 +47,6 @@ export const numericMatches = (value, query) => {
 export const inventoryMatchesSearch = (item, query) => {
   const parsed = parseSizeQuery(query)
   if (!parsed.value) return true
-  if (parsed.sizeOnly) return String(item.size ?? '').toLowerCase() === parsed.value.toLowerCase()
+  if (parsed.sizeOnly) return numericMatches(item.size, parsed.value)
   return [item.shape, item.type, item.sku, item.group, item.box].some((value) => String(value ?? '').toLowerCase().includes(parsed.value)) || numericMatches(item.size, parsed.value) || numericMatches(item.weight, parsed.value)
 }

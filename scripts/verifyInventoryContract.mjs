@@ -26,8 +26,8 @@ requireText(indexStyles, 'html[data-theme="dark"] .inventory-field select', 'dar
 // Data contracts.
 requireTrue(formatDecimal(5) === '5.000', 'three-decimal display format')
 for (const query of ['21', '21.', '21.4', '21.45', '21.450']) requireTrue(numericMatches('21.450', query), `numeric search for ${query}`)
-requireTrue(inventoryMatchesSearch({ size: '21.450', weight: 99 }, '21.mm'), 'mm Size-only search')
-requireTrue(!inventoryMatchesSearch({ size: '9.000', weight: 21.45 }, '21.mm'), 'mm must not match weight')
+requireTrue(inventoryMatchesSearch({ size: '21.450', weight: 99 }, '21.4mm'), 'mm Size-only search')
+requireTrue(!inventoryMatchesSearch({ size: '9.000', weight: 21.45 }, '21.4mm'), 'mm must not match weight')
 requireTrue(isValidSize('4.3X2.0', true) && !isValidSize('4.3x2.0', true), 'uppercase X size validation')
 requireTrue(isValidBox('AB29') && !isValidBox('29AB'), 'Box validation')
 const ordered = orderShapes(['Round', 'Future Shape', 'Oval', 'Pan'])
