@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "verify:inventory": "node scripts/verifyInventoryContract.mjs",
+    "prebuild": "npm run verify:inventory",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
