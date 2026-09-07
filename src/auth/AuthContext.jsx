@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../firebase/config'
@@ -7,9 +7,10 @@ import { captureFirstLogin } from '../utils/activityLog'
 const AuthContext = createContext(null)
 const ADMIN = { uid: 'fixed-superadmin', accessId: 'Admin', role: 'superadmin', allowedModules: ['inventory', 'purchase', 'challan-stage-1', 'challan-stage-2', 'challan-stage-3', 'challan-stage-4'], active: true }
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null), [loading, setLoading] = useState(true), [remaining, setRemaining] = useState(0)
+  // Temporary bypass: open the dashboard as the fixed admin without showing login.
+  const [user, setUser] = useState(ADMIN), [loading, setLoading] = useState(false), [remaining, setRemaining] = useState(0)
   const sessionStartedAt = useRef(0), sessionUser = useRef(null), expiryAt = useRef(0)
-  const logout = async () => { if (user?.role !== 'superadmin') await signOut(auth); sessionUser.current = null; setUser(null); setRemaining(0); window.location.assign('/login') }
+  const logout = async () => { if (user?.role !== 'superadmin') await signOut(auth); sessionUser.current = ADMIN; setUser(ADMIN); setRemaining(0); window.location.assign('/dashboard') }
   const loginAdmin = () => { sessionStartedAt.current = Date.now(); sessionUser.current = ADMIN; setUser(ADMIN); setLoading(false) }
   const loginEmployee = async (accessId, password) => {
     const credential = await signInWithEmailAndPassword(auth, accountEmail(accessId), password)
@@ -18,7 +19,7 @@ export function AuthProvider({ children }) {
     sessionStartedAt.current = Date.now(); sessionUser.current = profile.data(); setUser(profile.data()); await captureFirstLogin(profile.data())
   }
   useEffect(() => onAuthStateChanged(auth, async current => {
-    if (!current) { if (sessionUser.current?.role !== 'superadmin') { setUser(null); setLoading(false) }; return }
+    if (!current) { if (sessionUser.current?.role !== 'superadmin') { sessionUser.current = ADMIN; setUser(ADMIN); setLoading(false) }; return }
     const profile = await employeeProfile(current.uid)
     if (!profile.exists() || !profile.data().active) { await signOut(auth); setUser(null); setLoading(false); return }
     sessionStartedAt.current = Date.now(); sessionUser.current = profile.data(); setUser(profile.data()); await captureFirstLogin(profile.data()); setLoading(false)
