@@ -1,4 +1,4 @@
-@import './styles/theme.css';
+﻿@import './styles/theme.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,3 +13,5 @@
 .check-loading,.activity-loading{align-items:center;display:flex;gap:8px;justify-content:center}.check-loading i,.activity-loading i{animation:site-data-spin .75s linear infinite;border:2px solid #c5d6ce;border-radius:50%;border-right-color:#16875c;height:14px;width:14px}@keyframes site-data-spin{to{transform:rotate(360deg)}}
 
 html[data-theme="dark"] .inventory-field select{background:#111827!important;border-color:#3b4b5e!important;color:#e5edf6!important}
+
+.login-page{align-items:center;background:var(--ui-bg);display:flex;justify-content:center;min-height:100vh;padding:20px}.login-card{background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:18px;box-shadow:var(--ui-shadow-sm);display:grid;gap:14px;max-width:390px;padding:30px;width:100%}.login-card h1,.login-card p{margin:0}.login-card p{color:var(--ui-muted)}.login-card form{display:grid;gap:13px}.login-card label{display:grid;font-size:14px;font-weight:700;gap:6px}.login-card input{border:1px solid var(--ui-border);border-radius:8px;padding:11px}.login-card button{background:var(--ui-emerald);border:0;border-radius:8px;color:#fff;cursor:pointer;font-weight:800;padding:11px}.login-card .login-admin{background:#fff;border:1px solid var(--ui-border);color:var(--ui-text)}.login-error{color:#b91c1c!important}.auth-loading{display:grid;min-height:100vh;place-items:center}.session-expiry-notice{background:#7c2d12;border:2px solid #fdba74;border-radius:12px;box-shadow:0 10px 28px rgb(0 0 0 / .22);color:#fff;display:grid;gap:4px;left:50%;padding:13px 28px;position:fixed;text-align:center;top:18px;transform:translateX(-50%);z-index:9999}.session-expiry-notice b{font-size:16px}.session-expiry-notice span{font-size:22px;font-weight:900;letter-spacing:.04em}
