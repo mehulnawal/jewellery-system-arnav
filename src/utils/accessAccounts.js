@@ -4,7 +4,7 @@ import { db, secondaryApp } from '../firebase/config'
 export const PERMISSIONS = [
   ['inventory', 'Inventory'], ['purchase', 'Purchase'], ['challan-stage-1', 'Challan Stage 1'], ['challan-stage-2', 'Challan Stage 2'], ['challan-stage-3', 'Challan Stage 3'], ['challan-stage-4', 'Challan Stage 4'],
 ]
-export const accountEmail = accessId => `${String(accessId).trim().toLowerCase()}@access-id.local`
+export const accountEmail = accessId => { const value = String(accessId).trim().toLowerCase(); return value.includes('@') ? value : `${value}@access-id.local` }
 export const generateAccessId = () => `EMP${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 export const generatePassword = () => `${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}!A9`
 export async function createEmployee({ accessId, password, permissions }) {

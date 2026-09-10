@@ -37,3 +37,6 @@ html[data-theme="dark"] .access-create label .password-toggle:hover{background:#
 
 .credential-fields{margin-top:20px}
 .credential-fields label>button:not(.password-toggle){margin-top:-3px}
+
+/* Strong active state for Settings tabs. */
+.settings-tabs{background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:11px;display:inline-flex;gap:4px;padding:4px}.settings-tabs button{background:transparent!important;border-color:transparent!important;color:var(--ui-muted);position:relative}.settings-tabs button:hover{background:var(--ui-emerald-soft)!important;color:var(--ui-emerald)}.settings-tabs .active{background:var(--ui-emerald)!important;box-shadow:0 2px 5px rgb(5 150 105 / .25);color:#fff!important}.settings-tabs .active:after{background:#fff;border-radius:50%;content:'';height:5px;position:absolute;right:8px;top:8px;width:5px}html[data-theme="dark"] .settings-tabs{background:#111827;border-color:#334155}html[data-theme="dark"] .settings-tabs button:hover{background:#193d31!important;color:#8ce0ba}html[data-theme="dark"] .settings-tabs .active{background:#21845f!important}

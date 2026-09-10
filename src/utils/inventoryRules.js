@@ -1,4 +1,4 @@
-// Keep Round last. New shapes deliberately sort just before it.
+﻿// Keep Round last. New shapes deliberately sort just before it.
 export const SHAPE_ORDER = ['Pan', 'Marquise', 'Oval', 'Emerlad', 'Princess', 'Cushion', 'Radiant', 'Choki', 'Taper (Choki)', 'Buget (Choki)', 'Trillion']
 export const DEFAULT_SHAPES = [...SHAPE_ORDER, 'Round']
 
@@ -50,3 +50,6 @@ export const inventoryMatchesSearch = (item, query) => {
   if (parsed.sizeOnly) return numericMatches(item.size, parsed.value)
   return [item.shape, item.type, item.sku, item.group, item.box].some((value) => String(value ?? '').toLowerCase().includes(parsed.value)) || numericMatches(item.size, parsed.value) || numericMatches(item.weight, parsed.value)
 }
+
+
+

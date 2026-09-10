@@ -27,3 +27,18 @@ html[data-theme="dark"] .dashboard-theme-toggle:hover{background:#223142;color:#
 /* Show navigation names beside the collapsed sidebar on hover. */
 .dashboard-nav-item:hover .dashboard-tooltip{z-index:30}
 
+
+/* Logout confirmation */
+.logout-modal-backdrop{align-items:center;background:rgb(15 23 42 / .52);display:flex;inset:0;justify-content:center;padding:20px;position:fixed;z-index:100}.logout-modal{background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:18px;box-shadow:0 24px 60px rgb(15 23 42 / .3);max-width:390px;padding:28px;text-align:center;width:100%}.logout-modal-icon{align-items:center;background:var(--ui-emerald-soft);border-radius:50%;color:var(--ui-emerald);display:flex;height:48px;justify-content:center;margin:0 auto 14px;width:48px}.logout-modal-icon svg{height:23px;width:23px}.logout-modal h2{color:var(--ui-text);font-size:21px;margin:0}.logout-modal p{color:var(--ui-muted);font-size:14px;line-height:1.55;margin:9px 0 24px}.logout-modal-actions{display:flex;gap:10px;justify-content:center}.logout-modal-actions button{border-radius:8px;cursor:pointer;font-weight:800;padding:10px 15px}.logout-cancel{background:var(--ui-surface);border:1px solid var(--ui-border);color:var(--ui-text)}.logout-confirm{background:#c2413d;border:1px solid #c2413d;color:#fff}.logout-confirm:hover{background:#a93633}@media(max-width:420px){.logout-modal-actions{flex-direction:column-reverse}.logout-modal-actions button{width:100%}}
+html[data-theme="dark"] .logout-modal{background:#182231;border-color:#334155}html[data-theme="dark"] .logout-modal-icon{background:#193d31;color:#8ce0ba}
+.logout-shortcuts{color:var(--ui-muted);display:block;font-size:12px;margin:-12px 0 20px}.logout-shortcuts span{margin:0 7px}.logout-shortcuts kbd{background:var(--ui-bg);border:1px solid var(--ui-border);border-radius:4px;color:var(--ui-text);font-family:inherit;font-size:11px;font-weight:800;padding:2px 5px}
+html[data-theme="dark"] .logout-shortcuts kbd{background:#111827;border-color:#3b4b5e;color:#dce6f0}
+
+/* Clear current-page state in the sidebar. */
+.dashboard-nav-item.active{background:var(--ui-emerald-soft)!important;box-shadow:inset 3px 0 0 var(--ui-emerald);color:var(--ui-emerald)!important;font-weight:800}.dashboard-nav-item.active .dashboard-nav-icon{color:var(--ui-emerald)}.dashboard-nav-item.active:after{background:var(--ui-emerald);border-radius:50%;content:'';height:6px;position:absolute;right:10px;width:6px}.sidebar-expanded .dashboard-nav-item.active:after{right:12px}html[data-theme="dark"] .dashboard-nav-item.active{background:#193d31!important;box-shadow:inset 3px 0 0 #73d8aa;color:#8ce0ba!important}html[data-theme="dark"] .dashboard-nav-item.active .dashboard-nav-icon{color:#8ce0ba}
+
+/* Active links use only the background and left accent; no right-side dot. */
+.dashboard-nav-item.active:after{display:none}
+
+/* Bottom sidebar controls use their own labels; never inject Collapse into Logout. */
+.inventory-layout .dashboard-collapse:before,.inventory-layout.sidebar-expanded .dashboard-collapse:before{content:none!important;display:none!important}

@@ -3,7 +3,9 @@ import ProtectedRoute, { PermissionRoute } from './auth/ProtectedRoute'
 import DashboardLayout from './layouts/DashboardLayout'
 import Inventory from './modules/inventory/Inventory'
 import CheckInventory from './modules/checkInventory/CheckInventory'
+import Challan from './modules/challan/Challan'
 import AdminSettings from './modules/admin/AdminSettings'
 import ActivityLog from './modules/activityLog/ActivityLog'
 import NotFound from './pages/NotFound'
-export default function App() { return <Routes><Route element={<ProtectedRoute/>}><Route path="/dashboard" element={<DashboardLayout/>}><Route index element={<Navigate to="check-inventory" replace/>}/><Route element={<PermissionRoute permission="inventory"/>}><Route path="inventory" element={<Inventory/>}/></Route><Route path="check-inventory" element={<CheckInventory/>}/><Route element={<PermissionRoute adminOnly/>}><Route path="activity-log" element={<ActivityLog/>}/><Route path="admin-settings" element={<AdminSettings/>}/></Route></Route></Route><Route path="/login" element={<Navigate to="/dashboard" replace/>}/><Route path="/" element={<Navigate to="/dashboard" replace/>}/><Route path="*" element={<NotFound/>}/></Routes> }
+import Login from './pages/Login'
+export default function App() { return <Routes><Route element={<ProtectedRoute/>}><Route path="/dashboard" element={<DashboardLayout/>}><Route index element={<Navigate to="check-inventory" replace/>}/><Route element={<PermissionRoute permission="inventory"/>}><Route path="inventory" element={<Inventory/>}/></Route><Route path="check-inventory" element={<CheckInventory/>}/><Route path="challan" element={<Challan/>}/><Route element={<PermissionRoute adminOnly/>}><Route path="activity-log" element={<ActivityLog/>}/><Route path="admin-settings" element={<AdminSettings/>}/></Route></Route></Route><Route path="/login" element={<Login/>}/><Route path="/" element={<Navigate to="/dashboard" replace/>}/><Route path="*" element={<NotFound/>}/></Routes> }

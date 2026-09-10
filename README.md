@@ -1,4 +1,4 @@
-# Diamond Inventory System
+﻿# Grantha Exports
 
 Internal diamond-inventory foundation built with React, Vite, Tailwind CSS, Firebase Auth, and Firestore.
 
@@ -9,3 +9,4 @@ Internal diamond-inventory foundation built with React, Vite, Tailwind CSS, Fire
 3. Run `npm run dev`.
 
 `npm run build` creates the standard static `dist` output for your web host.
+
