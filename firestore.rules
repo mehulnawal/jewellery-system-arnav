@@ -3,21 +3,42 @@
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function admin() { return signedIn() && request.auth.uid == 'rK6ZhxFiauVodjzbssviy5sUyP03'; }
+    // The UI and database both identify administrators by their real employee profile role.
+    function admin() { return signedIn() && (request.auth.uid == 'rK6ZhxFiauVodjzbssviy5sUyP03' || profile().role == 'superadmin'); }
     function profile() { return get(/databases/$(database)/documents/employeeProfiles/$(request.auth.uid)).data; }
     function activeEmployee() { return signedIn() && profile().active == true; }
-    function inventoryEmployee() { return activeEmployee() && profile().permissions.hasAny(['inventory']); }
+    function graceEmployee() { return signedIn() && profile().active == false && profile().accessRevokedAt is timestamp && request.time < profile().accessRevokedAt + duration.value(2, "m"); }
+    function activeOrGraceEmployee() { return activeEmployee() || graceEmployee(); }
+    function authenticActor() { return request.resource.data.actor.uid == request.auth.uid && request.resource.data.actor.accessId == profile().accessId && request.resource.data.actor.role == profile().role; }
+    function inventoryEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['inventory']); }
     match /employeeProfiles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || admin());
       allow create: if admin() || (request.auth.uid == 'rK6ZhxFiauVodjzbssviy5sUyP03' && request.auth.uid == uid && request.resource.data.role == 'superadmin');
       allow list, update, delete: if admin();
     }
-    match /inventory/{entry} { allow read, write: if admin() || inventoryEmployee(); }
-    match /shapes/{entry} { allow read: if activeEmployee() || admin(); allow write: if admin() || inventoryEmployee(); }
+    match /inventory/{entry} {
+      allow read: if admin() || inventoryEmployee();
+      allow create: if admin() || inventoryEmployee();
+      allow update, delete: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m"));
+    }
+    match /shapes/{entry} { allow read: if activeOrGraceEmployee() || admin(); allow write: if admin() || inventoryEmployee(); }
     match /settings/{entry} { allow read: if activeEmployee() || admin(); allow write: if admin(); }
-    match /parties/{party} { allow read: if activeEmployee() || admin(); allow write: if admin(); }
-    match /activityLog/{entry} { allow read: if admin(); allow create: if admin() || (inventoryEmployee() && request.resource.data.actor.uid == request.auth.uid); allow update, delete: if false; }
-    match /activityLogFirstLogins/{entry} { allow get, create: if admin() || (activeEmployee() && request.resource.data.actor.uid == request.auth.uid); allow update, delete: if false; }
+    match /parties/{party} {
+      allow read: if activeOrGraceEmployee() || admin();
+      allow create: if admin() || activeOrGraceEmployee();
+      allow update, delete: if admin();
+    }
+    match /challans/{entry} {
+      allow read, create: if admin() || activeOrGraceEmployee();
+      // Staff may only edit their own Challan during its server-timestamped 60-minute window.
+      // Stage-only updates remain available for the normal Challan workflow.
+      allow update: if admin() || (activeOrGraceEmployee() && ((resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m")) || ((resource.data.stage == 1 && request.resource.data.stage == 2 && request.resource.data.stage2Return.items is list && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stage2Return", "stageHistory"])) || (resource.data.stage >= 2 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stageHistory"])))));
+      allow delete: if admin();
+    }
+    match /activityLog/{entry} { allow read: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
+    match /activityLogFirstLogins/{entry} { allow get, create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
   }
 }
+
+
 

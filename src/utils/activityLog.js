@@ -9,7 +9,9 @@ const dateKey = (value = new Date()) => {
 // This snapshot is written into every event so renamed/deleted Access IDs cannot alter history.
 export const auditActor = user => ({
   uid: user?.uid || user?.id || 'unidentified',
-  accessId: user?.accessId || user?.accessID || user?.email || user?.uid || user?.name || 'Unknown Access ID',
+  accessId: user?.accessId || user?.accessID || user?.email || user?.uid || 'Unavailable',
+  role: user?.role || 'employee',
+  name: user?.name || user?.displayName || '',
 })
 
 export async function captureFirstLogin(user) {
@@ -47,6 +49,6 @@ export async function writeInventoryActivity(action, item, { before, origin, use
 export async function writeActivity({ panel, stage, action = 'created', recordId, snapshot = {}, before, user }) {
   const login = await captureFirstLogin(user)
   const event = { panel, stage: stage || '', action, recordId: recordId || '', snapshot, ...snapshot, actor: login.actor, accessIdSnapshot: login.actor.accessId, firstLoginAtMs: login.firstLoginAtMs, eventAtMs: Date.now(), eventDate: dateKey(), createdAt: serverTimestamp() }
-  if (action === 'edited') event.changes = changedFields(before, snapshot)
+  if (action === 'edited' || action === 'stage_changed') event.changes = changedFields(before, snapshot)
   await addDoc(collection(db, 'activityLog'), event)
 }

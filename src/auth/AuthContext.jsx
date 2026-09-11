@@ -1,12 +1,16 @@
-﻿import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase/config'
 import { accountEmail, employeeProfile } from '../utils/accessAccounts'
 import { captureFirstLogin } from '../utils/activityLog'
+import './authContext.css'
+
 const AuthContext = createContext(null)
 const SUPERADMIN_UID = 'rK6ZhxFiauVodjzbssviy5sUyP03'
+const REVOCATION_GRACE_MS = 2 * 60 * 1000
 const SUPERADMIN_PROFILE = { accessId: 'granthaexports@gmail.com', role: 'superadmin', allowedModules: ['inventory', 'purchase', 'challan-stage-1', 'challan-stage-2', 'challan-stage-3', 'challan-stage-4'], active: true }
+const timestampMs = value => value?.toMillis?.() ?? (Number(value) || 0)
 const resolveProfile = async current => {
   let profile = await employeeProfile(current.uid)
   if (!profile.exists() && current.uid === SUPERADMIN_UID) {
@@ -17,32 +21,39 @@ const resolveProfile = async current => {
 }
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null), [loading, setLoading] = useState(true), [remaining, setRemaining] = useState(0)
-  const sessionStartedAt = useRef(0), sessionUser = useRef(null), expiryAt = useRef(0)
-  const logout = async () => { await signOut(auth); sessionUser.current = null; setUser(null); setRemaining(0); window.location.assign('/login') }
+  const expiryAt = useRef(0)
+  const logout = async () => { await signOut(auth); setUser(null); setRemaining(0); expiryAt.current = 0; window.location.assign('/login') }
+  const activateProfile = async profile => { setUser(profile); try { await captureFirstLogin(profile) } catch (error) { console.warn('First-login audit could not be saved.', error) } }
   const loginEmployee = async (accessId, password) => {
     const credential = await signInWithEmailAndPassword(auth, accountEmail(accessId), password)
     const profile = await resolveProfile(credential.user)
     if (!profile.exists() || !profile.data().active) { await signOut(auth); throw new Error('This Access ID is inactive or unavailable.') }
-    sessionStartedAt.current = Date.now(); sessionUser.current = profile.data(); setUser(profile.data()); await captureFirstLogin(profile.data())
+    await activateProfile(profile.data())
   }
   useEffect(() => onAuthStateChanged(auth, async current => {
-    if (!current) { sessionUser.current = null; setUser(null); setLoading(false); return }
+    if (!current) { setUser(null); setLoading(false); return }
     const profile = await resolveProfile(current)
-    if (!profile.exists() || !profile.data().active) { await signOut(auth); setUser(null); setLoading(false); return }
-    sessionStartedAt.current = Date.now(); sessionUser.current = profile.data(); setUser(profile.data()); await captureFirstLogin(profile.data()); setLoading(false)
+    const data = profile.data()
+    const deadline = timestampMs(data?.accessRevokedAt) + REVOCATION_GRACE_MS
+    if (!profile.exists() || (!data.active && (!timestampMs(data.accessRevokedAt) || deadline <= Date.now()))) { await signOut(auth); setUser(null); setLoading(false); return }
+    if (!data.active) { expiryAt.current = deadline; setRemaining(Math.max(0, deadline - Date.now())) }
+    await activateProfile(data); setLoading(false)
   }), [])
   useEffect(() => {
     if (!user?.uid || user.role === 'superadmin') return
     return onSnapshot(doc(db, 'employeeProfiles', user.uid), snapshot => {
       const latest = snapshot.data()
-      const expiry = latest?.sessionExpireAt?.toMillis?.() || latest?.sessionExpireAtMs || 0
-      if (!latest || !latest.active || (expiry > sessionStartedAt.current && expiry > Date.now())) { expiryAt.current = expiry; setRemaining(Math.max(0, expiry - Date.now())) }
+      const revokedAt = timestampMs(latest?.accessRevokedAt)
+      const deadline = revokedAt + REVOCATION_GRACE_MS
+      if (!latest) { void logout(); return }
+      if (latest.active) { expiryAt.current = 0; setRemaining(0); setUser(latest); return }
+      if (!revokedAt || deadline <= Date.now()) { void logout(); return }
+      expiryAt.current = deadline; setUser(latest); setRemaining(Math.max(0, deadline - Date.now()))
     })
   }, [user?.uid, user?.role])
-  useEffect(() => { if (!remaining) return; const timer = window.setInterval(() => setRemaining(value => value <= 1000 ? 0 : value - 1000), 1000); return () => clearInterval(timer) }, [remaining > 0])
-  useEffect(() => { if (user?.role !== 'superadmin' && remaining === 0 && expiryAt.current > 0 && expiryAt.current <= Date.now()) void logout() }, [remaining])
+  useEffect(() => { if (!expiryAt.current) return; const timer = window.setInterval(() => { const next = Math.max(0, expiryAt.current - Date.now()); setRemaining(next); if (!next) void logout() }, 1000); return () => clearInterval(timer) }, [Boolean(expiryAt.current)])
   const value = useMemo(() => ({ user, isLoading: loading, loginEmployee, logout, hasPermission: key => user?.role === 'superadmin' || Boolean(user?.permissions?.includes(key) || user?.allowedModules?.includes(key)), sessionRemaining: remaining, sessionExpiring: remaining > 0 }), [user, loading, remaining])
-  return <AuthContext.Provider value={value}>{children}{remaining > 0 && <SessionNotice milliseconds={remaining}/>}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}{remaining > 0 && <RevocationNotice milliseconds={remaining}/>}</AuthContext.Provider>
 }
-function SessionNotice({ milliseconds }) { const seconds = Math.ceil(milliseconds / 1000), value = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; useEffect(() => { if (milliseconds <= 0) window.location.assign('/login') }, [milliseconds]); return <div className="session-expiry-notice"><b>Access updated by Admin</b><span>Session ending in {value}</span></div> }
+function RevocationNotice({ milliseconds }) { const seconds = Math.ceil(milliseconds / 1000), value = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`; return <div className="access-revocation-notice" role="alert"><b>Your account access has been revoked.</b><span>Please save your current work.</span><strong>Automatic logout in {value}</strong></div> }
 export function useAuth() { const context = useContext(AuthContext); if (!context) throw new Error('useAuth must be used within an AuthProvider'); return context }
