@@ -93,10 +93,7 @@ requireTrue(
   !inventoryMatchesSearch({ size: "9.000", weight: 21.45 }, "21.4mm"),
   "mm must not match weight",
 );
-requireTrue(
-  !inventoryMatchesSearch({ size: "9.000", weight: 21.45 }, "21.4mm"),
-  "mm must not match weight",
-);
+
 requireTrue(
   isValidSize("4.3X2.0", true) && !isValidSize("4.3x2.0", true),
   "uppercase X size validation",
