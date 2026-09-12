@@ -13,3 +13,4 @@ discount
 payment due days 
 
 
+Challan - image ka option add krna hia - stage 1 & 2 
