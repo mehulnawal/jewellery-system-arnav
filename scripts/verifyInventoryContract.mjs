@@ -32,15 +32,37 @@ const requireTrue = (condition, label) => {
 requireText(inventory, "DeleteModal", "custom delete confirmation modal");
 requireText(inventory, "requestDelete", "delete request flow");
 requireText(inventory, 'n="trash"', "individual trash delete icon");
-requireText(
-  inventory,
-  "setPrintMode('selected')",
+
+requireTrue(
+  inventory.includes("setPrintMode('selected')") ||
+    inventory.includes('setPrintMode("selected")'),
   "selected-items print action",
 );
-requireText(inventory, "setPrintMode('all')", "full Inventory print action");
-requireText(inventory, "event.key === '/'", "search keyboard shortcut");
-requireText(inventory, "event.key === 'Escape'", "Escape keyboard shortcut");
-requireText(inventory, "event.key === 'Enter'", "save keyboard shortcut");
+
+requireTrue(
+  inventory.includes("setPrintMode('all')") ||
+    inventory.includes('setPrintMode("all")'),
+  "full Inventory print action",
+);
+
+requireTrue(
+  inventory.includes("event.key === '/'") ||
+    inventory.includes('event.key === "/"'),
+  "search keyboard shortcut",
+);
+
+requireTrue(
+  inventory.includes("event.key === 'Escape'") ||
+    inventory.includes('event.key === "Escape"'),
+  "Escape keyboard shortcut",
+);
+
+requireTrue(
+  inventory.includes("event.key === 'Enter'") ||
+    inventory.includes('event.key === "Enter"'),
+  "save keyboard shortcut",
+);
+
 requireText(
   inventory,
   "inventory-field-error",

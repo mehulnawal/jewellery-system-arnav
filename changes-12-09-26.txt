@@ -1,0 +1,15 @@
+Challan number 
+A2-29
+Start from A35
+
+
+Purchase 
+Purchase number/id - auto - format - same as challan - currently going = 
+date
+vendor name
+broker name
+amt 
+discount 
+payment due days 
+
+
