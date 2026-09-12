@@ -1,4 +1,35 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-const ToastContext = createContext(null)
-export function ToastProvider({ children }) { const [toast,setToast]=useState(null),timer=useRef(null); const showToast=useCallback((message,type='success')=>{window.clearTimeout(timer.current);setToast({message,type});timer.current=window.setTimeout(()=>setToast(null),3200)},[]);useEffect(()=>()=>window.clearTimeout(timer.current),[]);return <ToastContext.Provider value={showToast}>{children}{toast&&<div className={`app-toast app-toast-${toast.type}`} role="status">{toast.message}</div>}</ToastContext.Provider> }
-export function useToast(){const showToast=useContext(ToastContext);if(!showToast)throw new Error('useToast must be used within a ToastProvider');return showToast}
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+const ToastContext = createContext(null);
+export function ToastProvider({ children }) {
+  const [toast, setToast] = useState(null),
+    timer = useRef(null);
+  const showToast = useCallback((message, type = "success") => {
+    window.clearTimeout(timer.current);
+    setToast({ message, type });
+    timer.current = window.setTimeout(() => setToast(null), 3200);
+  }, []);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return (
+    <ToastContext.Provider value={showToast}>
+      {children}
+      {toast && (
+        <div className={`app-toast app-toast-${toast.type}`} role="status">
+          {toast.message}
+        </div>
+      )}
+    </ToastContext.Provider>
+  );
+}
+export function useToast() {
+  const showToast = useContext(ToastContext);
+  if (!showToast)
+    throw new Error("useToast must be used within a ToastProvider");
+  return showToast;
+}

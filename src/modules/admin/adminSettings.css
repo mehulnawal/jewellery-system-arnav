@@ -1,45 +1,428 @@
-.admin-settings{max-width:980px}.admin-settings header h2{margin:0}.admin-settings header p{color:var(--ui-muted)}.settings-tabs{display:flex;gap:8px;margin:20px 0}.settings-tabs button{background:#fff;border:1px solid var(--ui-border);border-radius:8px;padding:10px 14px;font-weight:700}.settings-tabs .active,.settings-primary{background:var(--ui-emerald);border-color:var(--ui-emerald);color:#fff}.admin-settings article{background:#fff;border:1px solid var(--ui-border);border-radius:16px;margin-bottom:18px;padding:22px}.admin-settings h3{margin:0 0 6px}.admin-settings p{color:var(--ui-muted)}.access-create form{display:grid;gap:15px}.access-create label{display:grid;gap:6px;font-weight:700}.access-create input{border:1px solid var(--ui-border);border-radius:8px;padding:10px}.access-create label button{justify-self:start}.access-create fieldset,.permission-list{border:1px solid var(--ui-border);border-radius:10px;display:flex;flex-wrap:wrap;gap:12px;padding:13px}.access-create fieldset label,.permission-list label{display:flex;align-items:center;gap:6px;font-weight:600}.settings-primary,.settings-delete,.access-create label button{border:0;border-radius:8px;cursor:pointer;padding:10px 14px;font-weight:700}.settings-primary{justify-self:start}.settings-delete{background:#fee2e2;color:#b91c1c;margin-top:14px}.settings-error{color:#b91c1c}.access-account{border-top:1px solid var(--ui-border);padding:16px 0}.access-account header{display:flex;justify-content:space-between}.access-account header span{color:var(--ui-emerald);font-weight:700}.access-account.inactive{opacity:.62}.access-account.inactive header span{color:#b91c1c}.admin-toggle{align-items:center;display:flex;font-weight:700;gap:10px;white-space:nowrap}.admin-toggle input{accent-color:var(--ui-emerald);height:18px;width:18px}@media(max-width:600px){.permission-list{display:grid}.settings-tabs{flex-wrap:wrap}}html[data-theme="dark"] .admin-settings article,html[data-theme="dark"] .settings-tabs button{background:#182231;color:#dce6f0;border-color:#334155}
+.admin-settings {
+  max-width: 980px;
+}
+.admin-settings header h2 {
+  margin: 0;
+}
+.admin-settings header p {
+  color: var(--ui-muted);
+}
+.settings-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+}
+.settings-tabs button {
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+.settings-tabs .active,
+.settings-primary {
+  background: var(--ui-emerald);
+  border-color: var(--ui-emerald);
+  color: #fff;
+}
+.admin-settings article {
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: 16px;
+  margin-bottom: 18px;
+  padding: 22px;
+}
+.admin-settings h3 {
+  margin: 0 0 6px;
+}
+.admin-settings p {
+  color: var(--ui-muted);
+}
+.access-create form {
+  display: grid;
+  gap: 15px;
+}
+.access-create label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+.access-create input {
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.access-create label button {
+  justify-self: start;
+}
+.access-create fieldset,
+.permission-list {
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 13px;
+}
+.access-create fieldset label,
+.permission-list label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.settings-primary,
+.settings-delete,
+.access-create label button {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 10px 14px;
+  font-weight: 700;
+}
+.settings-primary {
+  justify-self: start;
+}
+.settings-delete {
+  background: #fee2e2;
+  color: #b91c1c;
+  margin-top: 14px;
+}
+.settings-error {
+  color: #b91c1c;
+}
+.access-account {
+  border-top: 1px solid var(--ui-border);
+  padding: 16px 0;
+}
+.access-account header {
+  display: flex;
+  justify-content: space-between;
+}
+.access-account header span {
+  color: var(--ui-emerald);
+  font-weight: 700;
+}
+.access-account.inactive {
+  opacity: 0.62;
+}
+.access-account.inactive header span {
+  color: #b91c1c;
+}
+.admin-toggle {
+  align-items: center;
+  display: flex;
+  font-weight: 700;
+  gap: 10px;
+  white-space: nowrap;
+}
+.admin-toggle input {
+  accent-color: var(--ui-emerald);
+  height: 18px;
+  width: 18px;
+}
+@media (max-width: 600px) {
+  .permission-list {
+    display: grid;
+  }
+  .settings-tabs {
+    flex-wrap: wrap;
+  }
+}
+html[data-theme="dark"] .admin-settings article,
+html[data-theme="dark"] .settings-tabs button {
+  background: #182231;
+  color: #dce6f0;
+  border-color: #334155;
+}
 /* Match Inventory and Check Inventory typography. */
-.admin-settings{color:var(--ui-text);font-size:16px}
-.admin-settings header h2{font-size:31px;font-weight:700;letter-spacing:-.035em;line-height:34px}
-.admin-settings header p{font-size:17px;margin:4px 0 0}
-.admin-settings h3{font-size:22px;line-height:27px}
-.admin-settings p{font-size:16px;line-height:1.45}
-.settings-tabs button,.settings-primary,.settings-delete,.access-create label button{font-size:16px}
-.access-create label,.access-create fieldset label,.permission-list label,.admin-toggle{font-size:15px}
-.access-create input{box-sizing:border-box;color:#354152;font-size:16px;height:38px;padding:0 11px}
-.access-account header b,.access-account header span{font-size:16px}
-html[data-theme="dark"] .admin-settings input:not([type="checkbox"]){background:#111827!important;border-color:#3b4b5e!important;color:#e5edf6!important}
-html[data-theme="dark"] .admin-settings input::placeholder{color:#94a3b8}
+.admin-settings {
+  color: var(--ui-text);
+  font-size: 16px;
+}
+.admin-settings header h2 {
+  font-size: 31px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 34px;
+}
+.admin-settings header p {
+  font-size: 17px;
+  margin: 4px 0 0;
+}
+.admin-settings h3 {
+  font-size: 22px;
+  line-height: 27px;
+}
+.admin-settings p {
+  font-size: 16px;
+  line-height: 1.45;
+}
+.settings-tabs button,
+.settings-primary,
+.settings-delete,
+.access-create label button {
+  font-size: 16px;
+}
+.access-create label,
+.access-create fieldset label,
+.permission-list label,
+.admin-toggle {
+  font-size: 15px;
+}
+.access-create input {
+  box-sizing: border-box;
+  color: #354152;
+  font-size: 16px;
+  height: 38px;
+  padding: 0 11px;
+}
+.access-account header b,
+.access-account header span {
+  font-size: 16px;
+}
+html[data-theme="dark"] .admin-settings input:not([type="checkbox"]) {
+  background: #111827 !important;
+  border-color: #3b4b5e !important;
+  color: #e5edf6 !important;
+}
+html[data-theme="dark"] .admin-settings input::placeholder {
+  color: #94a3b8;
+}
 
-.password-control{display:block;position:relative;width:100%}
-.password-control input{padding-right:70px!important}
-.access-create label .password-toggle{background:transparent;border:0;border-radius:6px;color:var(--ui-emerald-dark);font-size:14px;font-weight:700;padding:5px 8px;position:absolute;right:5px;top:50%;transform:translateY(-50%)}
-.access-create label .password-toggle:hover{background:var(--ui-emerald-soft)}
-html[data-theme="dark"] .access-create label .password-toggle{color:#8ce0ba}
-html[data-theme="dark"] .access-create label .password-toggle:hover{background:#173c32}
+.password-control {
+  display: block;
+  position: relative;
+  width: 100%;
+}
+.password-control input {
+  padding-right: 70px !important;
+}
+.access-create label .password-toggle {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ui-emerald-dark);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 5px 8px;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.access-create label .password-toggle:hover {
+  background: var(--ui-emerald-soft);
+}
+html[data-theme="dark"] .access-create label .password-toggle {
+  color: #8ce0ba;
+}
+html[data-theme="dark"] .access-create label .password-toggle:hover {
+  background: #173c32;
+}
 
-.credential-fields{display:grid;gap:15px;grid-template-columns:repeat(2,minmax(0,1fr))}
-@media(max-width:600px){.credential-fields{grid-template-columns:1fr}}
+.credential-fields {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 600px) {
+  .credential-fields {
+    grid-template-columns: 1fr;
+  }
+}
 
-.sku-settings{align-items:center;display:flex;gap:24px;justify-content:space-between}
-.sku-settings>div{min-width:0}
-.sku-settings .admin-toggle{flex:none}
-@media(max-width:600px){.sku-settings{align-items:flex-start;flex-direction:column;gap:16px}}
+.sku-settings {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+.sku-settings > div {
+  min-width: 0;
+}
+.sku-settings .admin-toggle {
+  flex: none;
+}
+@media (max-width: 600px) {
+  .sku-settings {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+}
 
 /* Keep the visibility control inside the password input's own boundary. */
-.password-control{display:inline-block;justify-self:start;max-width:100%;width:auto}
-.password-control input{width:300px}
+.password-control {
+  display: inline-block;
+  justify-self: start;
+  max-width: 100%;
+  width: auto;
+}
+.password-control input {
+  width: 300px;
+}
 
+.credential-fields {
+  margin-top: 8px;
+}
 
-.credential-fields{margin-top:8px}
-
-
-.credential-fields{margin-top:20px}
-.credential-fields label>button:not(.password-toggle){margin-top:-3px}
+.credential-fields {
+  margin-top: 20px;
+}
+.credential-fields label > button:not(.password-toggle) {
+  margin-top: -3px;
+}
 
 /* Strong active state for Settings tabs. */
-.settings-tabs{background:var(--ui-surface);border:1px solid var(--ui-border);border-radius:11px;display:inline-flex;gap:4px;padding:4px}.settings-tabs button{background:transparent!important;border-color:transparent!important;color:var(--ui-muted);position:relative}.settings-tabs button:hover{background:var(--ui-emerald-soft)!important;color:var(--ui-emerald)}.settings-tabs .active{background:var(--ui-emerald)!important;box-shadow:0 2px 5px rgb(5 150 105 / .25);color:#fff!important}.settings-tabs .active:after{background:#fff;border-radius:50%;content:'';height:5px;position:absolute;right:8px;top:8px;width:5px}html[data-theme="dark"] .settings-tabs{background:#111827;border-color:#334155}html[data-theme="dark"] .settings-tabs button:hover{background:#193d31!important;color:#8ce0ba}html[data-theme="dark"] .settings-tabs .active{background:#21845f!important}
-.created-credentials{background:var(--ui-emerald-soft);border:1px solid var(--ui-emerald);border-radius:10px;margin-top:18px;padding:14px}.created-credentials h4{margin:0 0 6px}.created-credentials p{color:var(--ui-text);line-height:1.6;margin:0 0 10px}.created-credentials button{background:var(--ui-emerald);border:0;border-radius:8px;color:#fff;cursor:pointer;font-weight:800;padding:9px 12px}.superadmin-account{background:var(--ui-emerald-soft);border-radius:10px;padding-left:12px;padding-right:12px}
-.created-password{align-items:center;color:var(--ui-text);display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.created-password button{background:transparent;border:1px solid var(--ui-border);border-radius:7px;color:var(--ui-emerald-dark);cursor:pointer;font-weight:800;padding:6px 9px}
-.access-account header>div{display:grid;gap:2px}.access-account header small{color:var(--ui-muted);font-size:12px;font-weight:700}.admin-account-list{border-color:color-mix(in srgb,var(--ui-emerald) 32%,var(--ui-border))}.staff-account{padding:18px 0}.staff-permissions{display:grid;gap:8px;margin-top:14px}.staff-permissions>small,.new-staff-credentials small{color:var(--ui-muted);font-size:12px;font-weight:800;text-transform:uppercase}.new-staff-credentials{align-items:center;border:1px solid var(--ui-border);border-radius:9px;display:flex;justify-content:space-between;margin-top:14px;padding:10px 12px}.new-staff-credentials>div{display:grid;gap:3px}.new-staff-credentials code{color:var(--ui-text);font-size:15px;font-weight:800}.new-staff-credentials button{background:var(--ui-emerald);border:0;border-radius:7px;color:#fff;cursor:pointer;font-weight:800;padding:8px 10px}@media(max-width:600px){.new-staff-credentials{align-items:flex-start;flex-direction:column}}
+.settings-tabs {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 11px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+}
+.settings-tabs button {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--ui-muted);
+  position: relative;
+}
+.settings-tabs button:hover {
+  background: var(--ui-emerald-soft) !important;
+  color: var(--ui-emerald);
+}
+.settings-tabs .active {
+  background: var(--ui-emerald) !important;
+  box-shadow: 0 2px 5px rgb(5 150 105 / 0.25);
+  color: #fff !important;
+}
+.settings-tabs .active:after {
+  background: #fff;
+  border-radius: 50%;
+  content: "";
+  height: 5px;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 5px;
+}
+html[data-theme="dark"] .settings-tabs {
+  background: #111827;
+  border-color: #334155;
+}
+html[data-theme="dark"] .settings-tabs button:hover {
+  background: #193d31 !important;
+  color: #8ce0ba;
+}
+html[data-theme="dark"] .settings-tabs .active {
+  background: #21845f !important;
+}
+.created-credentials {
+  background: var(--ui-emerald-soft);
+  border: 1px solid var(--ui-emerald);
+  border-radius: 10px;
+  margin-top: 18px;
+  padding: 14px;
+}
+.created-credentials h4 {
+  margin: 0 0 6px;
+}
+.created-credentials p {
+  color: var(--ui-text);
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+.created-credentials button {
+  background: var(--ui-emerald);
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 9px 12px;
+}
+.superadmin-account {
+  background: var(--ui-emerald-soft);
+  border-radius: 10px;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.created-password {
+  align-items: center;
+  color: var(--ui-text);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.created-password button {
+  background: transparent;
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  color: var(--ui-emerald-dark);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+.access-account header > div {
+  display: grid;
+  gap: 2px;
+}
+.access-account header small {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-account-list {
+  border-color: color-mix(in srgb, var(--ui-emerald) 32%, var(--ui-border));
+}
+.staff-account {
+  padding: 18px 0;
+}
+.staff-permissions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.staff-permissions > small,
+.new-staff-credentials small {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.new-staff-credentials {
+  align-items: center;
+  border: 1px solid var(--ui-border);
+  border-radius: 9px;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+.new-staff-credentials > div {
+  display: grid;
+  gap: 3px;
+}
+.new-staff-credentials code {
+  color: var(--ui-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+.new-staff-credentials button {
+  background: var(--ui-emerald);
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+@media (max-width: 600px) {
+  .new-staff-credentials {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

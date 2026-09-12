@@ -1,37 +1,457 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { db } from '../../firebase/config'
-import { formatDecimal } from '../../utils/inventoryRules'
-import './activityLog.css'
+﻿import { useEffect, useMemo, useState } from "react";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { db } from "../../firebase/config";
+import { formatDecimal } from "../../utils/inventoryRules";
+import "./activityLog.css";
 
-const PANELS = ['Inventory', 'Challan', 'Purchase']
-const STAGES = ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4']
-const localDateKey = value => { const date = value?.toDate?.() ?? (value instanceof Date ? value : new Date(value ?? Date.now())); const offset = date.getTimezoneOffset(); return Number.isNaN(date.getTime()) ? '' : new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10) }
-const today = () => localDateKey(new Date())
-const asDate = value => new Date(value + 'T00:00:00')
-const timestampMs = entry => Number(entry?.firstLoginAtMs ?? entry?.eventAtMs ?? entry?.createdAtMs ?? entry?.createdAt?.toMillis?.() ?? 0)
-const eventDate = entry => localDateKey(entry?.eventAtMs ?? entry?.createdAtMs ?? entry?.createdAt)
-const time = entry => { const value = timestampMs(entry); return value ? new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '-' }
-const Icon = ({ name = 'chevron' }) => <svg className="activity-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{name === 'chevron' && <path d="m9 18 6-6-6-6"/>}{name === 'print' && <><path d="M7 8V3.5h10V8M7 17H5V10.5h14V17h-2"/><path d="M7 14h10v6.5H7z"/></>}{name === 'export' && <><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5"/><path d="M5 19.5V21h14v-1.5"/></>}</svg>
-const stageForEntry = entry => { const raw = entry?.stage ?? entry?.snapshot?.stage ?? entry?.stage2Return?.stage ?? ''; const hits = String(raw).match(/Stage\s*\d/g); if (hits?.length) return hits[hits.length - 1].replace(/Stage\s*/, 'Stage '); const number = Number(raw); return Number.isInteger(number) && number >= 1 && number <= 4 ? 'Stage ' + number : '' }
-const actionLabel = entry => entry.action === 'return_recorded' ? 'Return recorded - moved to Stage 2' : entry.action === 'stage_changed' ? 'Stage changed' : entry.action === 'edited' ? 'Edited' : entry.action === 'deleted' ? 'Deleted' : 'Created'
+const PANELS = ["Inventory", "Challan", "Purchase"];
+const STAGES = ["Stage 1", "Stage 2", "Stage 3", "Stage 4"];
+const localDateKey = (value) => {
+  const date =
+    value?.toDate?.() ??
+    (value instanceof Date ? value : new Date(value ?? Date.now()));
+  const offset = date.getTimezoneOffset();
+  return Number.isNaN(date.getTime())
+    ? ""
+    : new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+};
+const today = () => localDateKey(new Date());
+const asDate = (value) => new Date(value + "T00:00:00");
+const timestampMs = (entry) =>
+  Number(
+    entry?.firstLoginAtMs ??
+      entry?.eventAtMs ??
+      entry?.createdAtMs ??
+      entry?.createdAt?.toMillis?.() ??
+      0,
+  );
+const eventDate = (entry) =>
+  localDateKey(entry?.eventAtMs ?? entry?.createdAtMs ?? entry?.createdAt);
+const time = (entry) => {
+  const value = timestampMs(entry);
+  return value
+    ? new Date(value).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : "-";
+};
+const Icon = ({ name = "chevron" }) => (
+  <svg
+    className="activity-icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {name === "chevron" && <path d="m9 18 6-6-6-6" />}
+    {name === "print" && (
+      <>
+        <path d="M7 8V3.5h10V8M7 17H5V10.5h14V17h-2" />
+        <path d="M7 14h10v6.5H7z" />
+      </>
+    )}
+    {name === "export" && (
+      <>
+        <path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5" />
+        <path d="M5 19.5V21h14v-1.5" />
+      </>
+    )}
+  </svg>
+);
+const stageForEntry = (entry) => {
+  const raw =
+    entry?.stage ?? entry?.snapshot?.stage ?? entry?.stage2Return?.stage ?? "";
+  const hits = String(raw).match(/Stage\s*\d/g);
+  if (hits?.length) return hits[hits.length - 1].replace(/Stage\s*/, "Stage ");
+  const number = Number(raw);
+  return Number.isInteger(number) && number >= 1 && number <= 4
+    ? "Stage " + number
+    : "";
+};
+const actionLabel = (entry) =>
+  entry.action === "return_recorded"
+    ? "Return recorded - moved to Stage 2"
+    : entry.action === "stage_changed"
+      ? "Stage changed"
+      : entry.action === "edited"
+        ? "Edited"
+        : entry.action === "deleted"
+          ? "Deleted"
+          : "Created";
 
 export default function ActivityLog() {
-  const [selectedDate, setSelectedDate] = useState(today), [entries, setEntries] = useState([]), [firstLogins, setFirstLogins] = useState([]), [profiles, setProfiles] = useState([]), [open, setOpen] = useState({}), [loading, setLoading] = useState(true)
-  useEffect(() => onSnapshot(query(collection(db, 'activityLog'), orderBy('createdAt', 'desc')), snap => { setEntries(snap.docs.map(row => ({ id: row.id, ...row.data() }))); setLoading(false) }, () => setLoading(false)), [])
-  useEffect(() => onSnapshot(collection(db, 'activityLogFirstLogins'), snap => setFirstLogins(snap.docs.map(row => ({ id: row.id, ...row.data() }))), () => setFirstLogins([])), [])
-  useEffect(() => onSnapshot(collection(db, 'employeeProfiles'), snap => setProfiles(snap.docs.map(row => ({ id: row.id, ...row.data() }))), () => setProfiles([])), [])
-  const daily = useMemo(() => entries.filter(entry => eventDate(entry) === selectedDate).sort((a, b) => timestampMs(b) - timestampMs(a)), [entries, selectedDate])
-  const dailyLogins = useMemo(() => firstLogins.filter(entry => entry.day === selectedDate).sort((a, b) => timestampMs(a) - timestampMs(b)), [firstLogins, selectedDate])
-  const profileByUid = useMemo(() => Object.fromEntries(profiles.map(profile => [profile.uid || profile.id, profile])), [profiles])
-  const permittedLogins = permission => dailyLogins.filter(login => { const profile = profileByUid[login.actor?.uid]; return profile?.role === 'superadmin' || Boolean(profile?.permissions?.includes(permission) || profile?.allowedModules?.includes(permission)) })
-  const toggle = key => setOpen(current => ({ ...current, [key]: !current[key] }))
-  const changeDay = delta => { const next = asDate(selectedDate); next.setDate(next.getDate() + delta); const key = localDateKey(next); if (key <= today()) setSelectedDate(key) }
-  const exportExcel = async () => { const XLSX = await import('xlsx'); const rows = daily.map(entry => ({ Date: selectedDate, Panel: entry.panel || '-', Stage: stageForEntry(entry) || '-', Time: time(entry), 'Staff ID': entry.actor?.accessId || entry.accessIdSnapshot || 'Unavailable', Role: entry.actor?.role || 'employee', Action: actionLabel(entry), 'Record ID': entry.recordId || '-', 'First Login': time(dailyLogins.find(login => login.actor?.uid === entry.actor?.uid) || entry) })); const sheet = XLSX.utils.json_to_sheet(rows); const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, 'Activity Log'); XLSX.writeFile(book, 'activity-log-' + selectedDate + '.xlsx') }
-  const printLog = () => { const popup = window.open('', '_blank', 'width=1050,height=800'); if (!popup) return; const rows = daily.map(entry => '<tr><td>' + (entry.panel || '-') + '</td><td>' + (stageForEntry(entry) || '-') + '</td><td>' + time(entry) + '</td><td>' + (entry.actor?.accessId || entry.accessIdSnapshot || 'Unavailable') + '</td><td>' + actionLabel(entry) + '</td></tr>').join('') || '<tr><td colspan="5">No activity for this date.</td></tr>'; popup.document.write('<!doctype html><html><head><title>Activity Log</title><style>body{font-family:Arial;color:#172033;margin:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #94a3b8;padding:8px;text-align:left}th{background:#eef2f7}</style></head><body><h1>Activity Log</h1><p>' + selectedDate + '</p><table><thead><tr><th>Panel</th><th>Stage</th><th>Time</th><th>Staff ID</th><th>Action</th></tr></thead><tbody>' + rows + '</tbody></table></body></html>'); popup.document.close(); popup.focus(); window.setTimeout(() => popup.print(), 250) }
-  return <section className="activity-module"><header className="activity-heading"><div><h2>Activity Log</h2><p>Immutable daily history for Inventory, Challan and Purchase</p></div><div className="activity-actions"><button onClick={printLog}><Icon name="print"/>Print</button><button onClick={exportExcel}><Icon name="export"/>Export</button></div></header>{loading && <p className="activity-empty">Loading activity...</p>}<div className="activity-datebar"><button onClick={() => changeDay(-1)} aria-label="Previous day"><span className="activity-back"><Icon/></span></button><label><input type="date" value={selectedDate} max={today()} onChange={event => setSelectedDate(event.target.value)}/></label><button onClick={() => changeDay(1)} disabled={selectedDate >= today()} aria-label="Next day"><Icon/></button><button className="activity-today" onClick={() => setSelectedDate(today())}>Today</button><strong>{asDate(selectedDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</strong></div><div className="activity-metrics"><article><span>ENTRIES</span><strong>{daily.length}</strong></article></div><div className="activity-panels">{PANELS.map(panel => panel === 'Challan' ? <ChallanPanel key={panel} entries={daily.filter(entry => entry.panel === 'challan')} permittedLogins={permittedLogins} open={open} toggle={toggle}/> : <Panel key={panel} title={panel} entries={daily.filter(entry => entry.panel === panel.toLowerCase())} logins={permittedLogins(panel.toLowerCase())} open={open[panel]} toggle={() => toggle(panel)}/>)}</div></section>
+  const [selectedDate, setSelectedDate] = useState(today),
+    [entries, setEntries] = useState([]),
+    [firstLogins, setFirstLogins] = useState([]),
+    [profiles, setProfiles] = useState([]),
+    [open, setOpen] = useState({}),
+    [loading, setLoading] = useState(true);
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, "activityLog"), orderBy("createdAt", "desc")),
+        (snap) => {
+          setEntries(snap.docs.map((row) => ({ id: row.id, ...row.data() })));
+          setLoading(false);
+        },
+        () => setLoading(false),
+      ),
+    [],
+  );
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, "activityLogFirstLogins"),
+        (snap) =>
+          setFirstLogins(
+            snap.docs.map((row) => ({ id: row.id, ...row.data() })),
+          ),
+        () => setFirstLogins([]),
+      ),
+    [],
+  );
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, "employeeProfiles"),
+        (snap) =>
+          setProfiles(snap.docs.map((row) => ({ id: row.id, ...row.data() }))),
+        () => setProfiles([]),
+      ),
+    [],
+  );
+  const daily = useMemo(
+    () =>
+      entries
+        .filter((entry) => eventDate(entry) === selectedDate)
+        .sort((a, b) => timestampMs(b) - timestampMs(a)),
+    [entries, selectedDate],
+  );
+  const dailyLogins = useMemo(
+    () =>
+      firstLogins
+        .filter((entry) => entry.day === selectedDate)
+        .sort((a, b) => timestampMs(a) - timestampMs(b)),
+    [firstLogins, selectedDate],
+  );
+  const profileByUid = useMemo(
+    () =>
+      Object.fromEntries(
+        profiles.map((profile) => [profile.uid || profile.id, profile]),
+      ),
+    [profiles],
+  );
+  const permittedLogins = (permission) =>
+    dailyLogins.filter((login) => {
+      const profile = profileByUid[login.actor?.uid];
+      return (
+        profile?.role === "superadmin" ||
+        Boolean(
+          profile?.permissions?.includes(permission) ||
+          profile?.allowedModules?.includes(permission),
+        )
+      );
+    });
+  const toggle = (key) =>
+    setOpen((current) => ({ ...current, [key]: !current[key] }));
+  const changeDay = (delta) => {
+    const next = asDate(selectedDate);
+    next.setDate(next.getDate() + delta);
+    const key = localDateKey(next);
+    if (key <= today()) setSelectedDate(key);
+  };
+  const exportExcel = async () => {
+    const XLSX = await import("xlsx");
+    const rows = daily.map((entry) => ({
+      Date: selectedDate,
+      Panel: entry.panel || "-",
+      Stage: stageForEntry(entry) || "-",
+      Time: time(entry),
+      "Staff ID":
+        entry.actor?.accessId || entry.accessIdSnapshot || "Unavailable",
+      Role: entry.actor?.role || "employee",
+      Action: actionLabel(entry),
+      "Record ID": entry.recordId || "-",
+      "First Login": time(
+        dailyLogins.find((login) => login.actor?.uid === entry.actor?.uid) ||
+          entry,
+      ),
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, "Activity Log");
+    XLSX.writeFile(book, "activity-log-" + selectedDate + ".xlsx");
+  };
+  const printLog = () => {
+    const popup = window.open("", "_blank", "width=1050,height=800");
+    if (!popup) return;
+    const rows =
+      daily
+        .map(
+          (entry) =>
+            "<tr><td>" +
+            (entry.panel || "-") +
+            "</td><td>" +
+            (stageForEntry(entry) || "-") +
+            "</td><td>" +
+            time(entry) +
+            "</td><td>" +
+            (entry.actor?.accessId || entry.accessIdSnapshot || "Unavailable") +
+            "</td><td>" +
+            actionLabel(entry) +
+            "</td></tr>",
+        )
+        .join("") || '<tr><td colspan="5">No activity for this date.</td></tr>';
+    popup.document.write(
+      "<!doctype html><html><head><title>Activity Log</title><style>body{font-family:Arial;color:#172033;margin:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #94a3b8;padding:8px;text-align:left}th{background:#eef2f7}</style></head><body><h1>Activity Log</h1><p>" +
+        selectedDate +
+        "</p><table><thead><tr><th>Panel</th><th>Stage</th><th>Time</th><th>Staff ID</th><th>Action</th></tr></thead><tbody>" +
+        rows +
+        "</tbody></table></body></html>",
+    );
+    popup.document.close();
+    popup.focus();
+    window.setTimeout(() => popup.print(), 250);
+  };
+  return (
+    <section className="activity-module">
+      <header className="activity-heading">
+        <div>
+          <h2>Activity Log</h2>
+          <p>Immutable daily history for Inventory, Challan and Purchase</p>
+        </div>
+        <div className="activity-actions">
+          <button onClick={printLog}>
+            <Icon name="print" />
+            Print
+          </button>
+          <button onClick={exportExcel}>
+            <Icon name="export" />
+            Export
+          </button>
+        </div>
+      </header>
+      {loading && <p className="activity-empty">Loading activity...</p>}
+      <div className="activity-datebar">
+        <button onClick={() => changeDay(-1)} aria-label="Previous day">
+          <span className="activity-back">
+            <Icon />
+          </span>
+        </button>
+        <label>
+          <input
+            type="date"
+            value={selectedDate}
+            max={today()}
+            onChange={(event) => setSelectedDate(event.target.value)}
+          />
+        </label>
+        <button
+          onClick={() => changeDay(1)}
+          disabled={selectedDate >= today()}
+          aria-label="Next day"
+        >
+          <Icon />
+        </button>
+        <button
+          className="activity-today"
+          onClick={() => setSelectedDate(today())}
+        >
+          Today
+        </button>
+        <strong>
+          {asDate(selectedDate).toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </strong>
+      </div>
+      <div className="activity-metrics">
+        <article>
+          <span>ENTRIES</span>
+          <strong>{daily.length}</strong>
+        </article>
+      </div>
+      <div className="activity-panels">
+        {PANELS.map((panel) =>
+          panel === "Challan" ? (
+            <ChallanPanel
+              key={panel}
+              entries={daily.filter((entry) => entry.panel === "challan")}
+              permittedLogins={permittedLogins}
+              open={open}
+              toggle={toggle}
+            />
+          ) : (
+            <Panel
+              key={panel}
+              title={panel}
+              entries={daily.filter(
+                (entry) => entry.panel === panel.toLowerCase(),
+              )}
+              logins={permittedLogins(panel.toLowerCase())}
+              open={open[panel]}
+              toggle={() => toggle(panel)}
+            />
+          ),
+        )}
+      </div>
+    </section>
+  );
 }
-function FirstLogins({ logins }) { return <div className="activity-panel-logins">{logins.length ? logins.map(login => <span key={login.id}><b>{login.actor?.accessId || 'Unavailable'}</b><small>{login.actor?.name || login.actor?.role || 'Staff'} - First login: {time(login)}</small></span>) : <p className="activity-empty activity-panel-login-empty">No Staff first-login records for this date.</p>}</div> }
-function Panel({ title, entries, logins, open, toggle }) { return <article className="activity-panel"><button className={'activity-panel-head ' + (open ? 'is-open' : '')} onClick={toggle}><i><Icon/></i>{title}<b>{entries.length}</b></button>{open && <><FirstLogins logins={logins}/><EntryList entries={entries} logins={logins}/></>}</article> }
-function ChallanPanel({ entries, permittedLogins, open, toggle }) { return <article className="activity-panel"><button className={'activity-panel-head ' + (open.Challan ? 'is-open' : '')} onClick={() => toggle('Challan')}><i><Icon/></i>Challan<b>{entries.length}</b></button>{open.Challan && <div className="activity-stages">{STAGES.map(stage => { const key = 'challan-' + stage; const logins = permittedLogins(stage.toLowerCase().replace(' ', '-')); const stageEntries = entries.filter(entry => stageForEntry(entry) === stage); return <div key={stage}><button className={'activity-stage ' + (open[key] ? 'is-open' : '')} onClick={() => toggle(key)}><i><Icon/></i>{stage}<b>{stageEntries.length}</b></button>{open[key] && <><FirstLogins logins={logins}/><EntryList entries={stageEntries} logins={logins}/></>}</div> })}</div>}</article> }
-function EntryList({ entries, logins }) { if (!entries.length) return <p className="activity-empty">No entries for this section on this day.</p>; return <div className="activity-entries">{entries.map(entry => { const login = logins.find(item => item.actor?.uid === entry.actor?.uid) || entry; return <section className="activity-actor" key={entry.id}><div className="activity-actor-meta"><span>Access ID <b>{entry.actor?.accessId || entry.accessIdSnapshot || 'Unavailable'}</b></span><span>Role <b>{entry.actor?.role || 'employee'}</b></span><span>First Login Time <b>{time(login)}</b></span></div><div className="activity-table-wrap"><table className="activity-table"><thead><tr><th>Timestamp</th><th>Stage</th><th>Action</th><th>Record</th></tr></thead><tbody><tr><td>{time(entry)}</td><td>{stageForEntry(entry) || 'Stage not recorded'}</td><td>{actionLabel(entry)}</td><td>{entry.snapshot?.challanNo || entry.snapshot?.sku || entry.recordId || '-'}</td></tr></tbody></table></div></section> })}</div> }
+function FirstLogins({ logins }) {
+  return (
+    <div className="activity-panel-logins">
+      {logins.length ? (
+        logins.map((login) => (
+          <span key={login.id}>
+            <b>{login.actor?.accessId || "Unavailable"}</b>
+            <small>
+              {login.actor?.name || login.actor?.role || "Staff"} - First login:{" "}
+              {time(login)}
+            </small>
+          </span>
+        ))
+      ) : (
+        <p className="activity-empty activity-panel-login-empty">
+          No Staff first-login records for this date.
+        </p>
+      )}
+    </div>
+  );
+}
+function Panel({ title, entries, logins, open, toggle }) {
+  return (
+    <article className="activity-panel">
+      <button
+        className={"activity-panel-head " + (open ? "is-open" : "")}
+        onClick={toggle}
+      >
+        <i>
+          <Icon />
+        </i>
+        {title}
+        <b>{entries.length}</b>
+      </button>
+      {open && (
+        <>
+          <FirstLogins logins={logins} />
+          <EntryList entries={entries} logins={logins} />
+        </>
+      )}
+    </article>
+  );
+}
+function ChallanPanel({ entries, permittedLogins, open, toggle }) {
+  return (
+    <article className="activity-panel">
+      <button
+        className={"activity-panel-head " + (open.Challan ? "is-open" : "")}
+        onClick={() => toggle("Challan")}
+      >
+        <i>
+          <Icon />
+        </i>
+        Challan<b>{entries.length}</b>
+      </button>
+      {open.Challan && (
+        <div className="activity-stages">
+          {STAGES.map((stage) => {
+            const key = "challan-" + stage;
+            const logins = permittedLogins(
+              stage.toLowerCase().replace(" ", "-"),
+            );
+            const stageEntries = entries.filter(
+              (entry) => stageForEntry(entry) === stage,
+            );
+            return (
+              <div key={stage}>
+                <button
+                  className={"activity-stage " + (open[key] ? "is-open" : "")}
+                  onClick={() => toggle(key)}
+                >
+                  <i>
+                    <Icon />
+                  </i>
+                  {stage}
+                  <b>{stageEntries.length}</b>
+                </button>
+                {open[key] && (
+                  <>
+                    <FirstLogins logins={logins} />
+                    <EntryList entries={stageEntries} logins={logins} />
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </article>
+  );
+}
+function EntryList({ entries, logins }) {
+  if (!entries.length)
+    return (
+      <p className="activity-empty">No entries for this section on this day.</p>
+    );
+  return (
+    <div className="activity-entries">
+      {entries.map((entry) => {
+        const login =
+          logins.find((item) => item.actor?.uid === entry.actor?.uid) || entry;
+        return (
+          <section className="activity-actor" key={entry.id}>
+            <div className="activity-actor-meta">
+              <span>
+                Access ID{" "}
+                <b>
+                  {entry.actor?.accessId ||
+                    entry.accessIdSnapshot ||
+                    "Unavailable"}
+                </b>
+              </span>
+              <span>
+                Role <b>{entry.actor?.role || "employee"}</b>
+              </span>
+              <span>
+                First Login Time <b>{time(login)}</b>
+              </span>
+            </div>
+            <div className="activity-table-wrap">
+              <table className="activity-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Stage</th>
+                    <th>Action</th>
+                    <th>Record</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{time(entry)}</td>
+                    <td>{stageForEntry(entry) || "Stage not recorded"}</td>
+                    <td>{actionLabel(entry)}</td>
+                    <td>
+                      {entry.snapshot?.challanNo ||
+                        entry.snapshot?.sku ||
+                        entry.recordId ||
+                        "-"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
