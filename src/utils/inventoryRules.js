@@ -14,6 +14,22 @@ export const SHAPE_ORDER = [
 ];
 export const DEFAULT_SHAPES = [...SHAPE_ORDER, "Round"];
 
+// Canonical headers shared by the Inventory importer and the downloadable blank template.
+export const INVENTORY_IMPORT_HEADERS = [
+  "Type",
+  "Shape",
+  "Size (mm)",
+  "Weight (ct)",
+  "BOX",
+];
+export const INVENTORY_IMPORT_FIELD_HEADERS = {
+  type: INVENTORY_IMPORT_HEADERS[0],
+  shape: INVENTORY_IMPORT_HEADERS[1],
+  size: INVENTORY_IMPORT_HEADERS[2],
+  weight: INVENTORY_IMPORT_HEADERS[3],
+  box: INVENTORY_IMPORT_HEADERS[4],
+};
+
 export const formatDecimal = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number.toFixed(3) : "";

@@ -563,3 +563,91 @@ html[data-theme="dark"] .admin-account-list > h3 {
 @media (max-width: 600px) {
   .account-dates { display: grid; gap: 6px; }
 }
+.import-templates > h3 { margin-bottom: 6px; }
+.import-template-card { border: 1px solid var(--ui-border); border-radius: 12px; display: grid; gap: 16px; margin-top: 18px; padding: 16px; }
+.import-template-card > div:first-child { align-items: center; display: flex; gap: 16px; justify-content: space-between; }
+.import-template-card h4, .import-template-rules h5 { font-size: 17px; margin: 0; }
+.import-template-card p, .import-template-rules p { font-size: 14px; margin: 5px 0 0; }
+.import-template-card > .settings-primary { justify-self: start; }
+.import-template-rules { border-top: 1px solid var(--ui-border); padding-top: 14px; }
+.import-template-rules ul { color: var(--ui-muted); font-size: 14px; line-height: 1.5; margin: 10px 0 0; padding-left: 20px; }
+.import-template-rules b { color: var(--ui-text); }
+html[data-theme="dark"] .import-template-card, html[data-theme="dark"] .import-template-rules { border-color: #334155; }
+@media (max-width: 600px) { .import-template-card > div:first-child { align-items: flex-start; flex-direction: column; gap: 6px; } }
+.import-template-header { align-items: center; display: flex; gap: 16px; justify-content: space-between; }
+.import-template-rules { display: grid; gap: 0; }
+.import-rule-section { border-top: 1px solid var(--ui-border); padding: 15px 0; }
+.import-rule-section:first-child { border-top: 0; padding-top: 0; }
+.import-rule-section:last-child { padding-bottom: 0; }
+.import-rule-section h5 { color: var(--ui-text); font-size: 14px; font-weight: 800; letter-spacing: 0.04em; margin: 0; text-transform: uppercase; }
+.import-rule-section ul { display: grid; gap: 7px; line-height: 1.5; margin: 10px 0 0; }
+.import-rule-section li::marker { color: var(--ui-emerald); }
+.import-header-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.import-header-chips span { background: var(--ui-emerald-soft); border: 1px solid color-mix(in srgb, var(--ui-emerald) 35%, var(--ui-border)); border-radius: 999px; color: var(--ui-emerald-dark); font-size: 13px; font-weight: 750; padding: 5px 9px; }
+.import-rule-note { color: var(--ui-text) !important; font-size: 13px !important; margin-top: 10px !important; }
+.import-rule-section.before-upload { background: var(--ui-emerald-soft); border: 1px solid color-mix(in srgb, var(--ui-emerald) 35%, var(--ui-border)); border-radius: 9px; margin-top: 8px; padding: 14px; }
+.import-rule-section.before-upload li::marker { content: "✓  "; }
+html[data-theme="dark"] .import-rule-section { border-color: #334155; }
+html[data-theme="dark"] .import-header-chips span { background: #173c32; border-color: #28614d; color: #8ce0ba; }
+@media (max-width: 600px) { .import-template-header { align-items: flex-start; flex-direction: column; gap: 10px; } }
+/* Each import-enabled module is a self-contained, accessible accordion. */
+.import-template-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--ui-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+.import-template-toggle > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+.import-template-toggle h4,
+.import-template-toggle p {
+  margin: 0;
+}
+.import-template-toggle:hover h4,
+.import-template-toggle:focus-visible h4 {
+  color: var(--ui-emerald);
+}
+.import-template-toggle:focus-visible {
+  border-radius: 7px;
+  outline: 2px solid var(--ui-emerald);
+  outline-offset: 4px;
+}
+.import-template-chevron {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  color: var(--ui-emerald);
+  flex: none;
+  height: 12px;
+  margin-right: 5px;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+  width: 12px;
+}
+.import-template-card.is-open .import-template-chevron {
+  transform: rotate(225deg);
+}
+.import-template-content {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+.import-template-content > .settings-primary {
+  justify-self: start;
+}
+@media (max-width: 600px) {
+  .import-template-toggle { align-items: flex-start; }
+}
+
+
+
+

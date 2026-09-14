@@ -19,6 +19,7 @@ import { writeInventoryActivity } from "../../utils/activityLog";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import {
   DEFAULT_SHAPES,
+  INVENTORY_IMPORT_FIELD_HEADERS,
   formatDecimal,
   inventoryMatchesSearch,
   isValidBox,
@@ -304,33 +305,19 @@ function AddModal({
         </p>
         <div className="inventory-form">
           <Picker
-            label="Shape"
-            value={form.shape}
-            options={shapes}
-            onChange={(value) => update("shape", value)}
-            error={errors.shape}
-          />
-          <Picker
             label="Type"
             value={form.type}
             options={["CVD", "HP"]}
             onChange={(value) => update("type", value)}
             error={errors.type}
           />
-          <label
-            className={`inventory-field ${errors.weight ? "has-error" : ""}`}
-          >
-            <span>Weight (ct)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={form.weight}
-              onChange={(event) => numericInput("weight", event.target.value)}
-            />
-            {errors.weight && (
-              <small className="inventory-field-error">{errors.weight}</small>
-            )}
-          </label>
+          <Picker
+            label="Shape"
+            value={form.shape}
+            options={shapes}
+            onChange={(value) => update("shape", value)}
+            error={errors.shape}
+          />
           <label
             className={`inventory-field ${errors.size ? "has-error" : ""}`}
           >
@@ -346,6 +333,20 @@ function AddModal({
             />
             {errors.size && (
               <small className="inventory-field-error">{errors.size}</small>
+            )}
+          </label>
+          <label
+            className={`inventory-field ${errors.weight ? "has-error" : ""}`}
+          >
+            <span>Weight (ct)</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={form.weight}
+              onChange={(event) => numericInput("weight", event.target.value)}
+            />
+            {errors.weight && (
+              <small className="inventory-field-error">{errors.weight}</small>
             )}
           </label>
           <div className="inventory-sku-field">
@@ -758,11 +759,11 @@ export default function Inventory() {
       seen = new Set(items.map((item) => item.sku));
     setPreview(
       rows.map((row, index) => {
-        const shape = title(row.Shape),
-          type = norm(row.Type).toUpperCase(),
-          size = normalizeSize(row["Size (mm)"]),
-          weight = Number(row["Weight (ct)"]),
-          box = normalizeBox(row.BOX ?? row.Box),
+        const shape = title(row[INVENTORY_IMPORT_FIELD_HEADERS.shape]),
+          type = norm(row[INVENTORY_IMPORT_FIELD_HEADERS.type]).toUpperCase(),
+          size = normalizeSize(row[INVENTORY_IMPORT_FIELD_HEADERS.size]),
+          weight = Number(row[INVENTORY_IMPORT_FIELD_HEADERS.weight]),
+          box = normalizeBox(row[INVENTORY_IMPORT_FIELD_HEADERS.box] ?? row.Box),
           errors = [];
         if (!shape) errors.push("Shape is required");
         if (!["CVD", "HP"].includes(type))
@@ -819,9 +820,6 @@ export default function Inventory() {
       </header>
       <div className="inventory-metrics">
         {[
-          ["NUMBER OF SKUs", items.length],
-          ["WEIGHT IN STOCK", formatDecimal(weight), "ct"],
-          ["WEIGHT SOLD (THIS MONTH)", "0.000", "ct"],
           ["TOTAL CVD", items.filter((item) => item.type === "CVD").length],
           ["TOTAL HP", items.filter((item) => item.type === "HP").length],
         ].map(([label, value, unit]) => (
