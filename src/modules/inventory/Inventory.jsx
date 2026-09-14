@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -34,10 +35,21 @@ const INVENTORY = "inventory",
   LEGACY_SHAPES = orderShapes([...DEFAULT_SHAPES, "Pear", "Heart"]),
   SETTINGS = doc(db, "settings", "inventory");
 export const SIZE_TO_GROUP_MAP = [];
+const STAFF_EDIT_WINDOW_MS = 2 * 60 * 1000;
+const STAFF_DELETE_WINDOW_MS = 60 * 60 * 1000;
 const norm = (value) => String(value ?? "").trim();
 const title = (value) =>
   norm(value).replace(/\b\w/g, (character) => character.toUpperCase());
 const age = (item) => getAgeingDays(item.createdAt, item.createdAtMs);
+const createdAtMs = (item) => item.createdAt?.toMillis?.() ?? 0;
+const editTimeRemaining = (item, clock) =>
+  Math.max(0, createdAtMs(item) + STAFF_EDIT_WINDOW_MS - clock);
+const formatEditTime = (milliseconds) => {
+  const seconds = Math.ceil(milliseconds / 1000);
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(
+    seconds % 60,
+  ).padStart(2, "0")}`;
+};
 const group = (size) =>
   SIZE_TO_GROUP_MAP.find(
     (item) =>
@@ -131,7 +143,6 @@ async function excel(rows) {
       "Size (mm)": item.size,
       SKU: item.sku,
       Group: item.group,
-      Status: "In Stock",
       Ageing: `${age(item)}d`,
       BOX: item.box || "",
     })),
@@ -260,15 +271,16 @@ function AddModal({
           origin: "Manual",
           createdBy: user?.uid ?? "pending-auth",
           createdAt: serverTimestamp(),
-          createdAtMs: Date.now(),
         };
         const ref = await addDoc(collection(db, INVENTORY), created);
+        const saved = await getDocFromServer(ref);
+        const createdItem = { id: ref.id, ...saved.data() };
         await writeInventoryActivity(
           "created",
-          { id: ref.id, ...created },
+          createdItem,
           { origin: "Manual", user },
         );
-        onSaved({ id: ref.id, ...created });
+        onSaved(createdItem);
       }
     } catch {
       setErrors((current) => ({
@@ -396,7 +408,7 @@ function BoxCell({ item, notify, user, canEdit = true }) {
     setValue(next);
     setError(validate(next));
   };
-  return editing ? (
+  return editing && canEdit ? (
     <div className="inventory-box-editor">
       <input
         className={`inventory-box-input ${error ? "has-error" : ""}`}
@@ -586,7 +598,7 @@ export default function Inventory() {
     [printMode, setPrintMode] = useState("all"),
     [menu, setMenu] = useState(false),
     [loading, setLoading] = useState(true),
-    [clock, setClock] = useState(Date.now());
+    [clock, setClock] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -702,20 +714,19 @@ export default function Inventory() {
       [items],
     ),
     weight = items.reduce((sum, item) => sum + Number(item.weight || 0), 0),
-    average = items.length
-      ? Math.round(
-          items.reduce((sum, item) => sum + age(item), 0) / items.length,
-        )
-      : 0,
     all =
       filtered.length > 0 &&
       filtered.every((item) => selected.includes(item.id));
-  const canManageItem = (item) =>
-    user?.role === "superadmin" ||
+  const isAdmin = user?.role === "superadmin";
+  const canEditItem = (item) =>
+    isAdmin ||
     (item.createdBy === user?.uid &&
-      Date.now() -
-        Number(item.createdAtMs || item.createdAt?.toMillis?.() || 0) <
-        60 * 60 * 1000);
+      editTimeRemaining(item, clock || createdAtMs(item)) > 0);
+  const canDeleteItem = (item) =>
+    isAdmin ||
+    (item.createdBy === user?.uid &&
+      (clock || createdAtMs(item)) - createdAtMs(item) <
+        STAFF_DELETE_WINDOW_MS);
   const toggle = (ids) =>
     setSelected((current) =>
       ids.every((id) => current.includes(id))
@@ -723,7 +734,7 @@ export default function Inventory() {
         : [...new Set([...current, ...ids])],
     );
   const requestDelete = (targets) => {
-    const allowed = targets.filter(canManageItem);
+    const allowed = targets.filter(canDeleteItem);
     if (allowed.length) setDeleteItems(allowed);
   };
   const confirmDelete = async (targets) => {
@@ -785,7 +796,6 @@ export default function Inventory() {
         origin: "Import",
         createdBy: user?.uid ?? "pending-auth",
         createdAt: serverTimestamp(),
-        createdAtMs: Date.now(),
       };
       delete item.index;
       delete item.errors;
@@ -812,7 +822,8 @@ export default function Inventory() {
           ["NUMBER OF SKUs", items.length],
           ["WEIGHT IN STOCK", formatDecimal(weight), "ct"],
           ["WEIGHT SOLD (THIS MONTH)", "0.000", "ct"],
-          ["AVG AGEING", average, "days"],
+          ["TOTAL CVD", items.filter((item) => item.type === "CVD").length],
+          ["TOTAL HP", items.filter((item) => item.type === "HP").length],
         ].map(([label, value, unit]) => (
           <article key={label}>
             <span>{label}</span>
@@ -949,16 +960,15 @@ export default function Inventory() {
                 />
               </th>
               {[
-                "SHAPE",
                 "TYPE",
-                "WEIGHT (CT)",
+                "SHAPE",
                 "SIZE (MM)",
-                "SKU",
-                "GROUP",
-                "STATUS",
+                "WEIGHT (CT)",
                 "AGEING",
                 "BOX",
-                "ACTIONS",
+                "SKU",
+                "GROUP",
+                "ACTION",
               ].map((label) => (
                 <th key={label}>{label}</th>
               ))}
@@ -978,17 +988,20 @@ export default function Inventory() {
                 toast={toast}
                 requestDelete={requestDelete}
                 user={user}
-                canManage={canManageItem}
+                canEdit={canEditItem}
+                canDelete={canDeleteItem}
+                clock={clock}
+                isAdmin={isAdmin}
               />
             ))}
             {loading && (
               <tr className="inventory-empty-row">
-                <td colSpan="11">Loading inventory...</td>
+                <td colSpan="10">Loading inventory...</td>
               </tr>
             )}
             {!loading && !parents.length && (
               <tr className="inventory-empty-row">
-                <td colSpan="11">No items match your search or filter.</td>
+                <td colSpan="10">No items match your search or filter.</td>
               </tr>
             )}
           </tbody>
@@ -999,15 +1012,14 @@ export default function Inventory() {
         <thead>
           <tr>
             {[
-              "Shape",
               "Type",
-              "Weight (ct)",
+              "Shape",
               "Size (mm)",
-              "SKU",
-              "Group",
-              "Status",
+              "Weight (ct)",
               "Ageing",
               "BOX",
+              "SKU",
+              "Group",
             ].map((label) => (
               <th key={label}>{label}</th>
             ))}
@@ -1021,15 +1033,14 @@ export default function Inventory() {
             )
             .map((item) => (
               <tr key={item.id}>
-                <td>{item.shape}</td>
                 <td>{item.type}</td>
-                <td>{formatDecimal(item.weight)}</td>
+                <td>{item.shape}</td>
                 <td>{item.size}</td>
-                <td>{item.sku}</td>
-                <td>{item.group}</td>
-                <td>In Stock</td>
+                <td>{formatDecimal(item.weight)}</td>
                 <td>{age(item)}d</td>
                 <td>{item.box || ""}</td>
+                <td>{item.sku}</td>
+                <td>{item.group}</td>
               </tr>
             ))}
         </tbody>
@@ -1081,7 +1092,10 @@ function Group({
   toast,
   requestDelete,
   user,
-  canManage,
+  canEdit,
+  canDelete,
+  clock,
+  isAdmin,
 }) {
   const ids = parent.items.map((item) => item.id),
     total = parent.items.reduce(
@@ -1090,41 +1104,34 @@ function Group({
     );
   return (
     <>
-      {
-        <tr className={`inventory-group inventory-tint-${index % 6}`}>
-          <td>
-            <Check
-              checked={ids.every((id) => selected.includes(id))}
-              onChange={() => toggle(ids)}
-              label={`Select ${parent.shape}`}
-            />
-          </td>
-          <td>
-            <button
-              className="inventory-chevron"
-              onClick={() =>
-                setOpen((state) => ({ ...state, [parent.key]: !open }))
-              }
-            >
-              <Icon n={open ? "down" : "right"} />
-            </button>
-            <b>{parent.shape}</b>
-          </td>
-          <td>
-            <Type value={parent.type} />
-          </td>
-          <td>
-            <b>{formatDecimal(total)} ct</b>
-          </td>
-          <td>--</td>
-          <td>--</td>
-          <td>{parent.items.length} items</td>
-          <td>--</td>
-          <td>--</td>
-          <td>--</td>
-          <td>--</td>
-        </tr>
-      }
+      <tr className={`inventory-group inventory-tint-${index % 6}`}>
+        <td>
+          <Check
+            checked={ids.every((id) => selected.includes(id))}
+            onChange={() => toggle(ids)}
+            label={`Select ${parent.shape}`}
+          />
+        </td>
+        <td><Type value={parent.type} /></td>
+        <td>
+          <button
+            className="inventory-chevron"
+            onClick={() =>
+              setOpen((state) => ({ ...state, [parent.key]: !open }))
+            }
+          >
+            <Icon n={open ? "down" : "right"} />
+          </button>
+          <b>{parent.shape}</b>
+        </td>
+        <td>--</td>
+        <td><b>{formatDecimal(total)} ct</b></td>
+        <td>--</td>
+        <td>--</td>
+        <td>{parent.items.length} items</td>
+        <td>--</td>
+        <td>--</td>
+      </tr>
       {open &&
         parent.items.map((item) => (
           <tr className="inventory-item" key={item.id}>
@@ -1135,41 +1142,39 @@ function Group({
                 label={`Select ${item.sku}`}
               />
             </td>
+            <td><Type value={item.type} /></td>
             <td>{item.shape}</td>
-            <td>
-              <Type value={item.type} />
-            </td>
-            <td>
-              <b>{formatDecimal(item.weight)} ct</b>
-            </td>
             <td>{item.size} mm</td>
-            <td>{item.sku}</td>
-            <td>{item.group || "Uncategorized"}</td>
-            <td>
-              <span className="inventory-stock">In Stock</span>
-            </td>
-            <td>
-              <Age item={item} />
-            </td>
+            <td><b>{formatDecimal(item.weight)} ct</b></td>
+            <td><Age item={item} /></td>
             <td>
               <BoxCell
                 item={item}
                 notify={toast}
                 user={user}
-                canEdit={canManage(item)}
+                canEdit={canEdit(item)}
               />
             </td>
+            <td>{item.sku}</td>
+            <td>{item.group || "Uncategorized"}</td>
             <td className="inventory-row-actions">
-              <button
-                disabled={!canManage(item)}
-                onClick={() => edit(item)}
-                aria-label={`Edit ${item.sku}`}
-              >
-                <Icon n="edit" />
-              </button>
+              {canEdit(item) && (
+                <button onClick={() => edit(item)} aria-label={`Edit ${item.sku}`}>
+                  <Icon n="edit" />
+                </button>
+              )}
+              {!isAdmin && item.createdBy === user?.uid && (
+                <span className="inventory-edit-timer">
+                  {editTimeRemaining(item, clock || createdAtMs(item)) > 0
+                    ? `Edit allowed for: ${formatEditTime(
+                        editTimeRemaining(item, clock || createdAtMs(item)),
+                      )}`
+                    : "Edit window expired"}
+                </span>
+              )}
               <button
                 className="inventory-row-delete"
-                disabled={!canManage(item)}
+                disabled={!canDelete(item)}
                 onClick={() => requestDelete([item])}
                 aria-label={`Delete ${item.sku}`}
               >

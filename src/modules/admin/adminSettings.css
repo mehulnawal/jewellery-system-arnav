@@ -1,4 +1,4 @@
-.admin-settings {
+﻿.admin-settings {
   max-width: 980px;
 }
 .admin-settings header h2 {
@@ -425,4 +425,141 @@ html[data-theme="dark"] .settings-tabs .active {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+/* Employee account summaries are read-only and intentionally compact. */
+.staff-account > header {
+  align-items: flex-start;
+}
+.staff-credentials {
+  background: var(--ui-surface-subtle, #f8fafc);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+}
+.staff-credentials > small,
+.staff-permissions > small {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.credential-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.credential-row > span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.credential-row small {
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+.credential-row b,
+.credential-row em {
+  color: var(--ui-text);
+  font-size: 15px;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+.credential-row em { color: var(--ui-muted); font-size: 13px; font-weight: 500; }
+.credential-row > div { display: flex; flex: none; gap: 7px; }
+.credential-row button {
+  background: transparent;
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  color: var(--ui-emerald-dark);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+.permission-chips,
+.permission-list {
+  align-items: center;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0;
+}
+.permission-chip {
+  background: var(--ui-emerald-soft);
+  border: 1px solid color-mix(in srgb, var(--ui-emerald) 35%, var(--ui-border));
+  border-radius: 999px;
+  color: var(--ui-emerald-dark);
+  font-size: 13px;
+  font-weight: 750;
+  padding: 5px 9px;
+}
+.permission-empty { font-size: 14px; margin: 0; }
+html[data-theme="dark"] .staff-credentials {
+  background: #111827;
+  border-color: #334155;
+}
+html[data-theme="dark"] .credential-row button {
+  border-color: #475569;
+  color: #8ce0ba;
+}
+html[data-theme="dark"] .permission-chip {
+  background: #173c32;
+  border-color: #28614d;
+  color: #8ce0ba;
+}
+@media (max-width: 600px) {
+  .credential-row { align-items: flex-start; flex-direction: column; }
+  .credential-row > div { width: 100%; }
+  .credential-row > div button { flex: 1; }
+}
+/* Active, administrator, and historical staff records are intentionally distinct blocks. */
+.account-section {
+  border-color: var(--ui-border);
+}
+.account-section > h3,
+.admin-account-list > h3 {
+  border-bottom: 1px solid var(--ui-border);
+  color: var(--ui-text);
+  font-size: 14px;
+  letter-spacing: 0.07em;
+  margin: 0;
+  padding-bottom: 12px;
+  text-transform: uppercase;
+}
+.account-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 12px;
+}
+.account-dates span {
+  color: var(--ui-muted);
+  font-size: 14px;
+}
+.account-dates b {
+  color: var(--ui-text);
+  font-weight: 750;
+  margin-left: 5px;
+}
+.account-section .access-account:first-of-type,
+.admin-account-list .access-account:first-of-type {
+  border-top: 0;
+}
+.account-section .access-account.inactive {
+  opacity: 0.78;
+}
+html[data-theme="dark"] .account-section > h3,
+html[data-theme="dark"] .admin-account-list > h3 {
+  border-color: #334155;
+}
+@media (max-width: 600px) {
+  .account-dates { display: grid; gap: 6px; }
 }

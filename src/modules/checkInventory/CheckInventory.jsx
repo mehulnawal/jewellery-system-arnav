@@ -345,26 +345,16 @@ function Card({ item }) {
   const days = getAgeingDays(item.createdAt, item.createdAtMs);
   return (
     <article className="check-card">
-      <div className="check-card-top">
-        <h3>{item.shape}</h3>
-        <span className={`check-age ${getAgeingColor(days)}`}>
-          <i />
-          {days}d
-        </span>
-      </div>
+      <strong className="check-card-size">{item.size} mm</strong>
       <span className={`check-type ${normal(item.type)}`}>{item.type}</span>
-      <div className="check-card-details">
-        <div>
-          <strong>
-            {formatDecimal(item.weight)} <i>ct</i>
-          </strong>
-          <p>{item.size} mm</p>
-        </div>
-        <div className="check-card-meta">
-          <span>{item.sku}</span>
-          <span>{item.group || "Uncategorized"}</span>
-        </div>
-      </div>
+      <span className="check-card-shape">{item.shape}</span>
+      <span className={`check-age ${getAgeingColor(days)}`}>
+        <i />
+        {days}d
+      </span>
+      <strong className="check-card-weight">
+        {formatDecimal(item.weight)} <i>ct</i>
+      </strong>
     </article>
   );
 }

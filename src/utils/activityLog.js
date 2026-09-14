@@ -1,4 +1,4 @@
-﻿import {
+import {
   addDoc,
   collection,
   doc,
@@ -25,8 +25,12 @@ export const auditActor = (user) => ({
   name: user?.name || user?.displayName || "",
 });
 
+export const isStaffAccount = (user) =>
+  String(user?.role || "").toLowerCase() === "employee";
+
 export async function captureFirstLogin(user) {
   const actor = auditActor(user);
+  if (!isStaffAccount(user)) return { actor, firstLoginAtMs: null };
   const day = dateKey();
   const ref = doc(
     db,

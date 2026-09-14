@@ -532,3 +532,37 @@ html[data-theme="dark"] .daily-first-logins > header,
     justify-content: space-between;
   }
 }
+
+/* Grouped activity content stays compact and visually contained within the dark accordion. */
+.activity-actor-meta {
+  align-items: center;
+  border-bottom: 1px solid var(--ui-border);
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+.activity-table th {
+  background: var(--ui-surface-subtle, #f8fafc);
+}
+.activity-datebar button:disabled {
+  background: #eef1f4;
+  border-color: #d7dde5;
+  color: #94a3b8;
+  opacity: 0.62;
+}
+html[data-theme="dark"] .activity-datebar button:disabled {
+  background: #111827 !important;
+  border-color: #28384a !important;
+  color: #64748b !important;
+  opacity: 0.52;
+}
+html[data-theme="dark"] .activity-entries,
+html[data-theme="dark"] .activity-actor,
+html[data-theme="dark"] .activity-table td {
+  background: #182231 !important;
+  border-color: #334155 !important;
+}
+html[data-theme="dark"] .activity-table th {
+  background: #223142 !important;
+  border-color: #334155 !important;
+  color: #b8c5d4 !important;
+}

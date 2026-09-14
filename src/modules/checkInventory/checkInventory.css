@@ -110,20 +110,32 @@
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-xl);
   box-shadow: var(--ui-shadow-sm);
+  display: grid;
+  grid-template-areas:
+    "size type"
+    "shape ."
+    ". ."
+    "age weight";
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto 1fr auto;
+  min-height: 148px;
   padding: 20px;
 }
-.check-card-top,
-.check-card-details {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
+.check-card-size {
+  font-size: 1.25rem;
+  font-weight: 750;
+  grid-area: size;
+  line-height: 1.2;
 }
-.check-card-top h3 {
-  font-size: 1.2875rem;
-  margin: 0;
+.check-card-shape {
+  font-size: 0.9rem;
+  grid-area: shape;
+  margin-top: 0.35rem;
 }
 .check-age {
+  align-self: end;
   font-size: 0.8rem;
+  grid-area: age;
 }
 .check-age i {
   background: var(--age-green);
@@ -140,11 +152,12 @@
   background: var(--age-red);
 }
 .check-type {
+  align-self: start;
   border-radius: 999px;
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 800;
-  margin: 18px 0;
+  grid-area: type;
   padding: 0.25rem 0.55rem;
 }
 .check-type.cvd {
@@ -155,19 +168,16 @@
   background: var(--type-hp);
   color: #fff;
 }
-.check-card-details strong {
-  display: block;
-  font-size: 1.6875rem;
-}
-.check-card-details p,
-.check-card-meta {
-  color: var(--ui-muted);
-  font-size: 0.82rem;
-  margin: 0.2rem 0 0;
-}
-.check-card-meta {
-  display: grid;
+.check-card-weight {
+  align-self: end;
+  font-size: 1rem;
+  grid-area: weight;
   text-align: right;
+}
+.check-card-weight i {
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 500;
 }
 .check-empty {
   align-items: center;
@@ -337,16 +347,15 @@
 .check-total strong {
   font-size: 27px;
 }
-.check-card-top h3 {
-  font-size: 18px;
+.check-card-size {
+  font-size: 20px;
 }
-.check-card-details strong {
-  font-size: 27px;
-}
-.check-card-details p,
-.check-card-meta,
+.check-card-shape,
 .check-age {
   font-size: 14px;
+}
+.check-card-weight {
+  font-size: 16px;
 }
 .check-type {
   font-size: 13px;
