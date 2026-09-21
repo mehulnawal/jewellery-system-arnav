@@ -17,9 +17,16 @@ import { usePageFreeze } from "../../hooks/usePageFreeze";
 const STAGES = {
   1: "Goods Out",
   2: "Return / Sale",
-  3: "Payment Pending",
+  3: "Final Invoice / Payment Pending",
   4: "Completed",
 };
+const stageActionLabel = (stage) =>
+  ({
+    1: "Process Return / Move to Stage 2",
+    2: "Generate Final Invoice",
+    3: "Record Payment / Complete",
+    4: "Completed",
+  })[stage] || "";
 const today = () => new Date().toISOString().slice(0, 10);
 const pricingFor = (amount, discount) => {
   const value = Math.max(0, Number(amount) || 0),
@@ -30,6 +37,38 @@ const pricingFor = (amount, discount) => {
     discount: rate,
     discountAmount,
     netAmount: Number((value - discountAmount).toFixed(2)),
+  };
+};
+const money = (value) => Number((Number(value) || 0).toFixed(2));
+const invoiceSnapshotFor = (record) => {
+  const stageTwoItems = record.stage2Return?.items;
+  if (!Array.isArray(stageTwoItems) || !stageTwoItems.length)
+    throw new Error("This Stage 2 Challan has no return/sale item history.");
+  const items = stageTwoItems.map((item) => {
+    if (item.amount === "" || item.amount === null || item.amount === undefined)
+      throw new Error(`Item ${item.sku || ""} has no quoted Amount.`);
+    const grossAmount = money(item.amount);
+    const stage1DiscountPercent = money(item.discount);
+    const stage1DiscountAmount = money(
+      (grossAmount * stage1DiscountPercent) / 100,
+    );
+    return {
+      ...item,
+      grossAmount,
+      stage1DiscountPercent,
+      stage1DiscountAmount,
+      finalAmount: money(grossAmount - stage1DiscountAmount),
+    };
+  });
+  const grossAmount = money(items.reduce((sum, item) => sum + item.grossAmount, 0));
+  const stage1DiscountAmount = money(
+    items.reduce((sum, item) => sum + item.stage1DiscountAmount, 0),
+  );
+  return {
+    items,
+    grossAmount,
+    stage1DiscountAmount,
+    finalInvoiceAmount: money(grossAmount - stage1DiscountAmount),
   };
 };
 const challanSnapshot = (record) => ({
@@ -647,6 +686,69 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
     </div>
   );
 };
+const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
+  usePageFreeze();
+  const [saving, setSaving] = useState(false), [error, setError] = useState("");
+  let invoice;
+  try {
+    invoice = invoiceSnapshotFor(record);
+  } catch (error) {
+    return (
+      <div className="stage-two-overlay" role="dialog" aria-modal="true">
+        <section className="stage-two-modal">
+          <header><h3>Final Invoice Review</h3><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
+          <p className="stage-two-error">{error.message}</p>
+          <footer><button type="button" onClick={onClose}>Close</button></footer>
+        </section>
+      </div>
+    );
+  }
+  const submit = async () => {
+    setSaving(true);
+    try { await onConfirm(); } catch (reason) { setError(reason.message || "Could not confirm the Final Invoice."); setSaving(false); }
+  };
+  return (
+    <div className="stage-two-overlay" role="dialog" aria-modal="true" aria-label="Final Invoice Review" onMouseDown={onClose}>
+      <section className="stage-two-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><h3>Final Invoice Review</h3><small>{record.number} · {record.date} · {record.party}</small></div><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
+        <div className="stage-two-table-wrap"><div className="stage-two-table">
+          <div className="stage-two-head"><span>SKU / TYPE</span><span>ISSUED</span><span>RETURN</span><span>SOLD / KEPT</span><span>AMOUNT</span><span>STAGE 1 DISCOUNT</span></div>
+          {invoice.items.map((item) => <div className="stage-two-row" key={item.sourceInventoryId || item.inventoryId || item.sku}><b>{item.sku}<small>{item.type || "—"} · {item.shape || "—"} · {item.size || "—"}</small></b><span>{item.issuedPieces} pcs / {Number(item.issuedWeight || 0).toFixed(3)} ct</span><span>{item.returnPieces} pcs / {Number(item.returnWeight || 0).toFixed(3)} ct</span><span>{item.soldPieces} pcs / {Number(item.soldWeight || 0).toFixed(3)} ct</span><span>₹{item.grossAmount.toFixed(2)}</span><span>{item.stage1DiscountPercent}% (₹{item.stage1DiscountAmount.toFixed(2)})</span></div>)}
+        </div></div>
+        <div className="stage-two-totals"><strong><small>Gross Amount</small>₹{invoice.grossAmount.toFixed(2)}</strong><strong><small>Stage 1 Discount</small>- ₹{invoice.stage1DiscountAmount.toFixed(2)}</strong><strong><small>Final Invoice Amount</small>₹{invoice.finalInvoiceAmount.toFixed(2)}</strong></div>
+        {error && <p className="stage-two-error">{error}</p>}
+        <footer><button type="button" onClick={onClose}>Cancel</button><button type="button" className="primary" disabled={saving} onClick={submit}>{saving ? "Confirming..." : "Confirm Final Invoice / Move to Stage 3"}</button></footer>
+      </section>
+    </div>
+  );
+};
+const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
+  usePageFreeze();
+  const [paid, setPaid] = useState(""), [discount, setDiscount] = useState(""), [error, setError] = useState(""), [saving, setSaving] = useState(false);
+  const finalInvoiceAmount = money(record.finalInvoice?.finalInvoiceAmount);
+  const paidValue = Number(paid), discountValue = Number(discount);
+  const validNumbers = paid !== "" && discount !== "" && Number.isFinite(paidValue) && Number.isFinite(discountValue) && paidValue >= 0 && discountValue >= 0;
+  const remaining = validNumbers ? money(finalInvoiceAmount - paidValue - discountValue) : finalInvoiceAmount;
+  const canComplete = validNumbers && remaining === 0;
+  const submit = async () => {
+    if (!canComplete) return setError("Amount Paid plus Discount Amount must equal the Final Invoice Amount exactly.");
+    setSaving(true);
+    try { await onConfirm(money(paidValue), money(discountValue)); } catch (reason) { setError(reason.message || "Could not complete settlement."); setSaving(false); }
+  };
+  return (
+    <div className="stage-two-overlay" role="dialog" aria-modal="true" aria-label="Final Settlement" onMouseDown={onClose}>
+      <section className="stage-two-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><h3>Final Settlement</h3><small>{record.number} · {record.party}</small></div><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
+        <div className="stage-two-info"><span>Final Invoice Amount: <b>₹{finalInvoiceAmount.toFixed(2)}</b></span></div>
+        <label className="stage-two-notes">Amount Paid by Customer<input type="number" min="0" step="0.01" value={paid} onChange={(event) => setPaid(event.target.value)} /></label>
+        <label className="stage-two-notes">Discount Amount (₹)<input type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} /></label>
+        <div className="stage-two-totals"><strong><small>Final Invoice</small>₹{finalInvoiceAmount.toFixed(2)}</strong><strong><small>Amount Paid</small>₹{Number.isFinite(paidValue) ? money(paidValue).toFixed(2) : "0.00"}</strong><strong><small>Discount Amount</small>₹{Number.isFinite(discountValue) ? money(discountValue).toFixed(2) : "0.00"}</strong><strong><small>Remaining</small>₹{remaining.toFixed(2)}</strong></div>
+        {error && <p className="stage-two-error">{error}</p>}
+        <footer><button type="button" onClick={onClose}>Cancel</button><button type="button" className="primary" disabled={saving || !canComplete} onClick={submit}>{saving ? "Completing..." : "Record Payment / Complete"}</button></footer>
+      </section>
+    </div>
+  );
+};
 const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
   usePageFreeze();
   useEffect(() => {
@@ -724,6 +826,8 @@ export default function Challan() {
   const [partyOptions, setPartyOptions] = useState([]);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
   const [stageTwoCandidate, setStageTwoCandidate] = useState(null);
+  const [finalInvoiceCandidate, setFinalInvoiceCandidate] = useState(null);
+  const [finalSettlementCandidate, setFinalSettlementCandidate] = useState(null);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -1048,32 +1152,14 @@ export default function Challan() {
       setStageTwoCandidate(previous);
       return;
     }
-    const nextStage = Math.min(4, previous.stage + 1);
-    const record = {
-      ...previous,
-      stage: nextStage,
-      stageHistory: {
-        ...(previous.stageHistory || {}),
-        ["stage" + nextStage]: previous.stageHistory?.["stage" + nextStage] || {
-          enteredAtMs: clock,
-        },
-      },
-    };
-    await setDoc(doc(db, "challans", record.id), record);
-    setRecords((state) =>
-      state.map((item) => (item.id === id ? record : item)),
-    );
-    void writeActivity({
-      panel: "challan",
-      stage: "Stage " + record.stage,
-      action: "stage_changed",
-      recordId: record.id,
-      snapshot: challanSnapshot(record),
-      before: challanSnapshot(previous),
-      user,
-    }).catch((error) =>
-      console.warn("Challan stage activity could not be saved.", error),
-    );
+    if (previous.stage === 2) {
+      setFinalInvoiceCandidate(previous);
+      return;
+    }
+    if (previous.stage === 3) {
+      setFinalSettlementCandidate(previous);
+      return;
+    }
   };
   const confirmStageTwo = async (returns, notes) => {
     const previous = stageTwoCandidate;
@@ -1166,6 +1252,103 @@ export default function Challan() {
       user,
     }).catch((error) =>
       console.warn("Challan return activity could not be saved.", error),
+    );
+  };
+  const confirmFinalInvoice = async () => {
+    const previous = finalInvoiceCandidate;
+    if (!previous) throw new Error("This Challan is no longer available.");
+    const saved = await runTransaction(db, async (tx) => {
+      const challanRef = doc(db, "challans", previous.id);
+      const snapshot = await tx.get(challanRef);
+      if (!snapshot.exists() || Number(snapshot.data().stage) !== 2)
+        throw new Error("This Challan is no longer in Stage 2.");
+      const current = snapshot.data();
+      if (current.finalInvoice) throw new Error("Final Invoice has already been confirmed.");
+      const now = Date.now();
+      const invoice = invoiceSnapshotFor(current);
+      const savedRecord = {
+        ...current,
+        id: previous.id,
+        stage: 3,
+        finalInvoice: { ...invoice, confirmedAtMs: now },
+        stageHistory: {
+          ...(current.stageHistory || {}),
+          stage3: current.stageHistory?.stage3 || { enteredAtMs: now },
+        },
+      };
+      tx.set(challanRef, savedRecord);
+      return savedRecord;
+    });
+    setFinalInvoiceCandidate(null);
+    void writeActivity({
+      panel: "challan",
+      stage: "Stage 3",
+      action: "final_invoice_confirmed",
+      recordId: saved.id,
+      snapshot: challanSnapshot(saved),
+      before: challanSnapshot(previous),
+      user,
+    }).catch((error) =>
+      console.warn("Final Invoice activity could not be saved.", error),
+    );
+  };
+  const confirmFinalSettlement = async (amountPaid, settlementDiscountAmount) => {
+    const previous = finalSettlementCandidate;
+    if (!previous) throw new Error("This Challan is no longer available.");
+    const saved = await runTransaction(db, async (tx) => {
+      const challanRef = doc(db, "challans", previous.id);
+      const snapshot = await tx.get(challanRef);
+      if (!snapshot.exists() || Number(snapshot.data().stage) !== 3)
+        throw new Error("This Challan is no longer in Stage 3.");
+      const current = snapshot.data();
+      if (!current.finalInvoice)
+        throw new Error("A Final Invoice is required before settlement.");
+      if (current.finalSettlement)
+        throw new Error("This Challan has already been settled.");
+      if (
+        !Number.isFinite(Number(amountPaid)) ||
+        !Number.isFinite(Number(settlementDiscountAmount))
+      )
+        throw new Error("Amount Paid and Discount Amount must be valid numbers.");
+      const finalInvoiceAmount = money(current.finalInvoice.finalInvoiceAmount);
+      const paid = money(amountPaid), discount = money(settlementDiscountAmount);
+      const remaining = money(finalInvoiceAmount - paid - discount);
+      if (paid < 0 || discount < 0 || remaining !== 0)
+        throw new Error(
+          "Amount Paid plus Discount Amount must equal the Final Invoice Amount.",
+        );
+      const now = Date.now();
+      const savedRecord = {
+        ...current,
+        id: previous.id,
+        stage: 4,
+        finalSettlement: {
+          finalInvoiceAmount,
+          amountPaid: paid,
+          settlementDiscountAmount: discount,
+          remaining,
+          actualReceivedAmount: paid,
+          completedAtMs: now,
+        },
+        stageHistory: {
+          ...(current.stageHistory || {}),
+          stage4: current.stageHistory?.stage4 || { enteredAtMs: now },
+        },
+      };
+      tx.set(challanRef, savedRecord);
+      return savedRecord;
+    });
+    setFinalSettlementCandidate(null);
+    void writeActivity({
+      panel: "challan",
+      stage: "Stage 4",
+      action: "final_settlement_completed",
+      recordId: saved.id,
+      snapshot: challanSnapshot(saved),
+      before: challanSnapshot(previous),
+      user,
+    }).catch((error) =>
+      console.warn("Final settlement activity could not be saved.", error),
     );
   };
   const isAdmin = user?.role === "superadmin";
@@ -1475,9 +1658,9 @@ export default function Challan() {
       viewRecord.stage === 1
         ? "Move to Stage 2"
         : viewRecord.stage === 2
-          ? "Create Payment Due"
+          ? "Generate Final Invoice"
           : viewRecord.stage === 3
-            ? "Complete Challan"
+            ? "Record Payment / Complete"
             : "";
     return (
       <section className="challan-page challan-view">
@@ -2182,7 +2365,7 @@ export default function Challan() {
                   onClick={() => advance(row.id)}
                 >
                   {" "}
-                  {row.stage === 4 ? "Completed" : STAGES[row.stage + 1]}{" "}
+                  {stageActionLabel(row.stage)}{" "}
                   <Icon name="arrow" />{" "}
                 </button>{" "}
                 <span className="challan-row-actions">
@@ -2264,6 +2447,20 @@ export default function Challan() {
           record={stageTwoCandidate}
           onClose={() => setStageTwoCandidate(null)}
           onConfirm={confirmStageTwo}
+        />
+      )}{" "}
+      {finalInvoiceCandidate && (
+        <FinalInvoiceModal
+          record={finalInvoiceCandidate}
+          onClose={() => setFinalInvoiceCandidate(null)}
+          onConfirm={confirmFinalInvoice}
+        />
+      )}{" "}
+      {finalSettlementCandidate && (
+        <FinalSettlementModal
+          record={finalSettlementCandidate}
+          onClose={() => setFinalSettlementCandidate(null)}
+          onConfirm={confirmFinalSettlement}
         />
       )}{" "}
       {deleteCandidate && (
