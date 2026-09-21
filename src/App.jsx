@@ -1,4 +1,4 @@
-﻿import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute, { PermissionRoute } from "./auth/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
 import Inventory from "./modules/inventory/Inventory";
@@ -6,6 +6,7 @@ import CheckInventory from "./modules/checkInventory/CheckInventory";
 import Challan from "./modules/challan/Challan";
 import AdminSettings from "./modules/admin/AdminSettings";
 import ActivityLog from "./modules/activityLog/ActivityLog";
+import Purchase from "./modules/purchase/Purchase";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 const CHALLAN_PERMISSIONS = [
@@ -24,6 +25,9 @@ export default function App() {
             <Route path="inventory" element={<Inventory />} />
           </Route>
           <Route path="check-inventory" element={<CheckInventory />} />
+          <Route element={<PermissionRoute permission="purchase" />}>
+            <Route path="purchase" element={<Purchase />} />
+          </Route>
           <Route element={<PermissionRoute permission={CHALLAN_PERMISSIONS} />}>
             <Route path="challan" element={<Challan />} />
           </Route>

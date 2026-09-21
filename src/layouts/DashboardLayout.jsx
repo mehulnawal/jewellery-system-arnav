@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { usePageFreeze } from "../hooks/usePageFreeze";
@@ -27,6 +27,12 @@ const Icon = ({ name }) => (
       <>
         <circle cx="10.8" cy="10.8" r="6" />
         <path d="m16 16 4 4M8 11l2 2 4-4" />
+      </>
+    )}
+    {name === "purchase" && (
+      <>
+        <path d="M4 6h16v14H4z" />
+        <path d="M8 3v6M16 3v6M8 13h8M8 17h5" />
       </>
     )}
     {name === "challan" && (
@@ -77,10 +83,10 @@ const modules = [
     key: "inventory",
   },
   {
-    label: "Check Inventory",
-    to: "/dashboard/check-inventory",
-    icon: "check",
-    always: true,
+    label: "Purchase",
+    to: "/dashboard/purchase",
+    icon: "purchase",
+    key: "purchase",
   },
   {
     label: "Challan",
@@ -92,6 +98,12 @@ const modules = [
       "challan-stage-3",
       "challan-stage-4",
     ],
+  },
+  {
+    label: "Check Inventory",
+    to: "/dashboard/check-inventory",
+    icon: "check",
+    always: true,
   },
   {
     label: "Activity Log",
