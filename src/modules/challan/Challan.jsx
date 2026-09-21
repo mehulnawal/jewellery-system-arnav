@@ -4,13 +4,13 @@ import {
   collection,
   doc,
   onSnapshot,
+  runTransaction,
   serverTimestamp,
   setDoc,
   deleteDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
-import { inventoryMatchesSearch } from "../../utils/inventoryRules";
 import { writeActivity } from "../../utils/activityLog";
 import { isWholePieces, pieceValue } from "../../utils/pieces";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
@@ -121,6 +121,7 @@ const formatStageTime = (value) =>
     : "";
 const blank = () => ({
   id: crypto.randomUUID(),
+  inventoryId: "",
   sku: "",
   shape: "",
   size: "",
@@ -138,18 +139,21 @@ const stockError = (items, inventory) => {
     if (!item.sku) continue;
     if (item.pieces !== "" && !isWholePieces(item.pieces))
       return "Pieces must be a whole number.";
-    const current = totals.get(item.sku) || { weight: 0, pieces: 0 };
+    const key = item.inventoryId || item.sku;
+    const current = totals.get(key) || { weight: 0, pieces: 0 };
     current.weight += Number(item.weight || 0);
     current.pieces += pieceValue(item.pieces);
-    totals.set(item.sku, current);
+    totals.set(key, current);
   }
-  for (const [sku, requested] of totals) {
-    const source = inventory.find((entry) => entry.sku === sku);
+  for (const [inventoryId, requested] of totals) {
+    const source = inventory.find(
+      (entry) => entry.id === inventoryId || entry.sku === inventoryId,
+    );
     if (!source) continue;
     if (requested.weight > Number(source.weight || 0))
-      return `Weight for ${sku} cannot exceed available ${Number(source.weight || 0).toFixed(3)} ct.`;
+      return `Weight for ${source.sku} cannot exceed available ${Number(source.weight || 0).toFixed(3)} ct.`;
     if (requested.pieces > stockPieces(source))
-      return `Pieces for ${sku} cannot exceed available ${stockPieces(source)} pcs.`;
+      return `Pieces for ${source.sku} cannot exceed available ${stockPieces(source)} pcs.`;
   }
   return "";
 };
@@ -832,6 +836,7 @@ export default function Challan() {
         item.id === id
           ? {
               ...item,
+              inventoryId: selected.id || "",
               sku: selected.sku || "",
               shape: selected.shape || "",
               size: selected.size || "",
@@ -910,6 +915,23 @@ export default function Challan() {
       setFormError("Your 60-minute staff edit window has ended.");
       return;
     }
+    if (
+      previous?.items?.some((item) => item.sourceInventoryId || item.inventoryId) &&
+      (previous.items.length !== pricedItems.length ||
+        previous.items.some((item, index) => {
+          const next = pricedItems[index];
+          return (
+            (item.sourceInventoryId || item.inventoryId) !== next.inventoryId ||
+            Number(item.weight || 0) !== Number(next.weight || 0) ||
+            pieceValue(item.pieces) !== pieceValue(next.pieces)
+          );
+        }))
+    ) {
+      setFormError(
+        "Issued Inventory quantities cannot be changed after a Challan is created. Edit party, date, comments, or pricing only.",
+      );
+      return;
+    }
     const record = previous
       ? {
           ...previous,
@@ -921,31 +943,83 @@ export default function Challan() {
         }
       : {
           id: crypto.randomUUID(),
-          number:
-            "C_" +
-            String(new Date().getMonth() + 1).padStart(2, "0") +
-            "_" +
-            Date.now().toString().slice(-6),
           party,
           date: form.date,
           notes: form.notes,
           items: pricedItems,
           ...pricing,
           stage: 1,
-          stageHistory: { stage1: { enteredAtMs: Date.now() } },
-          createdAt: Date.now(),
           createdBy: user?.uid || "",
           createdByRole: user?.role || "staff",
         };
-    await setDoc(
-      doc(db, "challans", record.id),
-      previous ? record : { ...record, createdAt: serverTimestamp() },
-    );
-    setRecords((state) =>
-      previous
-        ? state.map((entry) => (entry.id === record.id ? record : entry))
-        : [record, ...state],
-    );
+    if (previous) {
+      await setDoc(doc(db, "challans", record.id), record);
+    } else {
+      const saved = await runTransaction(db, async (tx) => {
+        const now = Date.now();
+        const counterRef = doc(db, "counters", "challan");
+        const counter = await tx.get(counterRef);
+        const current = counter.exists() ? counter.data() : {};
+        const series = Math.max(35, Number(current.series || 35));
+        const previousNumber =
+          Number(current.series || 0) < 35 ? 0 : Number(current.number || 0);
+        const next =
+          previousNumber >= 100
+            ? { series: series + 1, number: 1 }
+            : { series, number: previousNumber + 1 };
+        const inventorySnapshots = await Promise.all(
+          pricedItems.map((item) => {
+            if (!item.inventoryId)
+              throw new Error(`Select an Inventory item for ${item.sku}.`);
+            return tx.get(doc(db, "inventory", item.inventoryId));
+          }),
+        );
+        if (
+          new Set(pricedItems.map((item) => item.inventoryId)).size !==
+          pricedItems.length
+        )
+          throw new Error(
+            "Each Challan line must use a different Inventory item. Combine quantities for the same item into one line.",
+          );
+        const issuedItems = [];
+        for (const [index, item] of pricedItems.entries()) {
+          const inventoryRef = doc(db, "inventory", item.inventoryId);
+          const inventorySnapshot = inventorySnapshots[index];
+          if (!inventorySnapshot.exists())
+            throw new Error(`Inventory item ${item.sku} is no longer available.`);
+          const stock = inventorySnapshot.data();
+          const requestedWeight = Number(item.weight || 0);
+          const requestedPieces = pieceValue(item.pieces);
+          if (
+            requestedWeight < 0 ||
+            requestedPieces < 0 ||
+            requestedWeight > Number(stock.weight || 0) ||
+            requestedPieces > stockPieces(stock)
+          )
+            throw new Error(`Insufficient available stock for ${item.sku}.`);
+          tx.update(inventoryRef, {
+            weight: Number(
+              (Number(stock.weight || 0) - requestedWeight).toFixed(3),
+            ),
+            pieces: stockPieces(stock) - requestedPieces,
+            updatedAt: serverTimestamp(),
+          });
+          issuedItems.push({ ...item, sourceInventoryId: item.inventoryId });
+        }
+        const savedRecord = {
+          ...record,
+          number: `A${next.series}/${next.number}`,
+          items: issuedItems,
+          createdAt: serverTimestamp(),
+          createdAtMs: now,
+          stageHistory: { stage1: { enteredAtMs: now } },
+        };
+        tx.set(counterRef, next, { merge: true });
+        tx.set(doc(db, "challans", record.id), savedRecord);
+        return { ...savedRecord, createdAt: now };
+      });
+      Object.assign(record, saved);
+    }
     void writeActivity({
       panel: "challan",
       stage: "Stage " + record.stage,
@@ -981,7 +1055,7 @@ export default function Challan() {
       stageHistory: {
         ...(previous.stageHistory || {}),
         ["stage" + nextStage]: previous.stageHistory?.["stage" + nextStage] || {
-          enteredAtMs: Date.now(),
+          enteredAtMs: clock,
         },
       },
     };
@@ -1010,8 +1084,12 @@ export default function Challan() {
         returnedPieces = pieceValue(input.returnPieces),
         returnedWeight = Number(input.returnWeight);
       return {
+        inventoryId: item.sourceInventoryId || item.inventoryId || "",
+        sourceInventoryId: item.sourceInventoryId || item.inventoryId || "",
         sku: item.sku || "",
+        type: item.type || "",
         shape: item.shape || "",
+        size: item.size || "",
         issuedPieces: pieceValue(item.pieces),
         issuedWeight: Number(item.weight || 0),
         returnPieces: returnedPieces,
@@ -1024,28 +1102,59 @@ export default function Challan() {
         discount: Number(item.discount || 0),
       };
     });
-    const record = {
-      ...previous,
-      stage: 2,
-      stageHistory: {
-        ...(previous.stageHistory || {}),
-        stage2: previous.stageHistory?.stage2 || { enteredAtMs: Date.now() },
-      },
-      stage2Return: {
-        items: transitionItems,
-        notes,
-        transitionedAtMs: Date.now(),
-        actor: {
-          uid: user?.uid || "",
-          accessId: user?.accessId || "",
-          role: user?.role || "employee",
+    const record = { ...previous, stage: 2 };
+    const saved = await runTransaction(db, async (tx) => {
+      const challanRef = doc(db, "challans", previous.id);
+      const latestSnapshot = await tx.get(challanRef);
+      if (!latestSnapshot.exists() || Number(latestSnapshot.data().stage) !== 1)
+        throw new Error("This Challan is no longer in Stage 1.");
+      const inventorySnapshots = await Promise.all(
+        transitionItems.map((item) => {
+          if (!item.sourceInventoryId)
+            throw new Error(
+              `Cannot return ${item.sku}: this historical Challan has no Inventory record identity.`,
+            );
+          return tx.get(doc(db, "inventory", item.sourceInventoryId));
+        }),
+      );
+      const now = Date.now();
+      transitionItems.forEach((item, index) => {
+        const inventorySnapshot = inventorySnapshots[index];
+        if (!inventorySnapshot.exists())
+          throw new Error(`Inventory item ${item.sku} is no longer available.`);
+        const stock = inventorySnapshot.data();
+        tx.update(inventorySnapshot.ref, {
+          weight: Number(
+            (Number(stock.weight || 0) + Number(item.returnWeight || 0)).toFixed(3),
+          ),
+          pieces: stockPieces(stock) + pieceValue(item.returnPieces),
+          updatedAt: serverTimestamp(),
+        });
+      });
+      const current = latestSnapshot.data();
+      const savedRecord = {
+        ...current,
+        id: previous.id,
+        stage: 2,
+        stageHistory: {
+          ...(current.stageHistory || {}),
+          stage2: current.stageHistory?.stage2 || { enteredAtMs: now },
         },
-      },
-    };
-    await setDoc(doc(db, "challans", record.id), record);
-    setRecords((state) =>
-      state.map((item) => (item.id === record.id ? record : item)),
-    );
+        stage2Return: {
+          items: transitionItems,
+          notes,
+          transitionedAtMs: now,
+          actor: {
+            uid: user?.uid || "",
+            accessId: user?.accessId || "",
+            role: user?.role || "employee",
+          },
+        },
+      };
+      tx.set(challanRef, savedRecord);
+      return savedRecord;
+    });
+    Object.assign(record, saved);
     setStageTwoCandidate(null);
     void writeActivity({
       panel: "challan",
