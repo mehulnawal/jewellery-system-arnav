@@ -1094,12 +1094,12 @@ html[data-theme="dark"] .challan-aging-badge.red {
 .stage-two-modal {
   background: var(--ui-surface, #fff);
   border: 1px solid var(--ui-border, #dfe4e8);
-  border-radius: 18px;
+  border-radius: 14px;
   box-sizing: border-box;
   box-shadow: 0 26px 70px rgb(15 23 42 / 0.28);
   color: var(--ui-text, #172033);
   max-height: calc(100vh - 48px);
-  max-width: 1280px;
+  max-width: min(1180px, 100%);
   overflow: auto;
   width: 100%;
 }
@@ -1108,19 +1108,32 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-bottom: 1px solid var(--ui-border, #dfe4e8);
   display: flex;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 15px 18px;
 }
 .stage-two-modal h3 {
-  font-size: 23px;
+  font-size: 20px;
+  line-height: 1.25;
   margin: 0;
 }
 .stage-two-close {
+  align-items: center;
   background: transparent !important;
+  border-radius: 8px;
   color: #64748b !important;
-  font-size: 29px !important;
-  height: 34px;
+  display: inline-flex;
+  font-size: 15px !important;
+  font-weight: 800;
+  height: 32px;
+  justify-content: center;
   padding: 0 !important;
-  width: 34px;
+  transition: background .15s ease, color .15s ease;
+  width: 32px;
+}
+.stage-two-close:hover,
+.stage-two-close:focus-visible {
+  background: var(--ui-surface-subtle, #f1f5f9) !important;
+  color: var(--ui-text, #172033) !important;
+  outline: 0;
 }
 .stage-two-info {
   align-items: center;
@@ -1129,11 +1142,11 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-radius: 10px;
   color: #1d4ed8;
   display: flex;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   gap: 9px;
-  margin: 18px 24px;
-  padding: 12px 14px;
+  margin: 14px 18px;
+  padding: 9px 11px;
 }
 .stage-two-info b {
   align-items: center;
@@ -1146,8 +1159,13 @@ html[data-theme="dark"] .challan-aging-badge.red {
   width: 17px;
 }
 .stage-two-table-wrap {
+  border: 1px solid var(--ui-border, #dfe4e8);
+  border-radius: 8px;
   margin: 0 24px;
-  overflow: auto;
+  max-width: calc(100% - 48px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
 }
 .stage-two-table {
   min-width: 1050px;
@@ -1181,8 +1199,60 @@ html[data-theme="dark"] .challan-aging-badge.red {
 .stage-two-row > * {
   align-items: center;
   display: flex;
-  min-height: 58px;
-  padding: 8px;
+  min-height: 48px;
+  padding: 7px 8px;
+}
+.final-invoice-modal {
+  max-width: min(1040px, 100%);
+}
+.final-invoice-modal .stage-two-table {
+  min-width: 900px;
+}
+.final-invoice-modal .stage-two-head,
+.final-invoice-modal .stage-two-row {
+  grid-template-columns: minmax(180px, 1.35fr) repeat(5, minmax(125px, .85fr));
+}
+.final-invoice-modal .stage-two-totals {
+  border: 1px solid var(--ui-border, #dfe4e8);
+  border-radius: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 14px 24px;
+}
+.final-invoice-modal .stage-two-totals > :last-child {
+  background: var(--ui-emerald-soft, #ecfdf5);
+  color: var(--ui-emerald, #15803d);
+}
+.settlement-modal {
+  max-width: min(720px, 100%);
+}
+.settlement-modal .stage-two-info {
+  background: var(--ui-emerald-soft, #ecfdf5);
+  border-color: var(--ui-emerald, #16a34a);
+  color: var(--ui-emerald, #15803d);
+}
+.settlement-modal .stage-two-notes input {
+  background: var(--ui-surface, #fff);
+  border: 1px solid var(--ui-border, #cbd5e1);
+  border-radius: 8px;
+  color: var(--ui-text, #172033);
+  font: inherit;
+  height: 40px;
+  padding: 0 10px;
+  text-align: right;
+}
+.settlement-modal .stage-two-notes input:focus {
+  border-color: var(--ui-emerald, #16a34a);
+  box-shadow: 0 0 0 3px rgb(22 163 74 / .14);
+  outline: 0;
+}
+.settlement-modal .stage-two-totals {
+  border: 1px solid var(--ui-border, #dfe4e8);
+  border-radius: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 14px 24px;
+}
+.settlement-modal .stage-two-totals > :last-child {
+  color: var(--ui-emerald, #15803d);
 }
 .stage-two-row > label {
   display: grid;
@@ -1220,10 +1290,10 @@ html[data-theme="dark"] .challan-aging-badge.red {
 .stage-two-notes {
   color: #475569;
   display: grid;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
-  gap: 7px;
-  margin: 18px 24px;
+  gap: 6px;
+  margin: 14px 18px;
 }
 .stage-two-notes textarea {
   border: 1px solid #cbd5e1;
@@ -1234,10 +1304,15 @@ html[data-theme="dark"] .challan-aging-badge.red {
   resize: vertical;
 }
 .stage-two-modal > footer {
+  border-top: 1px solid var(--ui-border, #dfe4e8);
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
-  padding: 0 24px 22px;
+  padding: 12px 18px;
+}
+.stage-two-modal > footer button {
+  min-height: 38px;
+  padding: 8px 12px;
 }
 .stage-two-modal > footer button:not(.primary) {
   background: #fff;
@@ -1253,10 +1328,10 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 /* Final invoice and payment settlement modals. */
 .settlement-overlay { align-items: center; background: rgb(15 23 42 / .58); backdrop-filter: blur(3px); display: flex; inset: 0; justify-content: center; overflow-y: auto; padding: 24px; position: fixed; z-index: 1000; }
-.settlement-modal { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 18px; box-shadow: 0 26px 70px rgb(15 23 42 / .32); color: var(--ui-text, #172033); max-height: calc(100vh - 48px); max-width: 1080px; overflow: auto; width: 100%; }
-.settlement-modal > header { align-items: center; border-bottom: 1px solid var(--ui-border, #dfe4e8); display: flex; gap: 16px; justify-content: space-between; padding: 20px 24px; }
+.settlement-modal { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 14px; box-sizing: border-box; box-shadow: 0 26px 70px rgb(15 23 42 / .32); color: var(--ui-text, #172033); max-height: calc(100vh - 48px); max-width: min(720px, 100%); overflow: auto; width: 100%; }
+.settlement-modal > header { align-items: center; border-bottom: 1px solid var(--ui-border, #dfe4e8); display: flex; gap: 16px; justify-content: space-between; padding: 15px 18px; }
 .settlement-modal header p { color: var(--ui-muted, #64748b); font-size: 11px; font-weight: 800; letter-spacing: .1em; margin: 0 0 5px; }
-.settlement-modal h3 { font-size: 22px; margin: 0; }
+.settlement-modal h3 { font-size: 20px; line-height: 1.25; margin: 0; }
 .settlement-message { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; color: #1d4ed8; font-size: 14px; font-weight: 650; line-height: 1.45; margin: 18px 24px; padding: 12px 14px; }
 .settlement-details { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 24px; }
 .settlement-details span, .invoice-totals span, .settlement-summary span { background: var(--ui-surface-subtle, #f8fafc); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 9px; display: grid; gap: 5px; min-width: 0; padding: 12px; }
@@ -1316,13 +1391,17 @@ html[data-theme="dark"] .stage-two-modal {
   border-color: #3b4b5e;
 }
 html[data-theme="dark"] .stage-two-modal > header,
-.stage-two-row,
-.stage-two-head {
+html[data-theme="dark"] .stage-two-row,
+html[data-theme="dark"] .stage-two-head,
+html[data-theme="dark"] .stage-two-totals {
   border-color: #334155;
 }
 html[data-theme="dark"] .stage-two-head,
-.stage-two-totals {
-  background: #223142;
+html[data-theme="dark"] .stage-two-totals,
+html[data-theme="dark"] .stage-two-row,
+html[data-theme="dark"] .stage-two-table-wrap {
+  background: #182231;
+  color: #e5edf6;
 }
 html[data-theme="dark"] .stage-two-table .divider {
   border-color: #3b4b5e;
@@ -1338,6 +1417,29 @@ html[data-theme="dark"] .stage-two-info {
   background: #172c4f;
   border-color: #285a9f;
   color: #bfdbfe;
+}
+html[data-theme="dark"] .settlement-modal .stage-two-info {
+  background: #173c32;
+  border-color: #267b5d;
+  color: #d1fae5;
+}
+html[data-theme="dark"] .settlement-modal .stage-two-notes input {
+  background: #111827;
+  border-color: #475569;
+  color: #f8fafc;
+}
+html[data-theme="dark"] .settlement-modal .stage-two-notes input:focus {
+  border-color: #34a77c;
+  box-shadow: 0 0 0 3px rgb(52 167 124 / .18);
+}
+html[data-theme="dark"] .final-invoice-modal .stage-two-totals > :last-child {
+  background: #173c32;
+  color: #d1fae5;
+}
+html[data-theme="dark"] .stage-two-close:hover,
+html[data-theme="dark"] .stage-two-close:focus-visible {
+  background: #223142 !important;
+  color: #f8fafc !important;
 }
 
 .stage-two-totals strong {
@@ -1979,326 +2081,6 @@ html[data-theme="dark"] .stage-two-close:hover, html[data-theme="dark"] .stage-t
 html[data-theme="dark"] .settlement-table-wrap th { background: transparent; border-color: #3b4b5e; }
 html[data-theme="dark"] .settlement-message { background: #182231; border-color: #285a9f; }
 @media (max-width: 700px) { .settlement-modal > header, .settlement-modal-content, .settlement-modal > footer { padding-left: 14px; padding-right: 14px; } .settlement-modal-content { padding-top: 12px; } .settlement-details, .invoice-totals, .settlement-inputs, .settlement-summary { grid-template-columns: 1fr; } }
-/* High-contrast dark theme for Challan movement modals. */
-html[data-theme="dark"] .settlement-modal,
-html[data-theme="dark"] .settlement-modal-content,
-html[data-theme="dark"] .settlement-modal > header,
-html[data-theme="dark"] .settlement-modal > footer { background: #182231; color: #f8fafc; }
-html[data-theme="dark"] .settlement-section h4,
-html[data-theme="dark"] .settlement-details b,
-html[data-theme="dark"] .invoice-totals b,
-html[data-theme="dark"] .settlement-summary b,
-html[data-theme="dark"] .settlement-table-wrap td,
-html[data-theme="dark"] .settlement-inputs label { color: #f8fafc; }
-html[data-theme="dark"] .settlement-modal header p,
-html[data-theme="dark"] .settlement-details small,
-html[data-theme="dark"] .invoice-totals small,
-html[data-theme="dark"] .settlement-invoice small,
-html[data-theme="dark"] .settlement-summary small,
-html[data-theme="dark"] .settlement-table-wrap th,
-html[data-theme="dark"] .settlement-table-wrap td small,
-html[data-theme="dark"] .settlement-invoice span { color: #cbd5e1; }
-html[data-theme="dark"] .settlement-details span,
-html[data-theme="dark"] .invoice-totals span,
-html[data-theme="dark"] .settlement-summary span { background: transparent; }
-html[data-theme="dark"] .settlement-inputs input { background: #182231; border-color: #475569; color: #f8fafc; }
-html[data-theme="dark"] .settlement-inputs input::placeholder { color: #94a3b8; }
-html[data-theme="dark"] .settlement-modal > footer button:not(.primary) { background: transparent; color: #f8fafc; }
-/* Keep read-only settlement content on native dark surfaces. */
-html[data-theme="dark"] .settlement-details span,
-html[data-theme="dark"] .invoice-totals span,
-html[data-theme="dark"] .settlement-summary span,
-html[data-theme="dark"] .settlement-table-wrap,
-html[data-theme="dark"] .settlement-table-wrap th,
-html[data-theme="dark"] .settlement-table-wrap td {
-  background: #182231;
-  border-color: #3b4b5e;
-}
-html[data-theme="dark"] .settlement-details span,
-html[data-theme="dark"] .invoice-totals span,
-html[data-theme="dark"] .settlement-summary span {
-  box-shadow: none;
-}
-html[data-theme="dark"] .settlement-message {
-  background: #182231;
-  color: #dbeafe;
-}
-html[data-theme="dark"] .settlement-invoice {
-  background: #173c32;
-  color: #f0fdf4;
-}
-html[data-theme="dark"] .settlement-inputs input,
-html[data-theme="dark"] .settlement-modal > footer button:not(.primary) {
-  background: #182231;
-}
-/* Match the Stage 2 movement popup to the dark settlement surface treatment. */
-html[data-theme="dark"] .stage-two-modal,
-html[data-theme="dark"] .stage-two-modal > header,
-html[data-theme="dark"] .stage-two-head,
-html[data-theme="dark"] .stage-two-totals,
-html[data-theme="dark"] .stage-two-row,
-html[data-theme="dark"] .stage-two-table-wrap {
-  background: #182231;
-  color: #e5edf6;
-}
-html[data-theme="dark"] .stage-two-head,
-html[data-theme="dark"] .stage-two-totals,
-html[data-theme="dark"] .stage-two-row,
-html[data-theme="dark"] .stage-two-row > *,
-html[data-theme="dark"] .stage-two-table .divider {
-  border-color: #3b4b5e;
-}
-html[data-theme="dark"] .stage-two-head,
-html[data-theme="dark"] .stage-two-totals small,
-html[data-theme="dark"] .stage-two-notes { color: #cbd5e1; }
-html[data-theme="dark"] .stage-two-row input,
-html[data-theme="dark"] .stage-two-notes textarea,
-html[data-theme="dark"] .stage-two-modal > footer button:not(.primary) {
-  background: #182231;
-  border-color: #475569;
-  color: #f8fafc;
-}
-/* Stage 3 / Stage 4: no grey pill treatment in dark mode. */
-html[data-theme="dark"] .settlement-details span,
-html[data-theme="dark"] .invoice-totals span,
-html[data-theme="dark"] .settlement-summary span {
-  background: transparent !important;
-  border-color: transparent !important;
-}
-html[data-theme="dark"] .settlement-modal header p,
-html[data-theme="dark"] .settlement-details small,
-html[data-theme="dark"] .invoice-totals small,
-html[data-theme="dark"] .settlement-invoice small,
-html[data-theme="dark"] .settlement-summary small,
-html[data-theme="dark"] .settlement-table-wrap th,
-html[data-theme="dark"] .settlement-table-wrap td small,
-html[data-theme="dark"] .settlement-invoice span,
-html[data-theme="dark"] .settlement-inputs label,
-html[data-theme="dark"] .settlement-details b,
-html[data-theme="dark"] .invoice-totals b,
-html[data-theme="dark"] .settlement-summary b,
-html[data-theme="dark"] .settlement-table-wrap td { color: #e5edf6; }
-html[data-theme="dark"] .settlement-inputs input { background: #111827; border-color: #334155; color: #f8fafc; }
-html[data-theme="dark"] .settlement-table-wrap,
-html[data-theme="dark"] .settlement-table-wrap th,
-html[data-theme="dark"] .settlement-table-wrap td { background: transparent; }
-html[data-theme="dark"] .settlement-message { background: transparent; border: 0; border-left: 3px solid #285a9f; border-radius: 0; padding-left: 10px; }
-
-/* Consistent UI treatment for the three Challan movement popups only. */
-.stage-two-modal,
-.settlement-modal {
-  border-radius: 14px;
-}
-.stage-two-modal > header,
-.settlement-modal > header {
-  padding: 15px 18px;
-}
-.stage-two-modal h3,
-.settlement-modal h3 {
-  font-size: 20px;
-  line-height: 1.25;
-}
-.stage-two-close {
-  align-items: center;
-  display: inline-flex;
-  font-size: 15px !important;
-  font-weight: 800;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
-}
-.stage-two-info,
-.settlement-message {
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.4;
-  margin: 14px 18px;
-  padding: 9px 11px;
-}
-.stage-two-table-wrap,
-.settlement-table-wrap {
-  border-radius: 8px;
-  margin-left: 18px;
-  margin-right: 18px;
-}
-.stage-two-head,
-.settlement-table-wrap th {
-  font-size: 10px;
-  padding: 8px 9px;
-}
-.stage-two-row > * {
-  min-height: 48px;
-  padding: 7px 8px;
-}
-.stage-two-row input,
-.settlement-inputs input {
-  border-radius: 7px;
-  height: 38px;
-  padding: 0 9px;
-  text-align: right;
-}
-.stage-two-notes {
-  font-size: 13px;
-  gap: 6px;
-  margin: 14px 18px;
-}
-.stage-two-notes textarea {
-  border-radius: 7px;
-  min-height: 72px;
-  padding: 9px;
-}
-.stage-two-totals {
-  background: transparent;
-}
-.stage-two-totals > * {
-  font-size: 12px;
-  min-height: 38px;
-  padding: 5px;
-}
-.stage-two-totals strong {
-  gap: 1px;
-}
-.stage-two-totals small {
-  font-size: 9px;
-}
-.settlement-modal-content {
-  padding: 14px 18px 0;
-}
-.settlement-section + .settlement-section {
-  margin-top: 16px;
-}
-.settlement-section h4 {
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-.settlement-details,
-.invoice-totals,
-.settlement-inputs,
-.settlement-summary {
-  gap: 8px;
-}
-.settlement-details span,
-.invoice-totals span,
-.settlement-summary span {
-  border-radius: 7px;
-  gap: 3px;
-  min-height: 0;
-  padding: 8px 9px;
-}
-.settlement-details small,
-.invoice-totals small,
-.settlement-invoice small,
-.settlement-summary small {
-  font-size: 10px;
-}
-.settlement-details b,
-.invoice-totals b,
-.settlement-summary b {
-  font-size: 14px;
-}
-.settlement-table-wrap {
-  margin: 0;
-}
-.settlement-table-wrap th,
-.settlement-table-wrap td {
-  padding: 8px 9px;
-}
-.settlement-table-wrap td {
-  font-size: 13px;
-  vertical-align: middle;
-}
-.settlement-invoice {
-  border-radius: 9px;
-  gap: 2px;
-  margin: 14px 0 16px;
-  padding: 10px 12px;
-}
-.settlement-invoice strong {
-  font-size: 23px;
-}
-.settlement-inputs {
-  margin-bottom: 12px;
-}
-.settlement-modal > footer,
-.stage-two-modal > footer {
-  gap: 8px;
-  padding: 12px 18px;
-}
-.settlement-modal > footer button,
-.stage-two-modal > footer button {
-  min-height: 38px;
-  padding: 8px 12px;
-}
-html[data-theme="dark"] .stage-two-modal,
-html[data-theme="dark"] .stage-two-modal > header,
-html[data-theme="dark"] .stage-two-modal > footer,
-html[data-theme="dark"] .settlement-modal,
-html[data-theme="dark"] .settlement-modal > header,
-html[data-theme="dark"] .settlement-modal-content,
-html[data-theme="dark"] .settlement-modal > footer {
-  background: #182231;
-  color: #e5edf6;
-}
-html[data-theme="dark"] .stage-two-head,
-html[data-theme="dark"] .stage-two-row,
-html[data-theme="dark"] .stage-two-totals,
-html[data-theme="dark"] .settlement-table-wrap,
-html[data-theme="dark"] .settlement-table-wrap th,
-html[data-theme="dark"] .settlement-table-wrap td {
-  background: transparent;
-  color: #e5edf6;
-}
-html[data-theme="dark"] .stage-two-totals,
-html[data-theme="dark"] .stage-two-head,
-html[data-theme="dark"] .stage-two-row,
-html[data-theme="dark"] .stage-two-table .divider,
-html[data-theme="dark"] .settlement-table-wrap,
-html[data-theme="dark"] .settlement-table-wrap th,
-html[data-theme="dark"] .settlement-table-wrap td {
-  border-color: #3b4b5e;
-}
-html[data-theme="dark"] .stage-two-totals small,
-html[data-theme="dark"] .stage-two-head,
-html[data-theme="dark"] .settlement-details small,
-html[data-theme="dark"] .invoice-totals small,
-html[data-theme="dark"] .settlement-summary small,
-html[data-theme="dark"] .settlement-table-wrap th {
-  color: #aebaca;
-}
-html[data-theme="dark"] .settlement-details span,
-html[data-theme="dark"] .invoice-totals span,
-html[data-theme="dark"] .settlement-summary span {
-  background: transparent !important;
-  border-color: #3b4b5e !important;
-}
-html[data-theme="dark"] .stage-two-row input,
-html[data-theme="dark"] .stage-two-notes textarea,
-html[data-theme="dark"] .settlement-inputs input,
-html[data-theme="dark"] .stage-two-modal > footer button:not(.primary),
-html[data-theme="dark"] .settlement-modal > footer button:not(.primary) {
-  background: #111827;
-  border-color: #475569;
-  color: #f8fafc;
-}
-html[data-theme="dark"] .stage-two-row input:focus,
-html[data-theme="dark"] .stage-two-notes textarea:focus,
-html[data-theme="dark"] .settlement-inputs input:focus {
-  border-color: var(--ui-emerald);
-  box-shadow: 0 0 0 3px rgb(54 173 126 / .18);
-  outline: 0;
-}
-@media (max-width: 700px) {
-  .stage-two-overlay,
-  .settlement-overlay { padding: 10px; }
-  .stage-two-modal > header,
-  .settlement-modal > header,
-  .settlement-modal-content,
-  .stage-two-modal > footer,
-  .settlement-modal > footer { padding-left: 14px; padding-right: 14px; }
-  .stage-two-info,
-  .stage-two-table-wrap,
-  .stage-two-notes { margin-left: 14px; margin-right: 14px; }
-}
 /* Consolidated Challan list and View presentation. */
 .challan-row { min-height: 58px; padding-bottom: 8px; padding-top: 8px; }
 .challan-actions { align-content: center; display: grid; gap: 5px; grid-template-columns: repeat(2, max-content); justify-content: start; }
