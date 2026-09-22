@@ -39,6 +39,7 @@ const formatAccountDate = (value) => {
 export default function AdminSettings() {
   const [tab, setTab] = useState("access"),
     [accounts, setAccounts] = useState([]),
+    [credentialsByUid, setCredentialsByUid] = useState({}),
     [accessId, setAccessId] = useState(""),
     [password, setPassword] = useState(""),
     [showPassword, setShowPassword] = useState(false),
@@ -56,6 +57,17 @@ export default function AdminSettings() {
           snapshot.docs
             .map((row) => row.data())
             .sort((a, b) => (a.accessId || "").localeCompare(b.accessId || "")),
+        ),
+      ),
+    [],
+  );
+  useEffect(
+    () =>
+      onSnapshot(collection(db, "staffCredentials"), (snapshot) =>
+        setCredentialsByUid(
+          Object.fromEntries(
+            snapshot.docs.map((row) => [row.id, row.data()]),
+          ),
         ),
       ),
     [],
@@ -256,6 +268,7 @@ export default function AdminSettings() {
               <EmployeeCard
                 key={account.uid}
                 account={account}
+                persistedPassword={credentialsByUid[account.uid]?.password}
                 createdCredentials={createdCredentials}
                 copied={copied}
                 onCopy={copy}
@@ -294,7 +307,7 @@ export default function AdminSettings() {
             empty="No inactive staff account history."
           >
             {inactiveStaff.map((account) => (
-              <EmployeeCard key={account.uid} account={account} historical />
+              <EmployeeCard key={account.uid} account={account} persistedPassword={credentialsByUid[account.uid]?.password} historical />
             ))}
           </AccountSection>
         </>
@@ -355,6 +368,7 @@ function AccountSection({ title, children, empty }) {
 }
 function EmployeeCard({
   account,
+  persistedPassword,
   createdCredentials,
   copied,
   onCopy,
@@ -363,9 +377,8 @@ function EmployeeCard({
   historical = false,
 }) {
   const isNew = createdCredentials?.accessId === account.accessId,
-    [showPassword, setShowPassword] = useState(false),
     assigned = permissionLabels(account),
-    password = isNew ? createdCredentials.password : "",
+    password = persistedPassword || (isNew ? createdCredentials.password : ""),
     deactivatedAt = account.deactivatedAt || account.accessRevokedAt;
   return (
     <div
@@ -390,7 +403,7 @@ function EmployeeCard({
           </span>
         )}
       </div>
-      {!historical && (
+      {(
         <section className="staff-credentials">
           <small>Login credentials</small>
           <div className="credential-row">
@@ -410,22 +423,16 @@ function EmployeeCard({
               <small>Password</small>
               {password ? (
                 <b className="credential-password">
-                  {showPassword ? password : "••••••••"}
+                  {password}
                 </b>
               ) : (
                 <em>
-                  Password is available only when this account is created.
+                  Password was not recorded for this legacy account.
                 </em>
               )}
             </span>
             {password && (
               <div>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
                 <button
                   type="button"
                   onClick={() => onCopy(password, "password-" + account.uid)}

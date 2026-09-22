@@ -18,6 +18,10 @@ service cloud.firestore {
       allow create: if admin() || (request.auth.uid == 'rK6ZhxFiauVodjzbssviy5sUyP03' && request.auth.uid == uid && request.resource.data.role == 'superadmin');
       allow list, update, delete: if admin();
     }
+    // Recoverable staff credentials are deliberately isolated from staff profiles.
+    match /staffCredentials/{uid} {
+      allow read, create, update, delete: if admin();
+    }
     match /inventory/{entry} {
       // Check Inventory is a read-only stock lookup available to every active staff account.
       allow read: if admin() || activeOrGraceEmployee();
@@ -54,4 +58,3 @@ service cloud.firestore {
     match /activityLogFirstLogins/{entry} { allow read: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
   }
 }
-

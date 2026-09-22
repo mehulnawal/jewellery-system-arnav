@@ -45,7 +45,14 @@ export async function createEmployee({ accessId, password, permissions }) {
     updatedAt: serverTimestamp(),
   };
   try {
-    await setDoc(doc(db, "employeeProfiles", credential.user.uid), profile);
+    await Promise.all([
+      setDoc(doc(db, "employeeProfiles", credential.user.uid), profile),
+      setDoc(doc(db, "staffCredentials", credential.user.uid), {
+        uid: credential.user.uid,
+        password: String(password),
+        createdAt: serverTimestamp(),
+      }),
+    ]);
   } catch (error) {
     await signOut(employeeAuth);
     throw error;
