@@ -148,6 +148,12 @@ export default function AdminSettings() {
     XLSX.utils.book_append_sheet(book, sheet, "Inventory");
     XLSX.writeFile(book, "inventory-import-template.xlsx");
   };
+  const downloadPurchaseTemplate = async () => {
+    const XLSX = await import("xlsx"), book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([PURCHASE_HEADERS]), "Purchases");
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([PURCHASE_ITEM_HEADERS]), "Items");
+    XLSX.writeFile(book, "purchase-import-template.xlsx");
+  };
   return (
     <section className="admin-settings">
       <header>
@@ -312,7 +318,7 @@ export default function AdminSettings() {
           </AccountSection>
         </>
       ) : tab === "templates" ? (
-        <ImportTemplates onDownload={downloadInventoryTemplate} />
+        <ImportTemplates onDownload={downloadInventoryTemplate} onDownloadPurchase={downloadPurchaseTemplate} />
       ) : (
         <article className="sku-settings">
           <div>
@@ -470,13 +476,12 @@ function EmployeeCard({
 function PermissionsEditor({ account, onSave }) {
   const [editing, setEditing] = useState(false);
   const [permissions, setPermissions] = useState(account.permissions || []);
-  useEffect(() => setPermissions(account.permissions || []), [account.permissions]);
   const toggle = (key) => setPermissions((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
   const save = async () => { await onSave(account, permissions); setEditing(false); };
-  return editing ? <section className="staff-permissions"><small>Edit permissions</small><div className="permission-list">{PERMISSIONS.map(([key, label]) => <label key={key}><input type="checkbox" checked={permissions.includes(key)} onChange={() => toggle(key)} />{label}</label>)}</div><button type="button" className="settings-primary" onClick={save}>Save permissions</button></section> : <button type="button" onClick={() => setEditing(true)}>Edit permissions</button>;
+  return editing ? <section className="staff-permissions"><small>Edit permissions</small><div className="permission-list">{PERMISSIONS.map(([key, label]) => <label key={key}><input type="checkbox" checked={permissions.includes(key)} onChange={() => toggle(key)} />{label}</label>)}</div><button type="button" className="settings-primary" onClick={save}>Save permissions</button></section> : <button type="button" onClick={() => { setPermissions(account.permissions || []); setEditing(true); }}>Edit permissions</button>;
 }
-function ImportTemplates({ onDownload }) {
-  const [inventoryOpen, setInventoryOpen] = useState(true);
+function ImportTemplates({ onDownload, onDownloadPurchase }) {
+  const [inventoryOpen, setInventoryOpen] = useState(true), [purchaseOpen, setPurchaseOpen] = useState(false);
   return (
     <article className="import-templates">
       <h3>Import Templates</h3>
@@ -608,6 +613,18 @@ function ImportTemplates({ onDownload }) {
             </div>
           </div>
         )}
+      </section>
+      <section className={`import-template-card ${purchaseOpen ? "is-open" : ""}`}>
+        <button type="button" className="import-template-toggle" aria-expanded={purchaseOpen} aria-controls="purchase-import-template-content" onClick={() => setPurchaseOpen((open) => !open)}>
+          <span><h4>Purchase</h4><p>Blank two-sheet workbook matching Purchase Import.</p></span><span className="import-template-chevron" aria-hidden="true" />
+        </button>
+        {purchaseOpen && <div id="purchase-import-template-content" className="import-template-content">
+          <button type="button" className="settings-primary" onClick={onDownloadPurchase}>Download Purchase Template</button>
+          <div className="import-template-rules">
+            <RuleSection title="Purchases sheet"><div className="import-header-chips">{PURCHASE_HEADERS.map((header) => <span key={header}>{header}</span>)}</div><p className="import-rule-note">One row per Purchase. Purchase ID is generated when the import is committed.</p></RuleSection>
+            <RuleSection title="Items sheet"><div className="import-header-chips">{PURCHASE_ITEM_HEADERS.map((header) => <span key={header}>{header}</span>)}</div><p className="import-rule-note">Every Item Import Ref must match a Purchases-sheet Import Ref. Unknown references are rejected.</p></RuleSection>
+          </div>
+        </div>}
       </section>
     </article>
   );

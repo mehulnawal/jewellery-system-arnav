@@ -714,6 +714,9 @@ export default function Inventory() {
       [items],
     ),
     weight = items.reduce((sum, item) => sum + Number(item.weight || 0), 0),
+    averageAge = items.length
+      ? items.reduce((sum, item) => sum + age(item), 0) / items.length
+      : 0,
     all =
       filtered.length > 0 &&
       filtered.every((item) => selected.includes(item.id));
@@ -816,6 +819,8 @@ export default function Inventory() {
       </header>
       <div className="inventory-metrics">
         {[
+          ["TOTAL INVENTORY", items.length],
+          ["AVERAGE AGING", `${averageAge.toFixed(1)} days`],
           ["TOTAL CVD", items.filter((item) => item.type === "CVD").length],
           ["TOTAL HP", items.filter((item) => item.type === "HP").length],
         ].map(([label, value, unit]) => (
