@@ -1086,6 +1086,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   display: flex;
   inset: 0;
   justify-content: center;
+  overflow: auto;
   padding: 24px;
   position: fixed;
   z-index: 100;
@@ -1094,6 +1095,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   background: var(--ui-surface, #fff);
   border: 1px solid var(--ui-border, #dfe4e8);
   border-radius: 18px;
+  box-sizing: border-box;
   box-shadow: 0 26px 70px rgb(15 23 42 / 0.28);
   color: var(--ui-text, #172033);
   max-height: calc(100vh - 48px);
