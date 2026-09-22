@@ -44,7 +44,25 @@ export default function App() {
               path="party-challan-history"
               element={<PartyChallanHistory />}
             />
+            <Route
+              path="admin/vendor-purchase-history"
+              element={<Navigate to="/dashboard/vendor-purchase-history" replace />}
+            />
+            <Route
+              path="admin/party-challan-history"
+              element={<Navigate to="/dashboard/party-challan-history" replace />}
+            />
           </Route>
+        </Route>
+        <Route element={<PermissionRoute adminOnly />}>
+          <Route
+            path="/admin/vendor-purchase-history"
+            element={<Navigate to="/dashboard/vendor-purchase-history" replace />}
+          />
+          <Route
+            path="/admin/party-challan-history"
+            element={<Navigate to="/dashboard/party-challan-history" replace />}
+          />
         </Route>
       </Route>
       <Route path="/login" element={<Login />} />
