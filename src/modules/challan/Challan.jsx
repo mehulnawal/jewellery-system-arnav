@@ -1174,6 +1174,18 @@ export default function Challan() {
       return;
     }
     if (previous.stage === 3) {
+      const rawFinalInvoiceAmount = previous.finalInvoice?.finalInvoiceAmount;
+      if (
+        rawFinalInvoiceAmount === undefined ||
+        rawFinalInvoiceAmount === null ||
+        rawFinalInvoiceAmount === "" ||
+        !Number.isFinite(Number(rawFinalInvoiceAmount))
+      ) {
+        setFormError(
+          "Final Invoice data is unavailable for this historical Challan. Settlement cannot be completed until the invoice record is available.",
+        );
+        return;
+      }
       setFinalSettlementCandidate(previous);
       return;
     }
@@ -1324,8 +1336,16 @@ export default function Challan() {
       if (!snapshot.exists() || Number(snapshot.data().stage) !== 3)
         throw new Error("This Challan is no longer in Stage 3.");
       const current = snapshot.data();
-      if (!current.finalInvoice)
-        throw new Error("A Final Invoice is required before settlement.");
+      const rawFinalInvoiceAmount = current.finalInvoice?.finalInvoiceAmount;
+      if (
+        rawFinalInvoiceAmount === undefined ||
+        rawFinalInvoiceAmount === null ||
+        rawFinalInvoiceAmount === "" ||
+        !Number.isFinite(Number(rawFinalInvoiceAmount))
+      )
+        throw new Error(
+          "Final Invoice data is unavailable for this historical Challan. Settlement cannot be completed until the invoice record is available.",
+        );
       if (current.finalSettlement)
         throw new Error("This Challan has already been settled.");
       if (
@@ -1333,7 +1353,7 @@ export default function Challan() {
         !Number.isFinite(Number(settlementDiscountAmount))
       )
         throw new Error("Amount Paid and Discount Amount must be valid numbers.");
-      const finalInvoiceAmount = money(current.finalInvoice.finalInvoiceAmount);
+      const finalInvoiceAmount = money(rawFinalInvoiceAmount);
       const paid = money(amountPaid), discount = money(settlementDiscountAmount);
       const remaining = money(finalInvoiceAmount - paid - discount);
       if (paid < 0 || discount < 0 || remaining !== 0)

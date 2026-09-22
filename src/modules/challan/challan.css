@@ -1205,30 +1205,89 @@ html[data-theme="dark"] .challan-aging-badge.red {
 .final-invoice-modal {
   max-width: min(1040px, 100%);
 }
+.final-invoice-modal h3,
+.stage-two-modal.settlement-modal h3 {
+  font-size: 28px;
+  font-weight: 650;
+}
+.final-invoice-modal > header small {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ui-muted, #64748b);
+  display: block;
+  font-size: 13px;
+  margin-top: 7px;
+  padding: 0 !important;
+}
 .final-invoice-modal .stage-two-table {
-  min-width: 900px;
+  min-width: 940px;
 }
 .final-invoice-modal .stage-two-head,
 .final-invoice-modal .stage-two-row {
   grid-template-columns: minmax(180px, 1.35fr) repeat(5, minmax(125px, .85fr));
 }
 .final-invoice-modal .stage-two-totals {
+  background: transparent;
+  border: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 20px 24px;
+}
+.final-invoice-modal .stage-two-totals > * {
+  align-content: center;
   border: 1px solid var(--ui-border, #dfe4e8);
   border-radius: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 14px 24px;
+  display: grid;
+  justify-content: start;
+  min-height: 72px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.final-invoice-modal .stage-two-totals small {
+  color: var(--ui-muted, #64748b);
+  font-size: 11px;
+}
+.final-invoice-modal .stage-two-totals > :last-child {
+  font-size: 22px;
 }
 .final-invoice-modal .stage-two-totals > :last-child {
   background: var(--ui-emerald-soft, #ecfdf5);
   color: var(--ui-emerald, #15803d);
 }
+.final-invoice-modal .stage-two-row b {
+  align-content: center;
+  display: grid;
+  font-weight: 750;
+}
+.final-invoice-modal .stage-two-row b small {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ui-muted, #64748b) !important;
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 4px;
+  padding: 0 !important;
+}
 .settlement-modal {
-  max-width: min(720px, 100%);
+  max-width: min(760px, calc(100vw - 32px));
+  width: min(760px, calc(100vw - 32px));
+}
+.settlement-modal > header small {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ui-muted, #64748b);
+  display: block;
+  font-size: 13px;
+  margin-top: 7px;
+  padding: 0 !important;
 }
 .settlement-modal .stage-two-info {
   background: var(--ui-emerald-soft, #ecfdf5);
   border-color: var(--ui-emerald, #16a34a);
   color: var(--ui-emerald, #15803d);
+  margin-bottom: 22px;
+  max-width: 360px;
+  padding: 14px 16px;
 }
 .settlement-modal .stage-two-notes input {
   background: var(--ui-surface, #fff);
@@ -1236,8 +1295,8 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-radius: 8px;
   color: var(--ui-text, #172033);
   font: inherit;
-  height: 40px;
-  padding: 0 10px;
+  height: 46px;
+  padding: 0 12px;
   text-align: right;
 }
 .settlement-modal .stage-two-notes input:focus {
@@ -1245,14 +1304,68 @@ html[data-theme="dark"] .challan-aging-badge.red {
   box-shadow: 0 0 0 3px rgb(22 163 74 / .14);
   outline: 0;
 }
+.settlement-modal .stage-two-notes {
+  color: var(--ui-text, #172033);
+  display: inline-grid;
+  font-size: 14px;
+  font-weight: 650;
+  margin: 0 0 22px;
+  vertical-align: top;
+  width: calc(50% - 10px);
+}
+.settlement-modal .stage-two-notes + .stage-two-notes {
+  margin-left: 16px;
+}
 .settlement-modal .stage-two-totals {
+  background: transparent;
+  border: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 18px 22px;
+}
+.settlement-modal .stage-two-totals > * {
+  align-content: center;
   border: 1px solid var(--ui-border, #dfe4e8);
   border-radius: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 14px 24px;
+  display: grid;
+  justify-content: start;
+  min-height: 68px;
+  padding: 12px;
+  text-align: left;
+}
+.settlement-modal .stage-two-totals small {
+  color: var(--ui-muted, #64748b);
+  font-size: 10px;
 }
 .settlement-modal .stage-two-totals > :last-child {
   color: var(--ui-emerald, #15803d);
+}
+.stage-two-modal.settlement-modal > footer {
+  flex-wrap: wrap;
+  padding: 16px 18px;
+}
+@media (max-width: 700px) {
+  .final-invoice-modal .stage-two-totals {
+    grid-template-columns: 1fr;
+    margin: 16px;
+  }
+  .settlement-modal .stage-two-notes {
+    display: grid;
+    margin: 0 0 16px;
+    width: 100%;
+  }
+  .settlement-modal .stage-two-notes + .stage-two-notes {
+    margin-left: 0;
+  }
+  .settlement-modal .stage-two-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0 16px 18px;
+  }
+  .settlement-modal > footer {
+    justify-content: stretch;
+  }
+  .settlement-modal > footer button {
+    flex: 1 1 220px;
+  }
 }
 .stage-two-row > label {
   display: grid;
@@ -1328,7 +1441,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 /* Final invoice and payment settlement modals. */
 .settlement-overlay { align-items: center; background: rgb(15 23 42 / .58); backdrop-filter: blur(3px); display: flex; inset: 0; justify-content: center; overflow-y: auto; padding: 24px; position: fixed; z-index: 1000; }
-.settlement-modal { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 14px; box-sizing: border-box; box-shadow: 0 26px 70px rgb(15 23 42 / .32); color: var(--ui-text, #172033); max-height: calc(100vh - 48px); max-width: min(720px, 100%); overflow: auto; width: 100%; }
+.settlement-modal { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 14px; box-sizing: border-box; box-shadow: 0 26px 70px rgb(15 23 42 / .32); color: var(--ui-text, #172033); max-height: calc(100vh - 32px); max-width: min(760px, calc(100vw - 32px)); overflow: auto; width: min(760px, calc(100vw - 32px)); }
 .settlement-modal > header { align-items: center; border-bottom: 1px solid var(--ui-border, #dfe4e8); display: flex; gap: 16px; justify-content: space-between; padding: 15px 18px; }
 .settlement-modal header p { color: var(--ui-muted, #64748b); font-size: 11px; font-weight: 800; letter-spacing: .1em; margin: 0 0 5px; }
 .settlement-modal h3 { font-size: 20px; line-height: 1.25; margin: 0; }
