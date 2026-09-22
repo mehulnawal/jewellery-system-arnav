@@ -1274,7 +1274,8 @@ html[data-theme="dark"] .challan-aging-badge.red {
   margin-top: 4px;
   padding: 0 !important;
 }
-.settlement-modal {
+.stage-two-modal.settlement-modal {
+  max-height: calc(100vh - 32px);
   max-width: min(720px, calc(100vw - 32px));
   width: min(720px, calc(100vw - 32px));
 }
@@ -1287,15 +1288,24 @@ html[data-theme="dark"] .challan-aging-badge.red {
   margin-top: 7px;
   padding: 0 !important;
 }
-.settlement-modal .stage-two-info {
+.settlement-modal .settlement-invoice-row {
   background: var(--ui-surface-subtle, #f8fafc);
   border-color: var(--ui-emerald, #16a34a);
-  color: var(--ui-emerald, #15803d);
+  color: var(--ui-text, #172033);
   justify-content: space-between;
-  margin: 0 26px 22px;
-  max-width: none;
+  margin: 22px 26px 0;
   min-height: 68px;
   padding: 14px 16px;
+}
+.settlement-modal .settlement-invoice-row span {
+  color: var(--ui-muted, #64748b);
+  font-size: 13px;
+  font-weight: 650;
+}
+.settlement-modal .settlement-invoice-row strong {
+  color: var(--ui-emerald, #15803d);
+  font-size: 22px;
+  line-height: 1.2;
 }
 .settlement-modal .stage-two-notes input {
   background: var(--ui-surface, #fff);
@@ -1312,26 +1322,28 @@ html[data-theme="dark"] .challan-aging-badge.red {
   box-shadow: 0 0 0 3px rgb(22 163 74 / .14);
   outline: 0;
 }
+.settlement-modal .settlement-input-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 22px 26px 0;
+}
 .settlement-modal .stage-two-notes {
   color: var(--ui-text, #172033);
-  display: inline-grid;
+  display: grid;
   font-size: 14px;
   font-weight: 650;
-  margin: 0 0 22px;
-  vertical-align: top;
-  width: calc(50% - 10px);
+  margin: 0;
+  width: auto;
 }
-.settlement-modal .stage-two-notes + .stage-two-notes {
-  margin-left: 16px;
-}
-.settlement-modal .stage-two-totals {
+.settlement-modal .settlement-summary-grid {
   background: var(--ui-surface-subtle, #f8fafc);
   border: 1px solid var(--ui-border, #dfe4e8);
   border-radius: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0 18px 22px;
+  margin: 22px 26px;
 }
-.settlement-modal .stage-two-totals > * {
+.settlement-modal .settlement-summary-grid > * {
   align-content: center;
   border: 0;
   border-radius: 0;
@@ -1341,34 +1353,62 @@ html[data-theme="dark"] .challan-aging-badge.red {
   padding: 12px;
   text-align: left;
 }
-.settlement-modal .stage-two-totals > * + * {
+.settlement-modal .settlement-summary-grid > * + * {
   border-left: 1px solid var(--ui-border, #dfe4e8);
 }
-.settlement-modal .stage-two-totals small {
+.settlement-modal .settlement-summary-grid small {
   color: var(--ui-muted, #64748b);
   font-size: 10px;
 }
-.settlement-modal .stage-two-totals > :last-child {
+.settlement-modal .settlement-summary-grid > :last-child {
   color: var(--ui-emerald, #15803d);
 }
 .stage-two-modal.settlement-modal > footer {
   flex-wrap: wrap;
-  padding: 16px 18px;
+  padding: 16px 26px 22px;
 }
+.stage-two-modal.legacy-invoice-modal {
+  max-width: min(480px, calc(100vw - 32px));
+  width: min(480px, calc(100vw - 32px));
+}
+.legacy-invoice-body {
+  color: var(--ui-text, #172033);
+  padding: 22px 26px;
+}
+.legacy-invoice-body p {
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+.legacy-invoice-body dl {
+  border-top: 1px solid var(--ui-border, #dfe4e8);
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding-top: 16px;
+}
+.legacy-invoice-body dl div {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+.legacy-invoice-body dt { color: var(--ui-muted, #64748b); }
+.legacy-invoice-body dd { font-weight: 700; margin: 0; text-align: right; }
+.legacy-invoice-modal > footer { padding: 16px 26px 22px; }
+html[data-theme="dark"] .legacy-invoice-body { color: #e5edf6; }
+html[data-theme="dark"] .legacy-invoice-body dl { border-color: #3b4b5e; }
 @media (max-width: 700px) {
   .final-invoice-modal .stage-two-totals {
     grid-template-columns: 1fr;
     margin: 16px;
   }
-  .settlement-modal .stage-two-notes {
-    display: grid;
-    margin: 0 0 16px;
-    width: 100%;
+  .settlement-modal .settlement-input-grid {
+    grid-template-columns: 1fr;
+    margin: 18px 16px 0;
   }
-  .settlement-modal .stage-two-notes + .stage-two-notes {
-    margin-left: 0;
+  .settlement-modal .settlement-invoice-row {
+    margin: 18px 16px 0;
   }
-  .settlement-modal .stage-two-totals {
+  .settlement-modal .settlement-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin: 0 16px 18px;
   }
@@ -2148,7 +2188,6 @@ html[data-theme="dark"] .challan-page nav button.active .challan-tab-main small 
 .challan-row.stage-column-hidden {
   grid-template-columns: minmax(180px, 1.2fr) minmax(190px, 1.45fr) 112px 82px 145px minmax(210px, 1.25fr);
 }
-.settlement-modal { display: flex; flex-direction: column; max-width: 1020px; overflow: hidden; }
 .settlement-modal > header { flex: 0 0 auto; padding: 16px 20px; }
 .settlement-modal h3 { font-size: 20px; line-height: 1.25; }
 .settlement-modal-content { min-height: 0; overflow: auto; padding: 16px 20px 4px; }

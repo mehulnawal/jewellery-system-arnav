@@ -747,12 +747,23 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
     <div className="stage-two-overlay" role="dialog" aria-modal="true" aria-label="Final Settlement" onMouseDown={onClose}>
       <section className="stage-two-modal settlement-modal" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><h3>Final Settlement</h3><small>{record.number} · {record.party}</small></div><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
-        <div className="stage-two-info"><span>Final Invoice Amount: <b>₹{finalInvoiceAmount.toFixed(2)}</b></span></div>
-        <label className="stage-two-notes">Amount Paid by Customer<input type="number" min="0" step="0.01" value={paid} onChange={(event) => setPaid(event.target.value)} /></label>
-        <label className="stage-two-notes">Discount Amount (₹)<input type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} /></label>
-        <div className="stage-two-totals"><strong><small>Final Invoice</small>₹{finalInvoiceAmount.toFixed(2)}</strong><strong><small>Amount Paid</small>₹{Number.isFinite(paidValue) ? money(paidValue).toFixed(2) : "0.00"}</strong><strong><small>Discount Amount</small>₹{Number.isFinite(discountValue) ? money(discountValue).toFixed(2) : "0.00"}</strong><strong><small>Remaining</small>₹{remaining.toFixed(2)}</strong></div>
+        <div className="stage-two-info settlement-invoice-row"><span>Final Invoice Amount</span><strong>₹{finalInvoiceAmount.toFixed(2)}</strong></div>
+        <div className="settlement-input-grid"><label className="stage-two-notes">Amount Paid by Customer<input type="number" min="0" step="0.01" value={paid} onChange={(event) => setPaid(event.target.value)} /></label><label className="stage-two-notes">Discount Amount (₹)<input type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} /></label></div>
+        <div className="stage-two-totals settlement-summary-grid"><strong><small>Final Invoice</small>₹{finalInvoiceAmount.toFixed(2)}</strong><strong><small>Amount Paid</small>₹{Number.isFinite(paidValue) ? money(paidValue).toFixed(2) : "0.00"}</strong><strong><small>Discount Amount</small>₹{Number.isFinite(discountValue) ? money(discountValue).toFixed(2) : "0.00"}</strong><strong><small>Remaining</small>₹{remaining.toFixed(2)}</strong></div>
         {error && <p className="stage-two-error">{error}</p>}
         <footer><button type="button" onClick={onClose}>Cancel</button><button type="button" className="primary" disabled={saving || !canComplete} onClick={submit}>{saving ? "Completing..." : "Record Payment / Complete"}</button></footer>
+      </section>
+    </div>
+  );
+};
+const LegacyInvoiceUnavailableModal = ({ record, onClose }) => {
+  usePageFreeze();
+  return (
+    <div className="stage-two-overlay legacy-invoice-overlay" role="dialog" aria-modal="true" aria-label="Final Invoice Unavailable" onMouseDown={onClose}>
+      <section className="stage-two-modal legacy-invoice-modal" onMouseDown={(event) => event.stopPropagation()}>
+        <header><div><h3>Final Invoice Unavailable</h3></div><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
+        <div className="legacy-invoice-body"><p>This historical Challan does not have a saved Final Invoice record.</p><p>Settlement cannot be completed until valid Final Invoice data is available.</p><dl><div><dt>Challan</dt><dd>{record.number || "Not recorded"}</dd></div><div><dt>Party</dt><dd>{record.party || "Not recorded"}</dd></div></dl></div>
+        <footer><button type="button" className="primary" onClick={onClose}>Close</button></footer>
       </section>
     </div>
   );
@@ -839,6 +850,7 @@ export default function Challan() {
   const [stageTwoCandidate, setStageTwoCandidate] = useState(null);
   const [finalInvoiceCandidate, setFinalInvoiceCandidate] = useState(null);
   const [finalSettlementCandidate, setFinalSettlementCandidate] = useState(null);
+  const [legacyInvoiceCandidate, setLegacyInvoiceCandidate] = useState(null);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -1181,9 +1193,7 @@ export default function Challan() {
         rawFinalInvoiceAmount === "" ||
         !Number.isFinite(Number(rawFinalInvoiceAmount))
       ) {
-        setFormError(
-          "Final Invoice data is unavailable for this historical Challan. Settlement cannot be completed until the invoice record is available.",
-        );
+        setLegacyInvoiceCandidate(previous);
         return;
       }
       setFinalSettlementCandidate(previous);
@@ -1506,7 +1516,7 @@ export default function Challan() {
   const printList = () => {
     const popup = window.open("", "_blank", "width=1200,height=800");
     if (!popup) {
-      window.alert("Please allow pop-ups to print Challans.");
+      setFormError("Please allow pop-ups to print Challans.");
       return;
     }
     const escape = (value) =>
@@ -1558,7 +1568,7 @@ export default function Challan() {
   const printChallan = (record) => {
     const popup = window.open("", "_blank", "width=1000,height=800");
     if (!popup) {
-      window.alert("Please allow pop-ups to print this Challan.");
+      setFormError("Please allow pop-ups to print this Challan.");
       return;
     }
     const escape = (value) =>
@@ -2508,6 +2518,12 @@ export default function Challan() {
           record={finalSettlementCandidate}
           onClose={() => setFinalSettlementCandidate(null)}
           onConfirm={confirmFinalSettlement}
+        />
+      )}{" "}
+      {legacyInvoiceCandidate && (
+        <LegacyInvoiceUnavailableModal
+          record={legacyInvoiceCandidate}
+          onClose={() => setLegacyInvoiceCandidate(null)}
         />
       )}{" "}
       {deleteCandidate && (
