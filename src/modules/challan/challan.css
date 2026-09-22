@@ -2301,7 +2301,7 @@ html[data-theme="dark"] .settlement-inputs input:focus {
 .challan-row { min-height: 58px; padding-bottom: 8px; padding-top: 8px; }
 .challan-actions { align-content: center; display: grid; gap: 5px; grid-template-columns: repeat(2, max-content); justify-content: start; }
 .challan-actions > button { font-size: 12px; line-height: 1.2; min-height: 30px; padding: 6px 8px; }
-.challan-actions > button:not(.challan-view-button) { grid-column: span 2; }
+.challan-workflow-button { max-width: 174px; }
 .challan-actions > button svg { height: 14px; width: 14px; }
 .challan-row-actions { gap: 5px; }
 .challan-row-actions button { font-size: 11px; min-height: 28px; padding: 5px 7px; }
@@ -2322,6 +2322,6 @@ html[data-theme="dark"] .challan-image-placeholder { border-color: #3b4b5e; }
 html[data-theme="dark"] .challan-image-placeholder button { background: #182231; border-color: #3b4b5e; color: #e5edf6; }
 html[data-theme="dark"] .challan-timeline-step small { background: transparent; border-color: transparent; color: #cbd5e1; }
 @media (max-width: 850px) { .challan-actions { grid-template-columns: repeat(2, max-content); } }
-@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-actions > button:not(.challan-view-button) { grid-column: auto; } .challan-view-payable { align-items: flex-start; flex-direction: column; } .challan-timeline-step small { margin-right: 0; max-width: 100%; } }
+@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-workflow-button { max-width: none; } .challan-view-payable { align-items: flex-start; flex-direction: column; } .challan-timeline-step small { margin-right: 0; max-width: 100%; } }
 @media print { .challan-aging-badge, .challan-image-placeholder, .challan-view-toolbar, .challan-view-current { display: none !important; } }
 .challan-view-types { color: var(--ui-emerald); display: inline-block; font-size: 12px; margin-top: 4px; }

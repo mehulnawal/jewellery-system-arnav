@@ -71,6 +71,14 @@ const invoiceSnapshotFor = (record) => {
     finalInvoiceAmount: money(grossAmount - stage1DiscountAmount),
   };
 };
+const historicalItemsFor = (record) => {
+  const stage = Number(record.stage || 1);
+  if (stage >= 3 && Array.isArray(record.finalInvoice?.items))
+    return record.finalInvoice.items;
+  if (stage >= 2 && Array.isArray(record.stage2Return?.items))
+    return record.stage2Return.items;
+  return record.items || [];
+};
 const challanSnapshot = (record) => ({
   challanNo: record.number || "",
   partyName: record.party || "",
@@ -1411,25 +1419,52 @@ export default function Challan() {
   );
   const exportList = async () => {
     const XLSX = await import("xlsx");
-    const rows = shown.map((row) => {
-      const age = challanAging(row, clock);
-      return {
+    const rows = shown.map((row) => ({
         "Challan No.": row.number,
         Party: row.party,
         Date: row.date,
-        Items: row.items.map((item) => item.sku).join(", "),
-        Pieces: row.items.reduce(
+        Type: (row.items || []).map((item) => item.type).filter(Boolean).join(", "),
+        Items: historicalItemsFor(row).map((item) => item.sku).join(", "),
+        Pieces: (row.items || []).reduce(
           (sum, item) => sum + pieceValue(item.pieces),
           0,
         ),
         Stage: "Stage " + row.stage + " - " + STAGES[row.stage],
-        Aging: age.label + " \u2022 " + age.elapsedLabel,
-        Amount: row.netAmount ?? row.amount ?? 0,
-      };
-    });
+        "Gross Amount": row.finalInvoice?.grossAmount ?? "",
+        "Stage 1 Discount Amount": row.finalInvoice?.stage1DiscountAmount ?? "",
+        "Final Invoice Amount": row.finalInvoice?.finalInvoiceAmount ?? "",
+        "Final Invoice Confirmed": row.finalInvoice?.confirmedAtMs ? formatStageDate(row.finalInvoice.confirmedAtMs) + ", " + formatStageTime(row.finalInvoice.confirmedAtMs) : "",
+        "Amount Paid": row.finalSettlement?.amountPaid ?? "",
+        "Settlement Discount": row.finalSettlement?.settlementDiscountAmount ?? "",
+        "Actual Received": row.finalSettlement?.actualReceivedAmount ?? "",
+        Completed: row.finalSettlement?.completedAtMs ? formatStageDate(row.finalSettlement.completedAtMs) + ", " + formatStageTime(row.finalSettlement.completedAtMs) : "",
+      }));
+    const itemRows = shown.flatMap((row) =>
+      historicalItemsFor(row).map((item) => ({
+        "Challan No.": row.number,
+        Stage: "Stage " + row.stage,
+        SKU: item.sku || "",
+        Shape: item.shape || "",
+        Size: item.size || "",
+        Type: item.type || "",
+        "Original Pieces": pieceValue(item.pieces ?? item.issuedPieces),
+        "Original Weight": Number(item.weight ?? item.issuedWeight ?? 0),
+        "Issued Pieces": row.stage >= 2 ? pieceValue(item.issuedPieces ?? item.pieces) : "",
+        "Issued Weight": row.stage >= 2 ? Number(item.issuedWeight ?? item.weight ?? 0) : "",
+        "Return Pieces": row.stage >= 2 && item.returnPieces !== undefined ? pieceValue(item.returnPieces) : "",
+        "Return Weight": row.stage >= 2 && item.returnWeight !== undefined ? Number(item.returnWeight) : "",
+        "Sold / Kept Pieces": row.stage >= 2 && item.soldPieces !== undefined ? pieceValue(item.soldPieces) : "",
+        "Sold / Kept Weight": row.stage >= 2 && item.soldWeight !== undefined ? Number(item.soldWeight) : "",
+        "Original Amount": Number(item.amount || 0),
+        "Stage 1 Discount %": Number(item.stage1DiscountPercent ?? item.discount ?? 0),
+        "Stage 1 Discount Amount": item.stage1DiscountAmount ?? "",
+        "Final Item Amount": item.finalAmount ?? "",
+      })),
+    );
     const sheet = XLSX.utils.json_to_sheet(rows);
     const book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "Challans");
+    XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(itemRows), "Items");
     XLSX.writeFile(book, "challans-" + today() + ".xlsx");
   };
   const printList = () => {
@@ -1453,7 +1488,6 @@ export default function Challan() {
     const body =
       shown
         .map((row) => {
-          const age = challanAging(row, clock);
           return (
             "<tr><td>" +
             escape(row.number) +
@@ -1469,19 +1503,15 @@ export default function Challan() {
             row.stage +
             " - " +
             escape(STAGES[row.stage]) +
-            "</td><td>" +
-            age.label +
-            " \u2022 " +
-            age.elapsedLabel +
             "</td></tr>"
           );
         })
         .join("") ||
-      "<tr><td colspan=7>No Challans match the current filters.</td></tr>";
+      "<tr><td colspan=6>No Challans match the current filters.</td></tr>";
     popup.document.write(
       "<!doctype html><html><head><title>Challan Management</title><style>body{font-family:Arial,sans-serif;color:#172033;margin:28px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left}th{background:#f1f5f9;font-size:11px;text-transform:uppercase}</style></head><body><h1>Challan Management</h1><p>Filtered list - " +
         shown.length +
-        " Challans</p><table><thead><tr><th>Challan No.</th><th>Party</th><th>Items</th><th>Date</th><th>Qty</th><th>Stage</th><th>Aging</th></tr></thead><tbody>" +
+        " Challans</p><table><thead><tr><th>Challan No.</th><th>Party</th><th>Items</th><th>Date</th><th>Qty</th><th>Stage</th></tr></thead><tbody>" +
         body +
         "</tbody></table></body></html>",
     );
@@ -1507,37 +1537,39 @@ export default function Challan() {
             "'": "&#039;",
           })[char],
       );
-    const created = timestampMs(record.createdAt),
-      items = (record.items || [])
-        .map(
-          (item) =>
-            "<tr><td>" +
-            escape(item.sku) +
-            "</td><td>" +
-            escape(item.shape) +
-            "</td><td>" +
-            escape(item.size) +
-            "</td><td>" +
-            escape(item.type) +
-            "</td><td>" +
-            Number(item.weight || 0).toFixed(3) +
-            " ct</td><td>" +
-            pieceValue(item.pieces) +
-            "</td><td>Rs. " +
-            Number(item.amount || 0).toFixed(2) +
-            "</td><td>" +
-            Number(item.discount || 0).toFixed(2) +
-            "%</td></tr>",
-        )
-        .join("");
-    const totalWeight = (record.items || []).reduce(
-        (sum, item) => sum + Number(item.weight || 0),
-        0,
-      ),
-      totalPieces = (record.items || []).reduce(
-        (sum, item) => sum + pieceValue(item.pieces),
-        0,
-      );
+    const stage = Number(record.stage || 1);
+    const items = historicalItemsFor(record);
+    const invoice = record.finalInvoice;
+    const settlement = record.finalSettlement;
+    const isFlowStage = stage === 2 || stage === 4;
+    const types = (record.items || []).map((item) => item.type).filter(Boolean).join(", ");
+    const totalAmount = money(items.reduce((sum, item) => sum + Number(item.amount || 0), 0));
+    const sumPiecesForPrint = (key) => items.reduce((sum, item) => sum + pieceValue(item[key]), 0);
+    const sumWeightForPrint = (key) => items.reduce((sum, item) => sum + Number(item[key] || 0), 0);
+    const totalDetails = stage === 1
+      ? "Items: " + items.length + " &nbsp; Pieces: " + sumPiecesForPrint("pieces") + " &nbsp; Weight: " + sumWeightForPrint("weight").toFixed(3) + " ct &nbsp; Original Amount: &#8377;" + totalAmount.toFixed(2)
+      : isFlowStage
+        ? "Items: " + items.length + " &nbsp; Issued: " + sumPiecesForPrint("issuedPieces") + " pcs / " + sumWeightForPrint("issuedWeight").toFixed(3) + " ct &nbsp; Returned: " + sumPiecesForPrint("returnPieces") + " pcs / " + sumWeightForPrint("returnWeight").toFixed(3) + " ct &nbsp; Sold / Kept: " + sumPiecesForPrint("soldPieces") + " pcs / " + sumWeightForPrint("soldWeight").toFixed(3) + " ct &nbsp; Original Amount: &#8377;" + totalAmount.toFixed(2)
+        : "Items: " + items.length + " &nbsp; Original Amount: &#8377;" + totalAmount.toFixed(2);
+    const headers = ["SKU / Item", "Shape", "Size"];
+    if (stage === 1) headers.push("Pieces", "Weight");
+    if (isFlowStage) headers.push("Issued Pieces", "Issued Weight", "Return Pieces", "Return Weight", "Sold / Kept Pieces", "Sold / Kept Weight");
+    if (stage === 3) headers.push("Sold / Kept");
+    headers.push("Original Amount", "Stage 1 Discount %");
+    const itemRows = items.map((item) => {
+      const cells = [escape(item.sku), escape(item.shape), escape(item.size)];
+      if (stage === 1) cells.push(pieceValue(item.pieces), Number(item.weight || 0).toFixed(3) + " ct");
+      if (isFlowStage) cells.push(pieceValue(item.issuedPieces ?? item.pieces), Number(item.issuedWeight ?? item.weight ?? 0).toFixed(3) + " ct", item.returnPieces === undefined ? "-" : pieceValue(item.returnPieces), item.returnWeight === undefined ? "-" : Number(item.returnWeight).toFixed(3) + " ct", item.soldPieces === undefined ? "-" : pieceValue(item.soldPieces), item.soldWeight === undefined ? "-" : Number(item.soldWeight).toFixed(3) + " ct");
+      if (stage === 3) cells.push((item.soldPieces === undefined ? "-" : pieceValue(item.soldPieces) + " pcs") + " / " + (item.soldWeight === undefined ? "-" : Number(item.soldWeight).toFixed(3) + " ct"));
+      cells.push("&#8377;" + money(item.amount).toFixed(2), money(item.stage1DiscountPercent ?? item.discount).toFixed(2) + "%");
+      return "<tr>" + cells.map((cell) => "<td>" + cell + "</td>").join("") + "</tr>";
+    }).join("");
+    const invoiceDetails = invoice
+      ? '<p class="total">Gross Amount: &#8377;' + money(invoice.grossAmount).toFixed(2) + (Number(invoice.stage1DiscountAmount) ? " &nbsp; Stage 1 Discount: -&#8377;" + money(invoice.stage1DiscountAmount).toFixed(2) : "") + " &nbsp; <strong>Final Invoice Amount: &#8377;" + money(invoice.finalInvoiceAmount).toFixed(2) + "</strong></p>" + (invoice.confirmedAtMs ? "<p>Final Invoice confirmed: " + escape(formatStageDate(invoice.confirmedAtMs) + ", " + formatStageTime(invoice.confirmedAtMs)) + "</p>" : "")
+      : "";
+    const settlementDetails = stage === 4 && settlement
+      ? '<p class="total">Amount Paid by Customer: &#8377;' + money(settlement.amountPaid).toFixed(2) + " &nbsp; Settlement Discount: &#8377;" + money(settlement.settlementDiscountAmount).toFixed(2) + " &nbsp; <strong>Actual Received: &#8377;" + money(settlement.actualReceivedAmount).toFixed(2) + "</strong></p>" + (settlement.completedAtMs ? "<p>Completed: " + escape(formatStageDate(settlement.completedAtMs) + ", " + formatStageTime(settlement.completedAtMs)) + "</p>" : "")
+      : "";
     const copy = (label) =>
       '<section class="copy"><header><b>' +
       label +
@@ -1545,21 +1577,24 @@ export default function Challan() {
       escape(record.number) +
       "</p><p><strong>Party:</strong> " +
       escape(record.party) +
-      "</p><p><strong>Created:</strong> " +
-      escape(formatStageDate(created) + ", " + formatStageTime(created)) +
+      "</p><p><strong>Date:</strong> " +
+      escape(record.date || formatStageDate(stageEnteredAt(record, 1)) || "-") +
+      "</p><p><strong>Type / CVD / HP:</strong> " +
+      escape(types || "-") +
       "</p><p><strong>Current Stage:</strong> Stage " +
       record.stage +
       " - " +
       escape(STAGES[record.stage]) +
-      "</p></div><table><thead><tr><th>Inventory SKU</th><th>Shape</th><th>Size</th><th>Type</th><th>Weight</th><th>Pieces</th><th>Amount</th><th>Discount</th></tr></thead><tbody>" +
-      items +
-      '</tbody></table><p class="total">Items: ' +
-      (record.items || []).length +
-      " Weight: " +
-      totalWeight.toFixed(3) +
-      " ct Pieces: " +
-      totalPieces +
-      '</p><p class="notes"><strong>Notes:</strong> ' +
+      "</p></div><table><thead><tr>" +
+      headers.map((header) => "<th>" + header + "</th>").join("") +
+      "</tr></thead><tbody>" +
+      itemRows +
+      '</tbody></table><p class="total">' +
+      totalDetails +
+      "</p>" +
+      invoiceDetails +
+      settlementDetails +
+      '<p class="notes"><strong>Notes:</strong> ' +
       escape(record.notes || "-") +
       "</p></section>";
     popup.document.write(
@@ -2274,15 +2309,15 @@ export default function Challan() {
       {shown.length ? (
         <div className="challan-list">
           {" "}
-          <div className="list-head">
+          <div className={`list-head ${tab === "all" ? "" : "stage-column-hidden"}`}>
             {" "}
             <span>Challan / Party</span> <span>Items</span> <span>Date</span>{" "}
-            <span>Total Pcs</span> <span>Stage</span> <span>Aging</span>{" "}
+            <span>Total Pcs</span> {tab === "all" && <span>Stage</span>} <span>Aging</span>{" "}
             <span>Actions</span>{" "}
           </div>{" "}
           {shown.map((row) => (
             <div
-              className={`challan-row aging-${challanAging(row, clock).status}`}
+              className={`challan-row aging-${challanAging(row, clock).status} ${tab === "all" ? "" : "stage-column-hidden"}`}
               key={row.id}
             >
               {" "}
@@ -2310,10 +2345,7 @@ export default function Challan() {
                   0,
                 )}{" "}
               </b>{" "}
-              <em className={`stage stage-${row.stage}`}>
-                {" "}
-                Stage {row.stage} - {STAGES[row.stage]}{" "}
-              </em>{" "}
+              {tab === "all" && <em className={`stage stage-${row.stage}`}>Stage {row.stage} - {STAGES[row.stage]}</em>}{" "}
               {(() => {
                 const age = challanAging(row, clock);
                 return (
@@ -2337,6 +2369,7 @@ export default function Challan() {
                   View{" "}
                 </button>{" "}
                 <button
+                  className="challan-workflow-button"
                   disabled={row.stage === 4}
                   onClick={() => advance(row.id)}
                 >
