@@ -1638,30 +1638,30 @@ export default function Challan() {
           </div>{" "}
         </section>
       );
-    const age = challanAging(viewRecord, clock),
-      items = viewRecord.items || [],
-      totalWeight = items.reduce(
-        (sum, item) => sum + Number(item.weight || 0),
-        0,
-      ),
-      totalPieces = items.reduce(
-        (sum, item) => sum + pieceValue(item.pieces),
-        0,
-      );
+    const stage = Number(viewRecord.stage || 1);
+    const issuedItems = viewRecord.items || [];
+    const returnItems = viewRecord.stage2Return?.items || [];
+    const invoice = viewRecord.finalInvoice;
+    const settlement = viewRecord.finalSettlement;
+    const items =
+      stage >= 3 && Array.isArray(invoice?.items) && invoice.items.length
+        ? invoice.items
+        : stage >= 2 && returnItems.length
+          ? returnItems
+          : issuedItems;
+    const sumNumber = (key) =>
+      items.reduce((total, item) => total + Number(item[key] || 0), 0);
+    const sumPieces = (key = "pieces") =>
+      items.reduce((total, item) => total + pieceValue(item[key]), 0);
+    const originalAmount = money(sumNumber("amount"));
+    const types = [...new Set(issuedItems.map((item) => item.type).filter(Boolean))];
+    const age = challanAging(viewRecord, clock);
     const message = {
       1: "Goods issued and awaiting return details",
       2: "Returned and kept goods recorded",
       3: "Payment due is pending",
       4: "Challan workflow completed",
     }[viewRecord.stage];
-    const next =
-      viewRecord.stage === 1
-        ? "Move to Stage 2"
-        : viewRecord.stage === 2
-          ? "Generate Final Invoice"
-          : viewRecord.stage === 3
-            ? "Record Payment / Complete"
-            : "";
     return (
       <section className="challan-page challan-view">
         {" "}
@@ -1697,17 +1697,13 @@ export default function Challan() {
               <h2>{viewRecord.party}</h2>{" "}
               <p>
                 {" "}
-                Created {formatStageDate(
-                  timestampMs(viewRecord.createdAt),
-                )}, {formatStageTime(timestampMs(viewRecord.createdAt))}{" "}
+                Date: {viewRecord.date || formatStageDate(stageEnteredAt(viewRecord, 1)) || "-"}
+                {types.length ? ` · Type / CVD / HP: ${types.join(", ")}` : ""}{" "}
               </p>{" "}
             </div>{" "}
             <div className="challan-view-status">
               {" "}
-              <span className={"challan-aging-badge " + age.status}>
-                {" "}
-                <i /> {age.label} <b>-</b> {age.elapsedLabel}{" "}
-              </span>{" "}
+              {stage < 4 && <span className={"challan-aging-badge " + age.status}><i /> {age.label} <b>-</b> {age.elapsedLabel}</span>}{" "}
               <em className={"stage stage-" + viewRecord.stage}>
                 {" "}
                 Stage {viewRecord.stage} - {STAGES[viewRecord.stage]}{" "}
@@ -1718,16 +1714,6 @@ export default function Challan() {
           <div className="challan-view-current">
             {" "}
             <strong>{message}</strong>{" "}
-            {viewRecord.stage < 4 && (
-              <button
-                className="primary"
-                type="button"
-                onClick={() => advance(viewRecord.id)}
-              >
-                {" "}
-                {next} <Icon name="arrow" />{" "}
-              </button>
-            )}{" "}
           </div>{" "}
           <div className="challan-view-divider" />{" "}
           <div className="challan-timeline">
@@ -1770,7 +1756,7 @@ export default function Challan() {
         </article>{" "}
         <article className="challan-view-card challan-view-items">
           {" "}
-          <h2>Items Issued</h2>{" "}
+          <h2>{stage === 1 ? "Original Goods Out" : stage === 2 ? "Return / Sale Outcome" : stage === 3 ? "Final Invoice" : "Complete Challan History"}</h2>{" "}
           <div className="challan-view-table-wrap">
             {" "}
             <table>
@@ -1778,40 +1764,37 @@ export default function Challan() {
               <thead>
                 {" "}
                 <tr>
-                  {" "}
-                  <th>Inventory SKU</th> <th>Shape</th> <th>Size</th>{" "}
-                  <th>Type</th> <th>Weight</th> <th>Pieces</th>{" "}
+                  <th>SKU / Item</th><th>Shape</th><th>Size</th>
+                  {stage === 1 && <><th>Pieces</th><th>Weight</th></>}
+                  {[2, 4].includes(stage) && <><th>Issued Pieces</th><th>Issued Weight</th><th>Return Pieces</th><th>Return Weight</th><th>Sold / Kept Pieces</th><th>Sold / Kept Weight</th></>}
+                  {stage === 3 && <th>Sold / Kept</th>}
+                  <th>Amount</th><th>Stage 1 Discount</th>{stage >= 3 && <th>Discount Amount</th>}
                 </tr>{" "}
               </thead>{" "}
               <tbody>
                 {" "}
                 {items.map((item, index) => (
                   <tr key={item.id || item.sku || index}>
-                    {" "}
-                    <td>{item.sku || "-"}</td> <td>{item.shape || "-"}</td>{" "}
-                    <td>{item.size || "-"}</td> <td>{item.type || "-"}</td>{" "}
-                    <td>{Number(item.weight || 0).toFixed(3)} ct</td>{" "}
-                    <td>{pieceValue(item.pieces)}</td>{" "}
+                    <td>{item.sku || "-"}</td><td>{item.shape || "-"}</td><td>{item.size || "-"}</td>
+                    {stage === 1 && <><td>{pieceValue(item.pieces)}</td><td>{Number(item.weight || 0).toFixed(3)} ct</td></>}
+                    {[2, 4].includes(stage) && <><td>{pieceValue(item.issuedPieces ?? item.pieces)}</td><td>{Number(item.issuedWeight ?? item.weight ?? 0).toFixed(3)} ct</td><td>{pieceValue(item.returnPieces)}</td><td>{Number(item.returnWeight || 0).toFixed(3)} ct</td><td>{pieceValue(item.soldPieces)}</td><td>{Number(item.soldWeight || 0).toFixed(3)} ct</td></>}
+                    {stage === 3 && <td>{pieceValue(item.soldPieces)} pcs / {Number(item.soldWeight || 0).toFixed(3)} ct</td>}
+                    <td>₹{money(item.amount).toFixed(2)}</td><td>{money(item.stage1DiscountPercent ?? item.discount).toFixed(2)}%</td>
+                    {stage >= 3 && <td>₹{money(item.stage1DiscountAmount ?? (money(item.amount) * money(item.discount)) / 100).toFixed(2)}</td>}
                   </tr>
                 ))}{" "}
               </tbody>{" "}
+              <tfoot><tr><td colSpan="3"><strong>Total Items: {items.length}</strong></td>{stage === 1 && <><td><strong>{sumPieces()}</strong></td><td><strong>{sumNumber("weight").toFixed(3)} ct</strong></td></>}{[2, 4].includes(stage) && <><td><strong>{sumPieces("issuedPieces")}</strong></td><td><strong>{sumNumber("issuedWeight").toFixed(3)} ct</strong></td><td><strong>{sumPieces("returnPieces")}</strong></td><td><strong>{sumNumber("returnWeight").toFixed(3)} ct</strong></td><td><strong>{sumPieces("soldPieces")}</strong></td><td><strong>{sumNumber("soldWeight").toFixed(3)} ct</strong></td></>}{stage === 3 && <td />}<td><strong>₹{originalAmount.toFixed(2)}</strong></td><td />{stage >= 3 && <td />}</tr></tfoot>
             </table>{" "}
           </div>{" "}
           <div className="challan-view-summary">
-            {" "}
-            <span>
-              {" "}
-              Items: <b>{items.length}</b>{" "}
-            </span>{" "}
-            <span>
-              {" "}
-              Weight: <b>{totalWeight.toFixed(3)} ct</b>{" "}
-            </span>{" "}
-            <span>
-              {" "}
-              Pieces: <b>{totalPieces}</b>{" "}
-            </span>{" "}
+            <span>Total Amount: <b>₹{originalAmount.toFixed(2)}</b></span>
+            {stage >= 3 && invoice && <><span>Gross Amount: <b>₹{money(invoice.grossAmount).toFixed(2)}</b></span><span>Stage 1 Discount Amount: <b>- ₹{money(invoice.stage1DiscountAmount).toFixed(2)}</b></span></>}
           </div>{" "}
+          {stage >= 3 && invoice && <div className="challan-view-payable"><small>FINAL INVOICE AMOUNT / TOTAL AMOUNT PAYABLE</small><strong>₹{money(invoice.finalInvoiceAmount).toFixed(2)}</strong></div>}
+          {stage >= 3 && invoice?.confirmedAtMs && <p>Final Invoice confirmed: {formatStageDate(invoice.confirmedAtMs)}, {formatStageTime(invoice.confirmedAtMs)}</p>}
+          {stage === 4 && settlement && <div className="challan-view-summary"><span>Amount Paid by Customer: <b>₹{money(settlement.amountPaid).toFixed(2)}</b></span><span>Settlement Discount: <b>₹{money(settlement.settlementDiscountAmount).toFixed(2)}</b></span><span>Actual Received: <b>₹{money(settlement.actualReceivedAmount).toFixed(2)}</b></span><span>Remaining: <b>₹{money(settlement.remaining).toFixed(2)}</b></span></div>}
+          {stage === 4 && settlement?.completedAtMs && <p>Completed: {formatStageDate(settlement.completedAtMs)}, {formatStageTime(settlement.completedAtMs)}</p>}
         </article>{" "}
         <article className="challan-view-card challan-view-notes">
           {" "}
@@ -1837,13 +1820,6 @@ export default function Challan() {
             </section>
           )}{" "}
         </article>{" "}
-        {stageTwoCandidate && (
-          <StageTwoModal
-            record={stageTwoCandidate}
-            onClose={() => setStageTwoCandidate(null)}
-            onConfirm={confirmStageTwo}
-          />
-        )}{" "}
       </section>
     );
   }
