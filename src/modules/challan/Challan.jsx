@@ -717,7 +717,7 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
   };
   return (
     <div className="stage-two-overlay" role="dialog" aria-modal="true" aria-label="Final Invoice Review" onMouseDown={onClose}>
-      <section className="stage-two-modal" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="stage-two-modal final-invoice-modal" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><h3>Final Invoice Review</h3><small>{record.number} · {record.date} · {record.party}</small></div><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
         <div className="stage-two-table-wrap"><div className="stage-two-table">
           <div className="stage-two-head"><span>SKU / TYPE</span><span>ISSUED</span><span>RETURN</span><span>SOLD / KEPT</span><span>AMOUNT</span><span>STAGE 1 DISCOUNT</span></div>
@@ -745,7 +745,7 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
   };
   return (
     <div className="stage-two-overlay" role="dialog" aria-modal="true" aria-label="Final Settlement" onMouseDown={onClose}>
-      <section className="stage-two-modal" onMouseDown={(event) => event.stopPropagation()}>
+      <section className="stage-two-modal settlement-modal" onMouseDown={(event) => event.stopPropagation()}>
         <header><div><h3>Final Settlement</h3><small>{record.number} · {record.party}</small></div><button type="button" className="stage-two-close" onClick={onClose} aria-label="Close">×</button></header>
         <div className="stage-two-info"><span>Final Invoice Amount: <b>₹{finalInvoiceAmount.toFixed(2)}</b></span></div>
         <label className="stage-two-notes">Amount Paid by Customer<input type="number" min="0" step="0.01" value={paid} onChange={(event) => setPaid(event.target.value)} /></label>
