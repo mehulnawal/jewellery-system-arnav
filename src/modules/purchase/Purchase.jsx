@@ -803,7 +803,8 @@ export default function Purchase() {
         itemRows = XLSX.utils.sheet_to_json(
           wb.Sheets.Items || wb.Sheets.items || {},
         );
-      const refs = new Map();
+      const refs = new Map(),
+        unmatchedItemRows = [];
       purchaseRows.forEach((row, index) => {
         const ref =
           String(row["Import Ref"] || "").trim() || `Row ${index + 2}`;
@@ -825,7 +826,16 @@ export default function Purchase() {
       itemRows.forEach((row, index) => {
         const ref = String(row["Import Ref"] || "").trim(),
           group = refs.get(ref);
-        if (!group) return;
+        if (!group) {
+          unmatchedItemRows.push({
+            ref: `Item Row ${index + 2}`,
+            purchase: { vendorName: "", items: [] },
+            errors: [
+              `Unknown Import Ref "${ref || "(blank)"}" — no matching Purchase row.`,
+            ],
+          });
+          return;
+        }
         const check = validatePurchaseItem(
           {
             type: row.Type,
@@ -867,6 +877,7 @@ export default function Purchase() {
         Object.assign(p, pricingFor(p.amount, p.discount));
         return group;
       });
+      rows.push(...unmatchedItemRows);
       setModal({ type: "import", rows });
     } catch {
       toast(
