@@ -42,6 +42,44 @@ const pricingFor = (amount, discount) => {
   };
 };
 const money = (value) => Number((Number(value) || 0).toFixed(2));
+const inrFormatter = new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const hasStoredNumber = (value) =>
+  value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+const viewCurrency = (value, fallback = "—") =>
+  hasStoredNumber(value) ? inrFormatter.format(Number(value)) : fallback;
+const viewWeight = (value, fallback = "—") =>
+  hasStoredNumber(value) ? `${Number(value).toFixed(3)} ct` : fallback;
+const viewPieces = (value, fallback = "—") =>
+  hasStoredNumber(value) ? String(pieceValue(value)) : fallback;
+const sumStored = (items, key) => {
+  let found = false;
+  const total = (items || []).reduce((sum, item) => {
+    if (!hasStoredNumber(item[key])) return sum;
+    found = true;
+    return sum + Number(item[key]);
+  }, 0);
+  return found ? total : undefined;
+};
+const sumStoredBy = (items, read) => {
+  let found = false;
+  const total = (items || []).reduce((sum, item) => {
+    const value = read(item);
+    if (!hasStoredNumber(value)) return sum;
+    found = true;
+    return sum + Number(value);
+  }, 0);
+  return found ? total : undefined;
+};
+const viewPercent = (value) => (hasStoredNumber(value) ? `${Number(value)}%` : "—");
+const soldKeptText = (item) =>
+  hasStoredNumber(item.soldPieces) || hasStoredNumber(item.soldWeight)
+    ? `${viewPieces(item.soldPieces)} pcs / ${viewWeight(item.soldWeight)}`
+    : "—";
 const invoiceSnapshotFor = (record) => {
   const stageTwoItems = record.stage2Return?.items;
   if (!Array.isArray(stageTwoItems) || !stageTwoItems.length)
@@ -785,6 +823,55 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
     </div>
   );
 };
+const StageOneView = ({ items }) => (
+  <article className="challan-view-card challan-view-items challan-view-stage-one">
+    <h2>Goods Out Details</h2>
+    <ViewTable>
+      <thead><tr><th>SKU / Item</th><th>Shape</th><th>Size</th><th>Pieces</th><th>Weight</th><th>Amount</th><th>Discount %</th></tr></thead>
+      <tbody>{items.map((item, index) => <tr key={item.id || item.sku || index}><td>{item.sku || "—"}</td><td>{item.shape || "—"}</td><td>{item.size || "—"}</td><td>{viewPieces(item.pieces)}</td><td>{viewWeight(item.weight)}</td><td>{viewCurrency(item.amount)}</td><td>{viewPercent(item.discount)}</td></tr>)}</tbody>
+      <tfoot><tr><td colSpan="3"><strong>Total Items: {items.length}</strong></td><td><strong>{viewPieces(sumStored(items, "pieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "weight"))}</strong></td><td><strong>{viewCurrency(sumStored(items, "amount"))}</strong></td><td /></tr></tfoot>
+    </ViewTable>
+  </article>
+);
+const StageTwoView = ({ items }) => (
+  <article className="challan-view-card challan-view-items challan-view-stage-two">
+    <h2>Return / Sale Details</h2>
+    {items.length ? <ViewTable>
+      <thead><tr><th>SKU / Item</th><th>Shape</th><th>Size</th><th>Issued Pieces</th><th>Issued Weight</th><th>Return Pieces</th><th>Return Weight</th><th>Sold / Kept Pieces</th><th>Sold / Kept Weight</th><th>Amount</th><th>Discount %</th></tr></thead>
+      <tbody>{items.map((item, index) => <tr key={item.id || item.sku || index}><td>{item.sku || "—"}</td><td>{item.shape || "—"}</td><td>{item.size || "—"}</td><td>{viewPieces(item.issuedPieces)}</td><td>{viewWeight(item.issuedWeight)}</td><td>{viewPieces(item.returnPieces)}</td><td>{viewWeight(item.returnWeight)}</td><td>{viewPieces(item.soldPieces)}</td><td>{viewWeight(item.soldWeight)}</td><td>{viewCurrency(item.amount)}</td><td>{viewPercent(item.discount)}</td></tr>)}</tbody>
+      <tfoot><tr><td colSpan="3"><strong>Total Items: {items.length}</strong></td><td><strong>{viewPieces(sumStored(items, "issuedPieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "issuedWeight"))}</strong></td><td><strong>{viewPieces(sumStored(items, "returnPieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "returnWeight"))}</strong></td><td><strong>{viewPieces(sumStored(items, "soldPieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "soldWeight"))}</strong></td><td><strong>{viewCurrency(sumStored(items, "amount"))}</strong></td><td /></tr></tfoot>
+    </ViewTable> : <p className="challan-view-unavailable">Return / Sale details are unavailable for this historical Challan.</p>}
+  </article>
+);
+const StageThreeView = ({ invoice }) => {
+  const items = Array.isArray(invoice?.items) ? invoice.items : [];
+  return <article className="challan-view-card challan-view-items challan-view-stage-three">
+    <h2>Final Invoice</h2>
+    {items.length ? <ViewTable>
+      <thead><tr><th>SKU / Item</th><th>Shape</th><th>Size</th><th>Sold / Kept</th><th>Amount</th><th>Stage 1 Discount</th><th>Discount Amount</th></tr></thead>
+      <tbody>{items.map((item, index) => <tr key={item.id || item.sku || index}><td>{item.sku || "—"}</td><td>{item.shape || "—"}</td><td>{item.size || "—"}</td><td>{soldKeptText(item)}</td><td>{viewCurrency(item.grossAmount ?? item.amount)}</td><td>{viewPercent(item.stage1DiscountPercent)}</td><td>{viewCurrency(item.stage1DiscountAmount)}</td></tr>)}</tbody>
+    </ViewTable> : <p className="challan-view-unavailable">Final Invoice data is unavailable for this historical Challan.</p>}
+    <InvoiceSummary invoice={invoice} />
+    <p className="challan-view-timestamp">Final Invoice confirmed: {invoice?.confirmedAtMs ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}` : "—"}</p>
+  </article>;
+};
+const StageFourView = ({ items, invoice, settlement }) => (
+  <article className="challan-view-card challan-view-items challan-view-stage-four">
+    <h2>Complete Challan History</h2>
+    {items.length ? <ViewTable>
+      <thead><tr><th>SKU / Item</th><th>Shape</th><th>Size</th><th>Issued Pieces</th><th>Issued Weight</th><th>Return Pieces</th><th>Return Weight</th><th>Sold / Kept Pieces</th><th>Sold / Kept Weight</th><th>Amount</th><th>Stage 1 Discount</th><th>Discount Amount</th></tr></thead>
+      <tbody>{items.map((item, index) => <tr key={item.id || item.sku || index}><td>{item.sku || "—"}</td><td>{item.shape || "—"}</td><td>{item.size || "—"}</td><td>{viewPieces(item.issuedPieces)}</td><td>{viewWeight(item.issuedWeight)}</td><td>{viewPieces(item.returnPieces)}</td><td>{viewWeight(item.returnWeight)}</td><td>{viewPieces(item.soldPieces)}</td><td>{viewWeight(item.soldWeight)}</td><td>{viewCurrency(item.grossAmount ?? item.amount)}</td><td>{viewPercent(item.stage1DiscountPercent ?? item.discount)}</td><td>{viewCurrency(item.stage1DiscountAmount)}</td></tr>)}</tbody>
+      <tfoot><tr><td colSpan="3"><strong>Total Items: {items.length}</strong></td><td><strong>{viewPieces(sumStored(items, "issuedPieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "issuedWeight"))}</strong></td><td><strong>{viewPieces(sumStored(items, "returnPieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "returnWeight"))}</strong></td><td><strong>{viewPieces(sumStored(items, "soldPieces"))}</strong></td><td><strong>{viewWeight(sumStored(items, "soldWeight"))}</strong></td><td><strong>{viewCurrency(sumStoredBy(items, (item) => item.grossAmount ?? item.amount))}</strong></td><td /><td><strong>{viewCurrency(sumStored(items, "stage1DiscountAmount"))}</strong></td></tr></tfoot>
+    </ViewTable> : <p className="challan-view-unavailable">Complete item history is unavailable for this historical Challan.</p>}
+    <CompletedFinancialSummary invoice={invoice} settlement={settlement} />
+    <p className="challan-view-timestamp">Final Invoice confirmed: {invoice?.confirmedAtMs ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}` : "—"}</p>
+    <p className="challan-view-timestamp">Completed: {settlement?.completedAtMs ? `${formatStageDate(settlement.completedAtMs)}, ${formatStageTime(settlement.completedAtMs)}` : "—"}</p>
+  </article>
+);
+const ViewTable = ({ children }) => <div className="challan-view-table-wrap"><table>{children}</table></div>;
+const InvoiceSummary = ({ invoice }) => <div className="challan-financial-summary" aria-label="Final Invoice financial summary"><div><small>Gross Amount</small><strong>{viewCurrency(invoice?.grossAmount, "Unavailable")}</strong></div><div><small>Stage 1 Discount</small><strong>{hasStoredNumber(invoice?.stage1DiscountAmount) ? `− ${viewCurrency(invoice.stage1DiscountAmount)}` : "Unavailable"}</strong></div><div className="final"><small>Final Invoice</small><strong>{viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}</strong></div></div>;
+const CompletedFinancialSummary = ({ invoice, settlement }) => <div className="challan-completed-financials" aria-label="Completed Challan financial summary"><div><small>Gross Amount</small><strong>{viewCurrency(invoice?.grossAmount, "Unavailable")}</strong></div><div><small>Stage 1 Discount</small><strong>{hasStoredNumber(invoice?.stage1DiscountAmount) ? `− ${viewCurrency(invoice.stage1DiscountAmount)}` : "Unavailable"}</strong></div><div className="final"><small>Final Invoice</small><strong>{viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}</strong></div><div><small>Amount Paid</small><strong>{viewCurrency(settlement?.amountPaid)}</strong></div><div><small>Settlement Discount</small><strong>{viewCurrency(settlement?.settlementDiscountAmount)}</strong></div><div><small>Actual Received</small><strong>{viewCurrency(settlement?.actualReceivedAmount)}</strong></div></div>;
+
 export default function Challan() {
   const { user } = useAuth();
   const location = useLocation();
@@ -1700,16 +1787,18 @@ export default function Challan() {
     const returnItems = viewRecord.stage2Return?.items || [];
     const invoice = viewRecord.finalInvoice;
     const settlement = viewRecord.finalSettlement;
-    const items =
-      stage >= 3 && Array.isArray(invoice?.items) && invoice.items.length
-        ? invoice.items
-        : stage >= 2 && returnItems.length
-          ? returnItems
-          : issuedItems;
-    const sumNumber = (key) =>
-      items.reduce((total, item) => total + Number(item[key] || 0), 0);
-    const sumPieces = (key = "pieces") =>
-      items.reduce((total, item) => total + pieceValue(item[key]), 0);
+    const invoiceItems = Array.isArray(invoice?.items) ? invoice.items : [];
+    const stageFourItems = (returnItems.length ? returnItems : invoiceItems).map((item) => {
+      const invoiceItem = invoiceItems.find((candidate) =>
+        (candidate.sourceInventoryId || candidate.inventoryId || candidate.sku) ===
+        (item.sourceInventoryId || item.inventoryId || item.sku),
+      );
+      return invoiceItem ? { ...item, ...invoiceItem } : item;
+    });
+    // Retained only until historical source cleanup; rendering below uses explicit stage views.
+    const items = stage >= 3 && invoiceItems.length ? invoiceItems : stage >= 2 && returnItems.length ? returnItems : issuedItems;
+    const sumNumber = (key) => items.reduce((total, item) => total + Number(item[key] || 0), 0);
+    const sumPieces = (key = "pieces") => items.reduce((total, item) => total + pieceValue(item[key]), 0);
     const originalAmount = money(sumNumber("amount"));
     const types = [...new Set(issuedItems.map((item) => item.type).filter(Boolean))];
     const age = challanAging(viewRecord, clock);
@@ -1799,19 +1888,19 @@ export default function Challan() {
                   </div>{" "}
                   {stage < 4 && <i className="challan-timeline-line" />}{" "}
                   <b>Stage {stage}</b> <span>{STAGES[stage]}</span>{" "}
-                  {entered && (
-                    <small>
-                      {" "}
-                      {formatStageDate(entered)} <br />{" "}
-                      {formatStageTime(entered)}{" "}
-                    </small>
-                  )}{" "}
+                  <small>
+                    {entered ? <>{formatStageDate(entered)} <br /> {formatStageTime(entered)}</> : "—"}
+                  </small>{" "}
                 </div>
               );
             })}{" "}
           </div>{" "}
         </article>{" "}
-        <article className="challan-view-card challan-view-items">
+        {stage === 1 && <StageOneView items={issuedItems} />}
+        {stage === 2 && <StageTwoView items={returnItems} />}
+        {stage === 3 && <StageThreeView invoice={invoice} />}
+        {stage === 4 && <StageFourView items={stageFourItems} invoice={invoice} settlement={settlement} />}
+        {stage === 0 && <article className="challan-view-card challan-view-items">
           {" "}
           <h2>{stage === 1 ? "Original Goods Out" : stage === 2 ? "Return / Sale Outcome" : stage === 3 ? "Final Invoice" : "Complete Challan History"}</h2>{" "}
           <div className="challan-view-table-wrap">
@@ -1852,7 +1941,7 @@ export default function Challan() {
           {stage >= 3 && invoice?.confirmedAtMs && <p>Final Invoice confirmed: {formatStageDate(invoice.confirmedAtMs)}, {formatStageTime(invoice.confirmedAtMs)}</p>}
           {stage === 4 && settlement && <div className="challan-view-summary"><span>Amount Paid by Customer: <b>₹{money(settlement.amountPaid).toFixed(2)}</b></span><span>Settlement Discount: <b>₹{money(settlement.settlementDiscountAmount).toFixed(2)}</b></span><span>Actual Received: <b>₹{money(settlement.actualReceivedAmount).toFixed(2)}</b></span><span>Remaining: <b>₹{money(settlement.remaining).toFixed(2)}</b></span></div>}
           {stage === 4 && settlement?.completedAtMs && <p>Completed: {formatStageDate(settlement.completedAtMs)}, {formatStageTime(settlement.completedAtMs)}</p>}
-        </article>{" "}
+        </article>}
         <article className="challan-view-card challan-view-notes">
           {" "}
           <h2>Comments / Notes</h2>{" "}

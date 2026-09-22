@@ -2261,6 +2261,35 @@ html[data-theme="dark"] .settlement-message { background: #182231; border-color:
 .challan-view-payable { align-items: baseline; background: var(--ui-emerald-soft); border: 1px solid var(--ui-border); border-radius: 8px; display: flex; gap: 10px; justify-content: space-between; margin-top: 14px; padding: 12px 14px; }
 .challan-view-payable small { color: var(--ui-muted); font-size: 11px; font-weight: 800; letter-spacing: .06em; }
 .challan-view-payable strong { color: var(--ui-emerald); font-size: 21px; }
+.challan-view-unavailable { color: var(--ui-muted); margin: 0; padding: 12px 0; }
+.challan-view-timestamp { color: var(--ui-muted); font-size: 13px; margin: 14px 0 0; }
+.challan-financial-summary,
+.challan-completed-financials { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 10px; display: grid; margin-top: 16px; overflow: hidden; }
+.challan-financial-summary { grid-template-columns: 1fr 1fr 1.15fr; }
+.challan-completed-financials { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.challan-financial-summary > div,
+.challan-completed-financials > div { border-left: 1px solid var(--ui-border); display: grid; gap: 5px; min-width: 0; padding: 14px 16px; }
+.challan-financial-summary > div:first-child,
+.challan-completed-financials > div:nth-child(3n + 1) { border-left: 0; }
+.challan-completed-financials > div:nth-child(n + 4) { border-top: 1px solid var(--ui-border); }
+.challan-financial-summary small,
+.challan-completed-financials small { color: var(--ui-muted); font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.challan-financial-summary strong,
+.challan-completed-financials strong { color: var(--ui-text); font-size: 18px; overflow-wrap: anywhere; }
+.challan-financial-summary .final,
+.challan-completed-financials .final { background: color-mix(in srgb, var(--ui-emerald-soft) 74%, var(--ui-surface)); }
+.challan-financial-summary .final strong,
+.challan-completed-financials .final strong { color: var(--ui-emerald-dark); font-size: 20px; }
+html[data-theme="dark"] .challan-financial-summary,
+html[data-theme="dark"] .challan-completed-financials { background: #182231; border-color: #3b4b5e; }
+html[data-theme="dark"] .challan-financial-summary > div,
+html[data-theme="dark"] .challan-completed-financials > div { border-color: #3b4b5e; }
+html[data-theme="dark"] .challan-financial-summary .final,
+html[data-theme="dark"] .challan-completed-financials .final { background: #173c32; }
+html[data-theme="dark"] .challan-financial-summary strong,
+html[data-theme="dark"] .challan-completed-financials strong { color: #e5edf6; }
+html[data-theme="dark"] .challan-financial-summary .final strong,
+html[data-theme="dark"] .challan-completed-financials .final strong { color: #8ce0ba; }
 .challan-image-placeholder { align-items: center; border: 1px dashed var(--ui-border); border-radius: 9px; display: flex; flex-wrap: wrap; gap: 9px 14px; margin-top: 18px; padding: 12px; }
 .challan-image-placeholder b { font-size: 14px; }
 .challan-image-placeholder span { color: var(--ui-muted); flex: 1 1 210px; font-size: 12px; }
@@ -2270,6 +2299,6 @@ html[data-theme="dark"] .challan-view-payable { background: #173c32; border-colo
 html[data-theme="dark"] .challan-image-placeholder { border-color: #3b4b5e; }
 html[data-theme="dark"] .challan-image-placeholder button { background: #182231; border-color: #3b4b5e; color: #e5edf6; }
 @media (max-width: 850px) { .challan-actions { grid-template-columns: repeat(2, max-content); } }
-@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-workflow-button { max-width: none; } .challan-view-payable { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-workflow-button { max-width: none; } .challan-view-payable { align-items: flex-start; flex-direction: column; } .challan-financial-summary, .challan-completed-financials { grid-template-columns: 1fr; } .challan-financial-summary > div, .challan-completed-financials > div { border-left: 0; border-top: 1px solid var(--ui-border); } .challan-financial-summary > div:first-child, .challan-completed-financials > div:first-child { border-top: 0; } }
 @media print { .challan-aging-badge, .challan-image-placeholder, .challan-view-toolbar, .challan-view-current { display: none !important; } }
 .challan-view-types { color: var(--ui-emerald); display: inline-block; font-size: 12px; margin-top: 4px; }
