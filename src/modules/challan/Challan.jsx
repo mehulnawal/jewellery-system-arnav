@@ -869,8 +869,8 @@ export const StageFourView = ({ items, invoice, settlement }) => (
   </article>
 );
 const ViewTable = ({ children }) => <div className="challan-view-table-wrap"><table>{children}</table></div>;
-const InvoiceSummary = ({ invoice }) => <div className="challan-financial-summary" aria-label="Final Invoice financial summary"><div><small>Gross Amount</small><strong>{viewCurrency(invoice?.grossAmount, "Unavailable")}</strong></div><div><small>Stage 1 Discount</small><strong>{hasStoredNumber(invoice?.stage1DiscountAmount) ? `− ${viewCurrency(invoice.stage1DiscountAmount)}` : "Unavailable"}</strong></div><div className="final"><small>Final Invoice</small><strong>{viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}</strong></div></div>;
-const CompletedFinancialSummary = ({ invoice, settlement }) => <div className="challan-completed-financials" aria-label="Completed Challan financial summary"><div><small>Gross Amount</small><strong>{viewCurrency(invoice?.grossAmount, "Unavailable")}</strong></div><div><small>Stage 1 Discount</small><strong>{hasStoredNumber(invoice?.stage1DiscountAmount) ? `− ${viewCurrency(invoice.stage1DiscountAmount)}` : "Unavailable"}</strong></div><div className="final"><small>Final Invoice</small><strong>{viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}</strong></div><div><small>Amount Paid</small><strong>{viewCurrency(settlement?.amountPaid)}</strong></div><div><small>Settlement Discount</small><strong>{viewCurrency(settlement?.settlementDiscountAmount)}</strong></div><div><small>Actual Received</small><strong>{viewCurrency(settlement?.actualReceivedAmount)}</strong></div></div>;
+const InvoiceSummary = ({ invoice }) => <div className="challan-financial-summary" aria-label="Final Invoice financial summary"><div className="challan-financial-cell"><span className="challan-financial-label">Gross Amount</span><strong className="challan-financial-value">{viewCurrency(invoice?.grossAmount, "Unavailable")}</strong></div><div className="challan-financial-cell"><span className="challan-financial-label">Stage 1 Discount</span><strong className="challan-financial-value">{hasStoredNumber(invoice?.stage1DiscountAmount) ? `− ${viewCurrency(invoice.stage1DiscountAmount)}` : "Unavailable"}</strong></div><div className="challan-financial-cell final"><span className="challan-financial-label">Final Invoice</span><strong className="challan-financial-value">{viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}</strong></div></div>;
+const CompletedFinancialSummary = ({ invoice, settlement }) => <div className="challan-completed-financials" aria-label="Completed Challan financial summary"><div className="challan-financial-cell"><span className="challan-financial-label">Gross Amount</span><strong className="challan-financial-value">{viewCurrency(invoice?.grossAmount, "Unavailable")}</strong></div><div className="challan-financial-cell"><span className="challan-financial-label">Stage 1 Discount</span><strong className="challan-financial-value">{hasStoredNumber(invoice?.stage1DiscountAmount) ? `− ${viewCurrency(invoice.stage1DiscountAmount)}` : "Unavailable"}</strong></div><div className="challan-financial-cell final"><span className="challan-financial-label">Final Invoice</span><strong className="challan-financial-value">{viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}</strong></div><div className="challan-financial-cell"><span className="challan-financial-label">Amount Paid</span><strong className="challan-financial-value">{viewCurrency(settlement?.amountPaid)}</strong></div><div className="challan-financial-cell"><span className="challan-financial-label">Settlement Discount</span><strong className="challan-financial-value">{viewCurrency(settlement?.settlementDiscountAmount)}</strong></div><div className="challan-financial-cell"><span className="challan-financial-label">Actual Received</span><strong className="challan-financial-value">{viewCurrency(settlement?.actualReceivedAmount)}</strong></div></div>;
 
 export default function Challan() {
   const { user } = useAuth();
@@ -2429,7 +2429,7 @@ export default function Challan() {
           </div>{" "}
           {shown.map((row) => (
             <div
-              className={`challan-row aging-${challanAging(row, clock).status} ${tab === "all" ? "" : "stage-column-hidden"}`}
+              className={`challan-row aging-${Number(row.stage) < 4 ? challanAging(row, clock).status : "complete"} ${tab === "all" ? "" : "stage-column-hidden"}`}
               key={row.id}
             >
               {" "}
@@ -2458,7 +2458,7 @@ export default function Challan() {
                 )}{" "}
               </b>{" "}
               {tab === "all" && <em className={`stage stage-${row.stage}`}>Stage {row.stage} - {STAGES[row.stage]}</em>}{" "}
-              {(() => {
+              {Number(row.stage) < 4 ? (() => {
                 const age = challanAging(row, clock);
                 return (
                   <span className={`challan-aging-badge ${age.status}`}>
@@ -2466,7 +2466,7 @@ export default function Challan() {
                     <i /> {age.label} <b>-</b> {age.elapsedLabel}{" "}
                   </span>
                 );
-              })()}{" "}
+              })() : <span className="challan-aging-empty">—</span>}{" "}
               <span className="challan-actions">
                 {" "}
                 <button
@@ -2480,15 +2480,15 @@ export default function Challan() {
                   {" "}
                   View{" "}
                 </button>{" "}
-                <button
+                {Number(row.stage) < 4 && <button
                   className="challan-workflow-button"
-                  disabled={row.stage === 4 || !hasStagePermission(Number(row.stage) + 1)}
+                  disabled={!hasStagePermission(Number(row.stage) + 1)}
                   onClick={() => advance(row.id)}
                 >
                   {" "}
                   {stageActionLabel(row.stage)}{" "}
                   <Icon name="arrow" />{" "}
-                </button>{" "}
+                </button>}{" "}
                 <span className="challan-row-actions">
                   {" "}
                   {!isAdmin &&
