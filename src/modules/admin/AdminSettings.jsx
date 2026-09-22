@@ -124,21 +124,11 @@ export default function AdminSettings() {
     });
     setDeactivateTarget(null);
   };
-  const downloadPurchaseTemplate = async () => {
-    const XLSX = await import("xlsx"),
-      book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(
-      book,
-      XLSX.utils.aoa_to_sheet([PURCHASE_HEADERS]),
-      "Purchases",
-    );
-    XLSX.utils.book_append_sheet(
-      book,
-      XLSX.utils.aoa_to_sheet([PURCHASE_ITEM_HEADERS]),
-      "Items",
-    );
-    XLSX.writeFile(book, "purchase-import-template.xlsx");
-  };
+  const updatePermissions = (account, permissions) =>
+    updateDoc(doc(db, "employeeProfiles", account.uid), {
+      permissions,
+      updatedAt: serverTimestamp(),
+    });
   const downloadInventoryTemplate = async () => {
     const XLSX = await import("xlsx"),
       sheet = XLSX.utils.aoa_to_sheet([INVENTORY_IMPORT_HEADERS]),
@@ -270,6 +260,7 @@ export default function AdminSettings() {
                 copied={copied}
                 onCopy={copy}
                 onDeactivate={() => setDeactivateTarget(account)}
+                onUpdatePermissions={updatePermissions}
               />
             ))}
           </AccountSection>
@@ -308,10 +299,7 @@ export default function AdminSettings() {
           </AccountSection>
         </>
       ) : tab === "templates" ? (
-        <ImportTemplates
-          onDownload={downloadInventoryTemplate}
-          onDownloadPurchase={downloadPurchaseTemplate}
-        />
+        <ImportTemplates onDownload={downloadInventoryTemplate} />
       ) : (
         <article className="sku-settings">
           <div>
@@ -371,6 +359,7 @@ function EmployeeCard({
   copied,
   onCopy,
   onDeactivate,
+  onUpdatePermissions,
   historical = false,
 }) {
   const isNew = createdCredentials?.accessId === account.accessId,
@@ -462,6 +451,7 @@ function EmployeeCard({
           <p className="permission-empty">No permissions assigned</p>
         )}
       </div>
+      {!historical && <PermissionsEditor account={account} onSave={onUpdatePermissions} />}
       {!historical && (
         <button className="settings-delete" onClick={onDeactivate}>
           Deactivate account
@@ -470,9 +460,16 @@ function EmployeeCard({
     </div>
   );
 }
-function ImportTemplates({ onDownload, onDownloadPurchase }) {
-  const [inventoryOpen, setInventoryOpen] = useState(true),
-    [purchaseOpen, setPurchaseOpen] = useState(false);
+function PermissionsEditor({ account, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [permissions, setPermissions] = useState(account.permissions || []);
+  useEffect(() => setPermissions(account.permissions || []), [account.permissions]);
+  const toggle = (key) => setPermissions((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  const save = async () => { await onSave(account, permissions); setEditing(false); };
+  return editing ? <section className="staff-permissions"><small>Edit permissions</small><div className="permission-list">{PERMISSIONS.map(([key, label]) => <label key={key}><input type="checkbox" checked={permissions.includes(key)} onChange={() => toggle(key)} />{label}</label>)}</div><button type="button" className="settings-primary" onClick={save}>Save permissions</button></section> : <button type="button" onClick={() => setEditing(true)}>Edit permissions</button>;
+}
+function ImportTemplates({ onDownload }) {
+  const [inventoryOpen, setInventoryOpen] = useState(true);
   return (
     <article className="import-templates">
       <h3>Import Templates</h3>
