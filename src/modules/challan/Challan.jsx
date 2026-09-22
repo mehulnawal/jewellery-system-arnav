@@ -808,6 +808,9 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
 };
 export default function Challan() {
   const { user } = useAuth();
+  const hasStagePermission = (stage) =>
+    user?.role === "superadmin" ||
+    Boolean(user?.permissions?.includes(`challan-stage-${stage}`));
   const [records, setRecords] = useState([]);
   const [page, setPage] = useState("list"),
     [viewId, setViewId] = useState(null),
@@ -979,6 +982,10 @@ export default function Challan() {
   };
   const create = async (event) => {
     event.preventDefault();
+    if (!hasStagePermission(1)) {
+      setFormError("Your account does not have Challan Stage 1 permission.");
+      return;
+    }
     const items = form.items.filter((item) => item.sku.trim());
     const typedParty = form.party.trim();
     const existingParty = parties.find(
@@ -1156,6 +1163,8 @@ export default function Challan() {
   const advance = async (id) => {
     const previous = records.find((record) => record.id === id);
     if (!previous || previous.stage >= 4) return;
+    const requiredStage = Number(previous.stage) + 1;
+    if (!hasStagePermission(requiredStage)) return;
     if (previous.stage === 1) {
       setStageTwoCandidate(previous);
       return;
@@ -1173,6 +1182,8 @@ export default function Challan() {
     const previous = stageTwoCandidate;
     if (!previous || previous.stage !== 1)
       throw new Error("This Challan is no longer in Stage 1.");
+    if (!hasStagePermission(2))
+      throw new Error("Your account does not have Challan Stage 2 permission.");
     const transitionItems = previous.items.map((item, index) => {
       const input = returns[index],
         returnedPieces = pieceValue(input.returnPieces),
@@ -1265,6 +1276,8 @@ export default function Challan() {
   const confirmFinalInvoice = async () => {
     const previous = finalInvoiceCandidate;
     if (!previous) throw new Error("This Challan is no longer available.");
+    if (!hasStagePermission(3))
+      throw new Error("Your account does not have Challan Stage 3 permission.");
     const saved = await runTransaction(db, async (tx) => {
       const challanRef = doc(db, "challans", previous.id);
       const snapshot = await tx.get(challanRef);
@@ -1303,6 +1316,8 @@ export default function Challan() {
   const confirmFinalSettlement = async (amountPaid, settlementDiscountAmount) => {
     const previous = finalSettlementCandidate;
     if (!previous) throw new Error("This Challan is no longer available.");
+    if (!hasStagePermission(4))
+      throw new Error("Your account does not have Challan Stage 4 permission.");
     const saved = await runTransaction(db, async (tx) => {
       const challanRef = doc(db, "challans", previous.id);
       const snapshot = await tx.get(challanRef);
@@ -1367,7 +1382,8 @@ export default function Challan() {
           0,
           timestampMs(record.createdAt) + STAFF_EDIT_WINDOW_MS - clock,
         );
-  const canEditChallan = (record) => isAdmin || staffEditRemaining(record) > 0;
+  const canEditChallan = (record) =>
+    isAdmin || (hasStagePermission(record.stage) && staffEditRemaining(record) > 0);
   const closeEditor = () => {
     setEditingId(null);
     setForm({ date: today(), party: "", notes: "", items: [blank()] });
@@ -2133,7 +2149,7 @@ export default function Challan() {
           </article>{" "}
           <footer>
             {" "}
-            <button className="primary">
+            <button className="primary" disabled={!editingId && !hasStagePermission(1)}>
               {" "}
               {editingId ? "Save Changes" : "Create Challan"}{" "}
             </button>{" "}
@@ -2161,6 +2177,7 @@ export default function Challan() {
           {" "}
           <button
             className="primary"
+            disabled={!hasStagePermission(1)}
             onClick={() => {
               setEditingId(null);
               setForm({
@@ -2370,7 +2387,7 @@ export default function Challan() {
                 </button>{" "}
                 <button
                   className="challan-workflow-button"
-                  disabled={row.stage === 4}
+                  disabled={row.stage === 4 || !hasStagePermission(Number(row.stage) + 1)}
                   onClick={() => advance(row.id)}
                 >
                   {" "}
@@ -2434,6 +2451,7 @@ export default function Challan() {
           {![2, 3, 4].includes(Number(tab)) && (
             <button
               className="primary"
+              disabled={!hasStagePermission(1)}
               onClick={() => {
                 setEditingId(null);
                 setForm({

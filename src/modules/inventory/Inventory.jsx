@@ -37,7 +37,6 @@ const INVENTORY = "inventory",
   SETTINGS = doc(db, "settings", "inventory");
 export const SIZE_TO_GROUP_MAP = [];
 const STAFF_EDIT_WINDOW_MS = 2 * 60 * 1000;
-const STAFF_DELETE_WINDOW_MS = 60 * 60 * 1000;
 const norm = (value) => String(value ?? "").trim();
 const title = (value) =>
   norm(value).replace(/\b\w/g, (character) => character.toUpperCase());
@@ -723,11 +722,7 @@ export default function Inventory() {
     isAdmin ||
     (item.createdBy === user?.uid &&
       editTimeRemaining(item, clock || createdAtMs(item)) > 0);
-  const canDeleteItem = (item) =>
-    isAdmin ||
-    (item.createdBy === user?.uid &&
-      (clock || createdAtMs(item)) - createdAtMs(item) <
-        STAFF_DELETE_WINDOW_MS);
+  const canDeleteItem = () => isAdmin;
   const toggle = (ids) =>
     setSelected((current) =>
       ids.every((id) => current.includes(id))
@@ -739,6 +734,7 @@ export default function Inventory() {
     if (allowed.length) setDeleteItems(allowed);
   };
   const confirmDelete = async (targets) => {
+    if (!isAdmin) return;
     await Promise.all(
       targets.map(async (item) => {
         await deleteDoc(doc(db, INVENTORY, item.id));
@@ -933,7 +929,7 @@ export default function Inventory() {
               <Icon n="print" />
               Print
             </button>
-            <button
+            {isAdmin && <button
               className="inventory-button inventory-delete"
               onClick={() =>
                 requestDelete(
@@ -942,7 +938,7 @@ export default function Inventory() {
               }
             >
               Delete
-            </button>
+            </button>}
           </div>
         </div>
       )}
@@ -1170,14 +1166,14 @@ function Group({
                     : "Edit window expired"}
                 </span>
               )}
-              <button
+              {isAdmin && <button
                 className="inventory-row-delete"
                 disabled={!canDelete(item)}
                 onClick={() => requestDelete([item])}
                 aria-label={`Delete ${item.sku}`}
               >
                 <Icon n="trash" />
-              </button>
+              </button>}
             </td>
           </tr>
         ))}

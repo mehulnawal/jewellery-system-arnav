@@ -52,16 +52,26 @@ export const validatePurchaseItem = (raw, allowDimensions) => {
   return { item, errors };
 };
 export const purchaseLockedByChallan = (purchase, inventory, challans) => {
-  const skus = new Set(inventory.filter((row) => row.sourcePurchaseId === purchase.id).map((row) => row.sku));
-  return challans.some((challan) => (challan.items || []).some((item) => skus.has(item.sku)));
+  const inventoryIds = new Set(
+    inventory
+      .filter((row) => row.sourcePurchaseId === purchase.id)
+      .map((row) => row.id),
+  );
+  return challans.some((challan) =>
+    (challan.items || []).some((item) =>
+      inventoryIds.has(item.sourceInventoryId || item.inventoryId),
+    ),
+  );
 };
 const counterRef = doc(db, "counters", "purchase");
 const linkedInventoryQuery = (purchaseId) =>
   query(collection(db, "inventory"), where("sourcePurchaseId", "==", purchaseId));
 const challanUsesInventory = (challans, inventoryDocs) => {
-  const skus = new Set(inventoryDocs.map((entry) => entry.data().sku));
+  const inventoryIds = new Set(inventoryDocs.map((entry) => entry.id));
   return challans.some((challan) =>
-    (challan.data().items || []).some((item) => skus.has(item.sku)),
+    (challan.data().items || []).some((item) =>
+      inventoryIds.has(item.sourceInventoryId || item.inventoryId),
+    ),
   );
 };
 
