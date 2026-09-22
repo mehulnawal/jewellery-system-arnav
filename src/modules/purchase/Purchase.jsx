@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   collection,
   doc,
@@ -632,6 +633,8 @@ function ImportPreview({ rows, onClose, onImport }) {
 export default function Purchase() {
   const { user } = useAuth(),
     toast = useToast(),
+    location = useLocation(),
+    navigate = useNavigate(),
     inputRef = useRef();
   const [purchases, setPurchases] = useState([]),
     [vendors, setVendors] = useState([]),
@@ -659,7 +662,16 @@ export default function Purchase() {
     () =>
       onSnapshot(
         query(collection(db, "purchases"), orderBy("createdAt", "desc")),
-        (s) => setPurchases(s.docs.map((d) => ({ id: d.id, ...d.data() }))),
+        (s) => {
+          const records = s.docs.map((d) => ({ id: d.id, ...d.data() }));
+          setPurchases(records);
+          const viewPurchaseId = location.state?.viewPurchaseId;
+          const record = records.find((purchase) => purchase.id === viewPurchaseId);
+          if (record) {
+            setModal({ type: "view", record });
+            navigate(location.pathname, { replace: true, state: null });
+          }
+        },
         (error) => {
           console.error("Purchase list listener failed", {
             code: error.code,
@@ -676,7 +688,7 @@ export default function Purchase() {
           toast(message, "error");
         },
       ),
-    [toast],
+    [location.pathname, location.state?.viewPurchaseId, navigate, toast],
   );
   useEffect(
     () =>

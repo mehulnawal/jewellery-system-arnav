@@ -57,7 +57,10 @@ export default function VendorPurchaseHistory() {
     );
   }, [selectedVendor, toast]);
 
-  const visiblePurchases = loadedVendor === selectedVendor ? purchases : [];
+  const visiblePurchases = useMemo(
+    () => (loadedVendor === selectedVendor ? purchases : []),
+    [loadedVendor, purchases, selectedVendor],
+  );
   const summary = useMemo(() => {
     const amount = visiblePurchases.reduce(
       (total, purchase) => total + (Number.isFinite(Number(purchase.amount)) ? Number(purchase.amount) : 0),

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./challan.css";
 import {
   collection,
@@ -14,6 +15,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { writeActivity } from "../../utils/activityLog";
 import { isWholePieces, pieceValue } from "../../utils/pieces";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
+import { challanAging, timestampMs } from "../../utils/challanAging";
 const STAGES = {
   1: "Goods Out",
   2: "Return / Sale",
@@ -98,25 +100,6 @@ const challanSnapshot = (record) => ({
   })),
 });
 const STAFF_EDIT_WINDOW_MS = 60 * 60 * 1000;
-const CHALLAN_AGING = {
-  green: 24 * 60 * 60 * 1000,
-  yellow: 60 * 60 * 60 * 1000,
-  red: 5 * 24 * 60 * 60 * 1000,
-};
-const timestampMs = (value) =>
-  value?.toMillis?.() ??
-  (value instanceof Date ? value.getTime() : Number(value) || 0);
-const formatElapsed = (milliseconds) => {
-  const minutes = Math.max(0, Math.floor(milliseconds / 60000));
-  const days = Math.floor(minutes / 1440),
-    hours = Math.floor((minutes % 1440) / 60),
-    mins = minutes % 60;
-  return days
-    ? days + "d " + hours + "h"
-    : hours
-      ? hours + "h " + mins + "m"
-      : mins + "m";
-};
 const formatEditCountdown = (milliseconds) => {
   const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
   return (
@@ -125,21 +108,6 @@ const formatEditCountdown = (milliseconds) => {
     String(seconds % 60).padStart(2, "0") +
     "s"
   );
-};
-const challanAging = (record, now) => {
-  const elapsed = Math.max(0, now - timestampMs(record.createdAt));
-  const status =
-    elapsed < CHALLAN_AGING.green
-      ? "green"
-      : elapsed < CHALLAN_AGING.red
-        ? "yellow"
-        : "red";
-  return {
-    status,
-    elapsed,
-    label: status.toUpperCase(),
-    elapsedLabel: formatElapsed(elapsed),
-  };
 };
 const stageEnteredAt = (record, stage) =>
   timestampMs(
@@ -819,6 +787,8 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
 };
 export default function Challan() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const hasStagePermission = (stage) =>
     user?.role === "superadmin" ||
     Boolean(user?.permissions?.includes(`challan-stage-${stage}`));
@@ -865,11 +835,17 @@ export default function Challan() {
             ...entry.data(),
           }));
           setRecords(cloudRecords);
+          const viewChallanId = location.state?.viewChallanId;
+          if (viewChallanId && cloudRecords.some((record) => record.id === viewChallanId)) {
+            setPage("view");
+            setViewId(viewChallanId);
+            navigate(location.pathname, { replace: true, state: null });
+          }
         },
         (error) =>
           console.warn("Challans could not be loaded from Firestore.", error),
       ),
-    [],
+    [location.pathname, location.state?.viewChallanId, navigate],
   );
   useEffect(
     () =>

@@ -68,7 +68,10 @@ export default function PartyChallanHistory() {
     );
   }, [selectedParty, toast]);
 
-  const visibleChallans = loadedParty === selectedParty ? challans : [];
+  const visibleChallans = useMemo(
+    () => (loadedParty === selectedParty ? challans : []),
+    [challans, loadedParty, selectedParty],
+  );
   const active = useMemo(() => visibleChallans.filter((challan) => Number(challan.stage) < 4), [visibleChallans]);
   const summary = useMemo(() => [
     { label: "Total Challans", value: visibleChallans.length },
