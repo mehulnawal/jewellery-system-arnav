@@ -7,6 +7,8 @@ import Challan from "./modules/challan/Challan";
 import AdminSettings from "./modules/admin/AdminSettings";
 import ActivityLog from "./modules/activityLog/ActivityLog";
 import Purchase from "./modules/purchase/Purchase";
+import VendorPurchaseHistory from "./modules/history/VendorPurchaseHistory";
+import PartyChallanHistory from "./modules/history/PartyChallanHistory";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 const CHALLAN_PERMISSIONS = [
@@ -34,6 +36,14 @@ export default function App() {
           <Route element={<PermissionRoute adminOnly />}>
             <Route path="activity-log" element={<ActivityLog />} />
             <Route path="admin-settings" element={<AdminSettings />} />
+            <Route
+              path="vendor-purchase-history"
+              element={<VendorPurchaseHistory />}
+            />
+            <Route
+              path="party-challan-history"
+              element={<PartyChallanHistory />}
+            />
           </Route>
         </Route>
       </Route>

@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { usePageFreeze } from "../hooks/usePageFreeze";
 import "./dashboardLayout.css";
 const Icon = ({ name }) => (
   <svg
@@ -57,6 +56,18 @@ const Icon = ({ name }) => (
         <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.1 2.1-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56v.1h-3v-.1A1.7 1.7 0 0 0 10.7 18.64a1.7 1.7 0 0 0-1.88.34l-.06.06-2.1-2.1.06-.06A1.7 1.7 0 0 0 7.06 15a1.7 1.7 0 0 0-1.56-1.03h-.1v-3h.1A1.7 1.7 0 0 0 7.06 9.94a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.1-2.1.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56v-.1h3v.1a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.1 2.1-.06.06A1.7 1.7 0 0 0 19.4 15Z" />
       </>
     )}
+    {name === "management" && (
+      <>
+        <rect x="4" y="4" width="16" height="16" rx="3" />
+        <path d="M8 9h8M8 13h8M8 17h5" />
+      </>
+    )}
+    {name === "history" && (
+      <>
+        <path d="M4 5h16v14H4z" />
+        <path d="M8 9h8M8 13h6M8 17h4" />
+      </>
+    )}
     {name === "sun" && (
       <>
         <circle cx="12" cy="12" r="3.5" />
@@ -105,17 +116,42 @@ const modules = [
     icon: "check",
     always: true,
   },
+];
+const adminGroups = [
   {
-    label: "Activity Log",
-    to: "/dashboard/activity-log",
-    icon: "activity",
-    superAdmin: true,
+    title: "History",
+    items: [
+      {
+        label: "Vendor Purchase History",
+        to: "/dashboard/vendor-purchase-history",
+        icon: "history",
+      },
+      {
+        label: "Party Challan History",
+        to: "/dashboard/party-challan-history",
+        icon: "history",
+      },
+    ],
   },
   {
-    label: "Settings",
-    to: "/dashboard/admin-settings",
-    icon: "settings",
-    superAdmin: true,
+    title: "Monitoring / Reports",
+    items: [
+      {
+        label: "Activity Log",
+        to: "/dashboard/activity-log",
+        icon: "activity",
+      },
+    ],
+  },
+  {
+    title: "Management",
+    items: [
+      {
+        label: "Settings",
+        to: "/dashboard/admin-settings",
+        icon: "settings",
+      },
+    ],
   },
 ];
 export default function DashboardLayout() {
@@ -126,8 +162,16 @@ export default function DashboardLayout() {
     [theme, setTheme] = useState(
       () => localStorage.getItem("theme") || "light",
     ),
-    [logoutConfirm, setLogoutConfirm] = useState(false);
+    [logoutConfirm, setLogoutConfirm] = useState(false),
+    [adminOpen, setAdminOpen] = useState(false),
+    adminNavRef = useRef(null);
   const inventoryPage = location.pathname.endsWith("/inventory"),
+    adminPage = [
+      "/dashboard/activity-log",
+      "/dashboard/admin-settings",
+      "/dashboard/vendor-purchase-history",
+      "/dashboard/party-challan-history",
+    ].includes(location.pathname),
     available = modules.filter((m) =>
       m.superAdmin
         ? user?.role === "superadmin"
@@ -146,6 +190,21 @@ export default function DashboardLayout() {
     const timer = window.setTimeout(() => setPageLoading(false), 350);
     return () => window.clearTimeout(timer);
   }, [location.pathname, pageLoading]);
+  useEffect(() => {
+    if (!adminOpen) return;
+    const closeAdminNavigation = (event) => {
+      if (event.key === "Escape") setAdminOpen(false);
+    };
+    const closeOnOutsidePress = (event) => {
+      if (!adminNavRef.current?.contains(event.target)) setAdminOpen(false);
+    };
+    window.addEventListener("keydown", closeAdminNavigation);
+    window.addEventListener("mousedown", closeOnOutsidePress);
+    return () => {
+      window.removeEventListener("keydown", closeAdminNavigation);
+      window.removeEventListener("mousedown", closeOnOutsidePress);
+    };
+  }, [adminOpen]);
   useEffect(() => {
     if (!logoutConfirm) return;
     const previousOverflow = document.body.style.overflow;
@@ -170,7 +229,7 @@ export default function DashboardLayout() {
     <div
       className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""}`}
     >
-      <aside className="dashboard-sidebar">
+      <aside className="dashboard-sidebar" ref={adminNavRef}>
         <div className="dashboard-brand">
           <div className="dashboard-logo">
             <Icon name="diamond" />
@@ -197,7 +256,60 @@ export default function DashboardLayout() {
               <span className="dashboard-tooltip">{m.label}</span>
             </NavLink>
           ))}
+          {user?.role === "superadmin" && (
+            <button
+              type="button"
+              className={`dashboard-nav-item dashboard-admin-trigger ${
+                adminPage ? "active" : ""
+              }`}
+              onClick={() => setAdminOpen((open) => !open)}
+              aria-expanded={adminOpen}
+              aria-controls="admin-management-flyout"
+              aria-label="Admin / Management"
+            >
+              <span className="dashboard-nav-icon">
+                <Icon name="management" />
+              </span>
+              <span className="dashboard-nav-label">Admin / Management</span>
+              <span className="dashboard-tooltip">Admin / Management</span>
+            </button>
+          )}
         </nav>
+        {user?.role === "superadmin" && adminOpen && (
+          <section
+            className="admin-management-flyout"
+            id="admin-management-flyout"
+            aria-label="Admin / Management navigation"
+          >
+            <header>
+              <small>ADMIN</small>
+              <h2>Management</h2>
+            </header>
+            <div className="admin-management-groups">
+              {adminGroups.map((group) => (
+                <section key={group.title}>
+                  <h3>{group.title}</h3>
+                  {group.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => {
+                        setAdminOpen(false);
+                        setPageLoading(true);
+                      }}
+                      className={({ isActive }) =>
+                        `admin-management-item ${isActive ? "active" : ""}`
+                      }
+                    >
+                      <Icon name={item.icon} />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  ))}
+                </section>
+              ))}
+            </div>
+          </section>
+        )}
         <div className="dashboard-sidebar-footer">
           <button
             className="dashboard-theme-toggle"
