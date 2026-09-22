@@ -1552,14 +1552,16 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 }
 .challan-timeline {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   grid-template-columns: repeat(4, 1fr);
-  padding-top: 3px;
+  padding-top: 2px;
 }
 .challan-timeline-step {
   color: var(--ui-muted);
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  min-height: 126px;
+  min-height: 0;
   padding-right: 0;
   position: relative;
 }
@@ -1586,7 +1588,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   height: 2px;
   left: 30px;
   position: absolute;
-  right: -16px;
+  right: -12px;
   top: 14px;
 }
 .challan-timeline-step.reached {
@@ -1613,12 +1615,13 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   display: block;
 }
 .challan-timeline-step b {
-  font-size: 14px;
-  margin-top: 12px;
+  font-size: 13px;
+  margin-top: 10px;
 }
 .challan-timeline-step span {
-  font-size: 13px;
-  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 2px;
 }
 .challan-timeline-step small {
   align-self: flex-start;
@@ -1627,13 +1630,13 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   border-radius: 8px;
   box-sizing: border-box;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 1.45;
-  margin-top: 7px;
+  margin-top: 6px;
   max-width: 100%;
   overflow-wrap: anywhere;
-  padding: 5px 8px;
+  padding: 4px 7px;
   white-space: normal;
   width: fit-content;
 }
@@ -2098,14 +2101,11 @@ html[data-theme="dark"] .settlement-message { background: #182231; border-color:
 .challan-image-placeholder b { font-size: 14px; }
 .challan-image-placeholder span { color: var(--ui-muted); flex: 1 1 210px; font-size: 12px; }
 .challan-image-placeholder button { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 7px; color: var(--ui-text); font-size: 12px; font-weight: 800; padding: 8px 10px; }
-.challan-timeline-step { display: flex; flex-direction: column; min-width: 0; }
-.challan-timeline-step small { background: transparent; border-radius: 6px; box-sizing: border-box; line-height: 1.35; margin-right: 12px; max-width: 150px; padding: 4px 0; width: auto; }
 html[data-theme="dark"] .challan-view-items tfoot td { background: #182231; border-color: #3b4b5e; }
 html[data-theme="dark"] .challan-view-payable { background: #173c32; border-color: #267b5d; }
 html[data-theme="dark"] .challan-image-placeholder { border-color: #3b4b5e; }
 html[data-theme="dark"] .challan-image-placeholder button { background: #182231; border-color: #3b4b5e; color: #e5edf6; }
-html[data-theme="dark"] .challan-timeline-step small { background: transparent; border-color: transparent; color: #cbd5e1; }
 @media (max-width: 850px) { .challan-actions { grid-template-columns: repeat(2, max-content); } }
-@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-workflow-button { max-width: none; } .challan-view-payable { align-items: flex-start; flex-direction: column; } .challan-timeline-step small { margin-right: 0; max-width: 100%; } }
+@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-workflow-button { max-width: none; } .challan-view-payable { align-items: flex-start; flex-direction: column; } }
 @media print { .challan-aging-badge, .challan-image-placeholder, .challan-view-toolbar, .challan-view-current { display: none !important; } }
 .challan-view-types { color: var(--ui-emerald); display: inline-block; font-size: 12px; margin-top: 4px; }
