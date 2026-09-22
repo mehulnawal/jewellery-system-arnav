@@ -823,7 +823,7 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
     </div>
   );
 };
-const StageOneView = ({ items }) => (
+export const StageOneView = ({ items }) => (
   <article className="challan-view-card challan-view-items challan-view-stage-one">
     <h2>Goods Out Details</h2>
     <ViewTable>
@@ -833,7 +833,7 @@ const StageOneView = ({ items }) => (
     </ViewTable>
   </article>
 );
-const StageTwoView = ({ items }) => (
+export const StageTwoView = ({ items }) => (
   <article className="challan-view-card challan-view-items challan-view-stage-two">
     <h2>Return / Sale Details</h2>
     {items.length ? <ViewTable>
@@ -843,7 +843,7 @@ const StageTwoView = ({ items }) => (
     </ViewTable> : <p className="challan-view-unavailable">Return / Sale details are unavailable for this historical Challan.</p>}
   </article>
 );
-const StageThreeView = ({ invoice }) => {
+export const StageThreeView = ({ invoice }) => {
   const items = Array.isArray(invoice?.items) ? invoice.items : [];
   return <article className="challan-view-card challan-view-items challan-view-stage-three">
     <h2>Final Invoice</h2>
@@ -855,7 +855,7 @@ const StageThreeView = ({ invoice }) => {
     <p className="challan-view-timestamp">Final Invoice confirmed: {invoice?.confirmedAtMs ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}` : "—"}</p>
   </article>;
 };
-const StageFourView = ({ items, invoice, settlement }) => (
+export const StageFourView = ({ items, invoice, settlement }) => (
   <article className="challan-view-card challan-view-items challan-view-stage-four">
     <h2>Complete Challan History</h2>
     {items.length ? <ViewTable>

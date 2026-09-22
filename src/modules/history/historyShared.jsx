@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export const normalizeSearch = (value) =>
   String(value || "")
     .trim()
@@ -16,7 +18,10 @@ export const formatDate = (value) => {
       });
 };
 
-export const formatWeight = (value) => `${Number(value || 0).toFixed(3)} ct`;
+export const formatWeight = (value) =>
+  value === undefined || value === null || value === "" || !Number.isFinite(Number(value))
+    ? "—"
+    : `${Number(value).toFixed(3)} ct`;
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -24,7 +29,10 @@ const inr = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-export const formatCurrency = (value) => inr.format(Number(value || 0));
+export const formatCurrency = (value) =>
+  value === undefined || value === null || value === "" || !Number.isFinite(Number(value))
+    ? "—"
+    : inr.format(Number(value));
 
 export function HistoryDirectory({
   title,
@@ -35,28 +43,24 @@ export function HistoryDirectory({
   selected,
   onSelect,
 }) {
+  const [open, setOpen] = useState(false);
   const normalized = normalizeSearch(query);
   const results = entries.filter((entry) => normalizeSearch(entry).includes(normalized));
   return (
-    <aside className="history-directory">
-      <label className="history-search-label" htmlFor={`${title}-search`}>
-        {title} directory
-      </label>
-      <input
-        id={`${title}-search`}
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        placeholder={placeholder}
-        type="search"
-      />
-      <div className="history-directory-list" aria-label={`${title} results`}>
+    <div className="history-selector">
+      <label className="history-search-label" htmlFor={`${title}-search`}>{title}</label>
+      <div className="history-selector-input">
+        <input id={`${title}-search`} value={query} onFocus={() => setOpen(true)} onChange={(event) => { onQuery(event.target.value); setOpen(true); }} placeholder={placeholder} type="search" />
+        {selected && <button type="button" onClick={() => { onSelect(""); onQuery(""); setOpen(true); }}>Change</button>}
+      </div>
+      {open && <div className="history-directory-list" aria-label={`${title} results`}>
         {results.length ? (
           results.map((entry) => (
             <button
               key={entry}
               type="button"
               className={selected === entry ? "selected" : ""}
-              onClick={() => onSelect(entry)}
+              onClick={() => { onSelect(entry); onQuery(entry); setOpen(false); }}
             >
               {entry}
             </button>
@@ -64,8 +68,8 @@ export function HistoryDirectory({
         ) : (
           <p>No {title.toLocaleLowerCase()} found{query.trim() ? ` for “${query.trim()}”` : ""}.</p>
         )}
-      </div>
-    </aside>
+      </div>}
+    </div>
   );
 }
 
