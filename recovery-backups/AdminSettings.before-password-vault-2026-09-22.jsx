@@ -451,7 +451,9 @@ function EmployeeCard({
           <p className="permission-empty">No permissions assigned</p>
         )}
       </div>
-      {!historical && <PermissionsEditor account={account} onSave={onUpdatePermissions} />}
+      {!historical && (
+        <PermissionsEditor account={account} onSave={onUpdatePermissions} />
+      )}
       {!historical && (
         <button className="settings-delete" onClick={onDeactivate}>
           Deactivate account
@@ -463,10 +465,44 @@ function EmployeeCard({
 function PermissionsEditor({ account, onSave }) {
   const [editing, setEditing] = useState(false);
   const [permissions, setPermissions] = useState(account.permissions || []);
-  useEffect(() => setPermissions(account.permissions || []), [account.permissions]);
-  const toggle = (key) => setPermissions((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
-  const save = async () => { await onSave(account, permissions); setEditing(false); };
-  return editing ? <section className="staff-permissions"><small>Edit permissions</small><div className="permission-list">{PERMISSIONS.map(([key, label]) => <label key={key}><input type="checkbox" checked={permissions.includes(key)} onChange={() => toggle(key)} />{label}</label>)}</div><button type="button" className="settings-primary" onClick={save}>Save permissions</button></section> : <button type="button" onClick={() => setEditing(true)}>Edit permissions</button>;
+  useEffect(
+    () => setPermissions(account.permissions || []),
+    [account.permissions],
+  );
+  const toggle = (key) =>
+    setPermissions((current) =>
+      current.includes(key)
+        ? current.filter((item) => item !== key)
+        : [...current, key],
+    );
+  const save = async () => {
+    await onSave(account, permissions);
+    setEditing(false);
+  };
+  return editing ? (
+    <section className="staff-permissions">
+      <small>Edit permissions</small>
+      <div className="permission-list">
+        {PERMISSIONS.map(([key, label]) => (
+          <label key={key}>
+            <input
+              type="checkbox"
+              checked={permissions.includes(key)}
+              onChange={() => toggle(key)}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <button type="button" className="settings-primary" onClick={save}>
+        Save permissions
+      </button>
+    </section>
+  ) : (
+    <button type="button" onClick={() => setEditing(true)}>
+      Edit permissions
+    </button>
+  );
 }
 function ImportTemplates({ onDownload }) {
   const [inventoryOpen, setInventoryOpen] = useState(true);

@@ -275,11 +275,10 @@ function AddModal({
         const ref = await addDoc(collection(db, INVENTORY), created);
         const saved = await getDocFromServer(ref);
         const createdItem = { id: ref.id, ...saved.data() };
-        await writeInventoryActivity(
-          "created",
-          createdItem,
-          { origin: "Manual", user },
-        );
+        await writeInventoryActivity("created", createdItem, {
+          origin: "Manual",
+          user,
+        });
         onSaved(createdItem);
       }
     } catch {
@@ -762,7 +761,9 @@ export default function Inventory() {
           type = norm(row[INVENTORY_IMPORT_FIELD_HEADERS.type]).toUpperCase(),
           size = normalizeSize(row[INVENTORY_IMPORT_FIELD_HEADERS.size]),
           weight = Number(row[INVENTORY_IMPORT_FIELD_HEADERS.weight]),
-          box = normalizeBox(row[INVENTORY_IMPORT_FIELD_HEADERS.box] ?? row.Box),
+          box = normalizeBox(
+            row[INVENTORY_IMPORT_FIELD_HEADERS.box] ?? row.Box,
+          ),
           errors = [];
         if (!shape) errors.push("Shape is required");
         if (!["CVD", "HP"].includes(type))
@@ -934,16 +935,18 @@ export default function Inventory() {
               <Icon n="print" />
               Print
             </button>
-            {isAdmin && <button
-              className="inventory-button inventory-delete"
-              onClick={() =>
-                requestDelete(
-                  items.filter((item) => selected.includes(item.id)),
-                )
-              }
-            >
-              Delete
-            </button>}
+            {isAdmin && (
+              <button
+                className="inventory-button inventory-delete"
+                onClick={() =>
+                  requestDelete(
+                    items.filter((item) => selected.includes(item.id)),
+                  )
+                }
+              >
+                Delete
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1111,7 +1114,9 @@ function Group({
             label={`Select ${parent.shape}`}
           />
         </td>
-        <td><Type value={parent.type} /></td>
+        <td>
+          <Type value={parent.type} />
+        </td>
         <td>
           <button
             className="inventory-chevron"
@@ -1124,7 +1129,9 @@ function Group({
           <b>{parent.shape}</b>
         </td>
         <td>--</td>
-        <td><b>{formatDecimal(total)} ct</b></td>
+        <td>
+          <b>{formatDecimal(total)} ct</b>
+        </td>
         <td>--</td>
         <td>--</td>
         <td>{parent.items.length} items</td>
@@ -1141,11 +1148,17 @@ function Group({
                 label={`Select ${item.sku}`}
               />
             </td>
-            <td><Type value={item.type} /></td>
+            <td>
+              <Type value={item.type} />
+            </td>
             <td>{item.shape}</td>
             <td>{item.size} mm</td>
-            <td><b>{formatDecimal(item.weight)} ct</b></td>
-            <td><Age item={item} /></td>
+            <td>
+              <b>{formatDecimal(item.weight)} ct</b>
+            </td>
+            <td>
+              <Age item={item} />
+            </td>
             <td>
               <BoxCell
                 item={item}
@@ -1158,7 +1171,10 @@ function Group({
             <td>{item.group || "Uncategorized"}</td>
             <td className="inventory-row-actions">
               {canEdit(item) && (
-                <button onClick={() => edit(item)} aria-label={`Edit ${item.sku}`}>
+                <button
+                  onClick={() => edit(item)}
+                  aria-label={`Edit ${item.sku}`}
+                >
                   <Icon n="edit" />
                 </button>
               )}
@@ -1171,14 +1187,16 @@ function Group({
                     : "Edit window expired"}
                 </span>
               )}
-              {isAdmin && <button
-                className="inventory-row-delete"
-                disabled={!canDelete(item)}
-                onClick={() => requestDelete([item])}
-                aria-label={`Delete ${item.sku}`}
-              >
-                <Icon n="trash" />
-              </button>}
+              {isAdmin && (
+                <button
+                  className="inventory-row-delete"
+                  disabled={!canDelete(item)}
+                  onClick={() => requestDelete([item])}
+                  aria-label={`Delete ${item.sku}`}
+                >
+                  <Icon n="trash" />
+                </button>
+              )}
             </td>
           </tr>
         ))}

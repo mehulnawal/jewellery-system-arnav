@@ -1126,7 +1126,9 @@ html[data-theme="dark"] .challan-aging-badge.red {
   height: 32px;
   justify-content: center;
   padding: 0 !important;
-  transition: background .15s ease, color .15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   width: 32px;
 }
 .stage-two-close:hover,
@@ -1226,7 +1228,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .final-invoice-modal .stage-two-head,
 .final-invoice-modal .stage-two-row {
-  grid-template-columns: minmax(180px, 1.35fr) repeat(5, minmax(125px, .85fr));
+  grid-template-columns: minmax(180px, 1.35fr) repeat(5, minmax(125px, 0.85fr));
 }
 .final-invoice-modal .stage-two-totals {
   background: var(--ui-surface-subtle, #f8fafc);
@@ -1256,7 +1258,11 @@ html[data-theme="dark"] .challan-aging-badge.red {
   font-size: 22px;
 }
 .final-invoice-modal .stage-two-totals > :last-child {
-  background: color-mix(in srgb, var(--ui-emerald-soft, #ecfdf5) 55%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--ui-emerald-soft, #ecfdf5) 55%,
+    transparent
+  );
   color: var(--ui-emerald, #15803d);
 }
 .final-invoice-modal .stage-two-row b {
@@ -1309,7 +1315,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .settlement-modal .stage-two-notes input:focus {
   border-color: var(--ui-emerald, #16a34a);
-  box-shadow: 0 0 0 3px rgb(22 163 74 / .14);
+  box-shadow: 0 0 0 3px rgb(22 163 74 / 0.14);
   outline: 0;
 }
 .settlement-modal .stage-two-notes {
@@ -1452,45 +1458,281 @@ html[data-theme="dark"] .challan-aging-badge.red {
   margin: 0 24px 14px;
 }
 /* Final invoice and payment settlement modals. */
-.settlement-overlay { align-items: center; background: rgb(15 23 42 / .58); backdrop-filter: blur(3px); display: flex; inset: 0; justify-content: center; overflow-y: auto; padding: 24px; position: fixed; z-index: 1000; }
-.settlement-modal { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 14px; box-sizing: border-box; box-shadow: 0 26px 70px rgb(15 23 42 / .32); color: var(--ui-text, #172033); max-height: calc(100vh - 32px); max-width: min(720px, calc(100vw - 32px)); overflow: auto; width: min(720px, calc(100vw - 32px)); }
-.settlement-modal > header { align-items: center; border-bottom: 1px solid var(--ui-border, #dfe4e8); display: flex; gap: 16px; justify-content: space-between; padding: 15px 18px; }
-.settlement-modal header p { color: var(--ui-muted, #64748b); font-size: 11px; font-weight: 800; letter-spacing: .1em; margin: 0 0 5px; }
-.settlement-modal h3 { font-size: 20px; line-height: 1.25; margin: 0; }
-.settlement-message { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; color: #1d4ed8; font-size: 14px; font-weight: 650; line-height: 1.45; margin: 18px 24px; padding: 12px 14px; }
-.settlement-details { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 24px; }
-.settlement-details span, .invoice-totals span, .settlement-summary span { background: var(--ui-surface-subtle, #f8fafc); border: 1px solid var(--ui-border, #dfe4e8); border-radius: 9px; display: grid; gap: 5px; min-width: 0; padding: 12px; }
-.settlement-details small, .invoice-totals small, .settlement-invoice small { color: var(--ui-muted, #64748b); font-size: 10px; font-weight: 800; letter-spacing: .06em; }
-.settlement-details b { overflow-wrap: anywhere; }
-.settlement-table-wrap { border: 1px solid var(--ui-border, #dfe4e8); border-radius: 10px; margin: 0 24px; overflow: auto; }
-.settlement-table-wrap table { border-collapse: collapse; min-width: 860px; width: 100%; }
-.settlement-table-wrap th { background: var(--ui-surface-subtle, #f8fafc); color: var(--ui-muted, #64748b); font-size: 10px; letter-spacing: .04em; padding: 11px 12px; text-align: left; text-transform: uppercase; white-space: nowrap; }
-.settlement-table-wrap td { border-top: 1px solid var(--ui-border, #dfe4e8); padding: 11px 12px; }
-.settlement-table-wrap td small { color: var(--ui-muted, #64748b); display: block; margin-top: 3px; }
-.invoice-totals { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 18px 24px; }
-.invoice-totals strong { color: var(--ui-emerald, #15803d); font-size: 18px; }
-.settlement-invoice { align-items: center; background: var(--ui-emerald-soft, #ecfdf5); border: 1px solid var(--ui-emerald, #16a34a); border-radius: 11px; display: grid; gap: 4px; justify-items: center; margin: 18px 24px; padding: 16px; text-align: center; }
-.settlement-invoice strong { color: var(--ui-emerald, #15803d); font-size: 26px; }
-.settlement-invoice span { color: var(--ui-muted, #64748b); font-size: 13px; font-weight: 700; }
-.settlement-inputs { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 18px 24px; }
-.settlement-inputs label { color: var(--ui-text, #172033); display: grid; font-size: 13px; font-weight: 800; gap: 7px; }
-.settlement-inputs input { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #cbd5e1); border-radius: 8px; color: var(--ui-text, #172033); font: inherit; height: 42px; padding: 0 11px; }
-.settlement-summary { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 24px 12px; }
-.settlement-summary span { font-size: 13px; }
-.settlement-summary strong { color: #b45309; font-size: 16px; }
-.settlement-summary.is-valid strong { color: var(--ui-emerald, #15803d); }
-.settlement-error { color: #b91c1c; font-size: 13px; font-weight: 700; line-height: 1.4; margin: 0 24px 14px; }
-.settlement-modal > footer { display: flex; gap: 10px; justify-content: flex-end; padding: 8px 24px 24px; }
-.settlement-modal > footer button:not(.primary) { background: var(--ui-surface, #fff); border: 1px solid var(--ui-border, #cbd5e1); color: var(--ui-text, #475569); }
-.stage-two-close { align-items: center; border-radius: 8px; display: inline-flex; justify-content: center; }
-html[data-theme="dark"] .settlement-modal { background: #182231; border-color: #3b4b5e; color: #e5edf6; }
-html[data-theme="dark"] .settlement-modal > header, html[data-theme="dark"] .settlement-table-wrap, html[data-theme="dark"] .settlement-table-wrap td { border-color: #3b4b5e; }
-html[data-theme="dark"] .settlement-details span, html[data-theme="dark"] .invoice-totals span, html[data-theme="dark"] .settlement-summary span, html[data-theme="dark"] .settlement-table-wrap th { background: #223142; border-color: #3b4b5e; }
-html[data-theme="dark"] .settlement-table-wrap td { border-color: #334155; }
-html[data-theme="dark"] .settlement-message { background: #172c4f; border-color: #285a9f; color: #bfdbfe; }
-html[data-theme="dark"] .settlement-invoice { background: #173c32; border-color: #267b5d; }
-html[data-theme="dark"] .settlement-inputs input, html[data-theme="dark"] .settlement-modal > footer button:not(.primary) { background: #111827; border-color: #3b4b5e; color: #e5edf6; }
-@media (max-width: 700px) { .settlement-overlay { align-items: flex-start; padding: 10px; } .settlement-modal { max-height: calc(100vh - 20px); } .settlement-modal > header { padding: 16px; } .settlement-message, .settlement-details, .settlement-table-wrap, .invoice-totals, .settlement-invoice, .settlement-inputs, .settlement-summary { margin-left: 16px; margin-right: 16px; } .settlement-details, .invoice-totals, .settlement-inputs, .settlement-summary { grid-template-columns: 1fr; } .settlement-modal > footer { padding: 8px 16px 16px; } .settlement-modal > footer button { flex: 1; } }
+.settlement-overlay {
+  align-items: center;
+  background: rgb(15 23 42 / 0.58);
+  backdrop-filter: blur(3px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+.settlement-modal {
+  background: var(--ui-surface, #fff);
+  border: 1px solid var(--ui-border, #dfe4e8);
+  border-radius: 14px;
+  box-sizing: border-box;
+  box-shadow: 0 26px 70px rgb(15 23 42 / 0.32);
+  color: var(--ui-text, #172033);
+  max-height: calc(100vh - 32px);
+  max-width: min(720px, calc(100vw - 32px));
+  overflow: auto;
+  width: min(720px, calc(100vw - 32px));
+}
+.settlement-modal > header {
+  align-items: center;
+  border-bottom: 1px solid var(--ui-border, #dfe4e8);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 15px 18px;
+}
+.settlement-modal header p {
+  color: var(--ui-muted, #64748b);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin: 0 0 5px;
+}
+.settlement-modal h3 {
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 0;
+}
+.settlement-message {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+  margin: 18px 24px;
+  padding: 12px 14px;
+}
+.settlement-details {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 24px;
+}
+.settlement-details span,
+.invoice-totals span,
+.settlement-summary span {
+  background: var(--ui-surface-subtle, #f8fafc);
+  border: 1px solid var(--ui-border, #dfe4e8);
+  border-radius: 9px;
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+}
+.settlement-details small,
+.invoice-totals small,
+.settlement-invoice small {
+  color: var(--ui-muted, #64748b);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.settlement-details b {
+  overflow-wrap: anywhere;
+}
+.settlement-table-wrap {
+  border: 1px solid var(--ui-border, #dfe4e8);
+  border-radius: 10px;
+  margin: 0 24px;
+  overflow: auto;
+}
+.settlement-table-wrap table {
+  border-collapse: collapse;
+  min-width: 860px;
+  width: 100%;
+}
+.settlement-table-wrap th {
+  background: var(--ui-surface-subtle, #f8fafc);
+  color: var(--ui-muted, #64748b);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 11px 12px;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.settlement-table-wrap td {
+  border-top: 1px solid var(--ui-border, #dfe4e8);
+  padding: 11px 12px;
+}
+.settlement-table-wrap td small {
+  color: var(--ui-muted, #64748b);
+  display: block;
+  margin-top: 3px;
+}
+.invoice-totals {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 24px;
+}
+.invoice-totals strong {
+  color: var(--ui-emerald, #15803d);
+  font-size: 18px;
+}
+.settlement-invoice {
+  align-items: center;
+  background: var(--ui-emerald-soft, #ecfdf5);
+  border: 1px solid var(--ui-emerald, #16a34a);
+  border-radius: 11px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  margin: 18px 24px;
+  padding: 16px;
+  text-align: center;
+}
+.settlement-invoice strong {
+  color: var(--ui-emerald, #15803d);
+  font-size: 26px;
+}
+.settlement-invoice span {
+  color: var(--ui-muted, #64748b);
+  font-size: 13px;
+  font-weight: 700;
+}
+.settlement-inputs {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 18px 24px;
+}
+.settlement-inputs label {
+  color: var(--ui-text, #172033);
+  display: grid;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 7px;
+}
+.settlement-inputs input {
+  background: var(--ui-surface, #fff);
+  border: 1px solid var(--ui-border, #cbd5e1);
+  border-radius: 8px;
+  color: var(--ui-text, #172033);
+  font: inherit;
+  height: 42px;
+  padding: 0 11px;
+}
+.settlement-summary {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 24px 12px;
+}
+.settlement-summary span {
+  font-size: 13px;
+}
+.settlement-summary strong {
+  color: #b45309;
+  font-size: 16px;
+}
+.settlement-summary.is-valid strong {
+  color: var(--ui-emerald, #15803d);
+}
+.settlement-error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 24px 14px;
+}
+.settlement-modal > footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 8px 24px 24px;
+}
+.settlement-modal > footer button:not(.primary) {
+  background: var(--ui-surface, #fff);
+  border: 1px solid var(--ui-border, #cbd5e1);
+  color: var(--ui-text, #475569);
+}
+.stage-two-close {
+  align-items: center;
+  border-radius: 8px;
+  display: inline-flex;
+  justify-content: center;
+}
+html[data-theme="dark"] .settlement-modal {
+  background: #182231;
+  border-color: #3b4b5e;
+  color: #e5edf6;
+}
+html[data-theme="dark"] .settlement-modal > header,
+html[data-theme="dark"] .settlement-table-wrap,
+html[data-theme="dark"] .settlement-table-wrap td {
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .settlement-details span,
+html[data-theme="dark"] .invoice-totals span,
+html[data-theme="dark"] .settlement-summary span,
+html[data-theme="dark"] .settlement-table-wrap th {
+  background: #223142;
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .settlement-table-wrap td {
+  border-color: #334155;
+}
+html[data-theme="dark"] .settlement-message {
+  background: #172c4f;
+  border-color: #285a9f;
+  color: #bfdbfe;
+}
+html[data-theme="dark"] .settlement-invoice {
+  background: #173c32;
+  border-color: #267b5d;
+}
+html[data-theme="dark"] .settlement-inputs input,
+html[data-theme="dark"] .settlement-modal > footer button:not(.primary) {
+  background: #111827;
+  border-color: #3b4b5e;
+  color: #e5edf6;
+}
+@media (max-width: 700px) {
+  .settlement-overlay {
+    align-items: flex-start;
+    padding: 10px;
+  }
+  .settlement-modal {
+    max-height: calc(100vh - 20px);
+  }
+  .settlement-modal > header {
+    padding: 16px;
+  }
+  .settlement-message,
+  .settlement-details,
+  .settlement-table-wrap,
+  .invoice-totals,
+  .settlement-invoice,
+  .settlement-inputs,
+  .settlement-summary {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+  .settlement-details,
+  .invoice-totals,
+  .settlement-inputs,
+  .settlement-summary {
+    grid-template-columns: 1fr;
+  }
+  .settlement-modal > footer {
+    padding: 8px 16px 16px;
+  }
+  .settlement-modal > footer button {
+    flex: 1;
+  }
+}
 @media (max-width: 650px) {
   .stage-two-overlay {
     padding: 10px;
@@ -1555,7 +1797,7 @@ html[data-theme="dark"] .settlement-modal .stage-two-notes input {
 }
 html[data-theme="dark"] .settlement-modal .stage-two-notes input:focus {
   border-color: #34a77c;
-  box-shadow: 0 0 0 3px rgb(52 167 124 / .18);
+  box-shadow: 0 0 0 3px rgb(52 167 124 / 0.18);
 }
 html[data-theme="dark"] .final-invoice-modal .stage-two-totals > :last-child {
   background: #173c32;
@@ -1972,7 +2214,10 @@ html[data-theme="dark"] .challan-view-summary {
 .list-head,
 .challan-row {
   column-gap: 16px;
-  grid-template-columns: minmax(180px, 1.15fr) minmax(190px, 1.4fr) 112px 82px minmax(190px, 1.1fr) 145px minmax(190px, 1.2fr);
+  grid-template-columns: minmax(180px, 1.15fr) minmax(
+      190px,
+      1.4fr
+    ) 112px 82px minmax(190px, 1.1fr) 145px minmax(190px, 1.2fr);
   min-width: 1110px;
   padding-left: 20px;
   padding-right: 20px;
@@ -2041,7 +2286,10 @@ html[data-theme="dark"] .challan-view-summary {
 }
 .challan-fields {
   gap: 18px;
-  grid-template-columns: minmax(160px, 0.8fr) minmax(190px, 1fr) minmax(300px, 1.7fr);
+  grid-template-columns: minmax(160px, 0.8fr) minmax(190px, 1fr) minmax(
+      300px,
+      1.7fr
+    );
 }
 .challan-fields input,
 .challan-item input,
@@ -2054,7 +2302,13 @@ html[data-theme="dark"] .challan-view-summary {
 .challan-item,
 .challan-item-totals {
   column-gap: 12px;
-  grid-template-columns: minmax(180px, 1.6fr) minmax(100px, 0.85fr) minmax(80px, 0.7fr) minmax(70px, 0.65fr) minmax(118px, 0.95fr) minmax(84px, 0.7fr) minmax(110px, 0.9fr) minmax(108px, 0.85fr) minmax(145px, 1.15fr) 76px;
+  grid-template-columns: minmax(180px, 1.6fr) minmax(100px, 0.85fr) minmax(
+      80px,
+      0.7fr
+    ) minmax(70px, 0.65fr) minmax(118px, 0.95fr) minmax(84px, 0.7fr) minmax(
+      110px,
+      0.9fr
+    ) minmax(108px, 0.85fr) minmax(145px, 1.15fr) 76px;
   min-width: 1190px;
 }
 .item-head {
@@ -2122,16 +2376,30 @@ html[data-theme="dark"] .challan-page nav .challan-tab-main small {
   border-color: #475569;
   color: #e5edf6;
 }
-html[data-theme="dark"] .challan-page nav button.active .challan-tab-main small {
+html[data-theme="dark"]
+  .challan-page
+  nav
+  button.active
+  .challan-tab-main
+  small {
   background: #21845f;
   border-color: #21845f;
   color: #fff;
 }
 @media (max-width: 900px) {
-  .challan-heading { align-items: flex-start; }
-  .challan-filters { align-items: flex-start; }
-  .challan-aging-legend { margin-left: 0; width: auto; }
-  .challan-fields { grid-template-columns: 1fr; }
+  .challan-heading {
+    align-items: flex-start;
+  }
+  .challan-filters {
+    align-items: flex-start;
+  }
+  .challan-aging-legend {
+    margin-left: 0;
+    width: auto;
+  }
+  .challan-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Give the displayed Party Name a clearer secondary hierarchy in Challan rows. */
@@ -2142,95 +2410,445 @@ html[data-theme="dark"] .challan-page nav button.active .challan-tab-main small 
   margin-top: 5px;
 }
 
-
 /* Challan list stage-column visibility and movement-modal presentation. */
 .list-head.stage-column-hidden,
 .challan-row.stage-column-hidden {
-  grid-template-columns: minmax(180px, 1.2fr) minmax(190px, 1.45fr) 112px 82px 145px minmax(210px, 1.25fr);
+  grid-template-columns: minmax(180px, 1.2fr) minmax(
+      190px,
+      1.45fr
+    ) 112px 82px 145px minmax(210px, 1.25fr);
 }
-.settlement-modal { display: flex; flex-direction: column; max-width: 1020px; overflow: hidden; }
-.settlement-modal > header { flex: 0 0 auto; padding: 16px 20px; }
-.settlement-modal h3 { font-size: 20px; line-height: 1.25; }
-.settlement-modal-content { min-height: 0; overflow: auto; padding: 16px 20px 4px; }
-.settlement-section + .settlement-section { margin-top: 18px; }
-.settlement-section h4 { color: var(--ui-text, #172033); font-size: 13px; letter-spacing: .01em; margin: 0 0 9px; }
-.settlement-message { font-size: 13px; margin: 0 0 16px; padding: 10px 12px; }
-.settlement-details { gap: 8px; margin: 0; }
-.settlement-details span, .invoice-totals span, .settlement-summary span { background: transparent; border-radius: 7px; gap: 4px; padding: 9px 10px; }
-.settlement-details b, .invoice-totals b, .settlement-summary b { font-size: 14px; line-height: 1.3; }
-.settlement-table-wrap { border-radius: 8px; margin: 0; }
-.settlement-table-wrap th { font-size: 10px; padding: 9px 10px; }
-.settlement-table-wrap td { font-size: 13px; padding: 9px 10px; vertical-align: middle; }
-.settlement-table-wrap th:not(:first-child), .settlement-table-wrap td:not(:first-child) { text-align: right; white-space: nowrap; }
-.settlement-table-wrap td:first-child { max-width: 190px; overflow-wrap: anywhere; }
-.invoice-totals { gap: 8px; margin: 0; }
-.invoice-totals strong { font-size: 17px; }
-.settlement-invoice { border-radius: 9px; gap: 2px; margin: 16px 0 18px; padding: 11px 14px; }
-.settlement-invoice strong { font-size: 23px; line-height: 1.2; }
-.settlement-inputs { gap: 12px; margin: 0 0 14px; }
-.settlement-inputs input { height: 40px; text-align: right; transition: border-color .15s ease, box-shadow .15s ease; }
-.settlement-inputs input:focus { border-color: var(--ui-emerald, #16a34a); box-shadow: 0 0 0 3px rgb(22 163 74 / .14); outline: 0; }
-.settlement-summary { gap: 8px; margin: 0; }
-.settlement-summary small { color: var(--ui-muted, #64748b); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.settlement-error { margin: 12px 0 0; }
-.settlement-modal > footer { background: var(--ui-surface, #fff); border-top: 1px solid var(--ui-border, #dfe4e8); flex: 0 0 auto; padding: 13px 20px; }
-.stage-two-close { color: var(--ui-muted, #64748b) !important; font-size: 15px !important; font-weight: 800; height: 32px; transition: background .15s ease, color .15s ease; width: 32px; }
-.stage-two-close:hover, .stage-two-close:focus-visible { background: var(--ui-surface-subtle, #f1f5f9) !important; color: var(--ui-text, #172033) !important; outline: 0; }
-html[data-theme="dark"] .settlement-modal-content, html[data-theme="dark"] .settlement-modal > footer { background: #182231; }
-html[data-theme="dark"] .settlement-section h4 { color: #e5edf6; }
-html[data-theme="dark"] .settlement-details span, html[data-theme="dark"] .invoice-totals span, html[data-theme="dark"] .settlement-summary span { background: transparent; border-color: #3b4b5e; }
-html[data-theme="dark"] .settlement-table-wrap th { background: #223142; color: #cbd5e1; }
-html[data-theme="dark"] .settlement-inputs input:focus { border-color: #34a77c; box-shadow: 0 0 0 3px rgb(52 167 124 / .18); }
-html[data-theme="dark"] .settlement-modal > footer { border-color: #3b4b5e; }
-html[data-theme="dark"] .stage-two-close:hover, html[data-theme="dark"] .stage-two-close:focus-visible { background: #223142 !important; color: #f8fafc !important; }
-@media (max-width: 850px) { .list-head.stage-column-hidden, .challan-row.stage-column-hidden { min-width: 940px; } }
-@media (max-width: 700px) { .settlement-modal-content { padding: 14px 16px 2px; } .settlement-section + .settlement-section { margin-top: 16px; } .settlement-details, .invoice-totals, .settlement-inputs, .settlement-summary { gap: 8px; } .settlement-modal > footer { padding: 12px 16px; } }
+.settlement-modal {
+  display: flex;
+  flex-direction: column;
+  max-width: 1020px;
+  overflow: hidden;
+}
+.settlement-modal > header {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+}
+.settlement-modal h3 {
+  font-size: 20px;
+  line-height: 1.25;
+}
+.settlement-modal-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 20px 4px;
+}
+.settlement-section + .settlement-section {
+  margin-top: 18px;
+}
+.settlement-section h4 {
+  color: var(--ui-text, #172033);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  margin: 0 0 9px;
+}
+.settlement-message {
+  font-size: 13px;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+}
+.settlement-details {
+  gap: 8px;
+  margin: 0;
+}
+.settlement-details span,
+.invoice-totals span,
+.settlement-summary span {
+  background: transparent;
+  border-radius: 7px;
+  gap: 4px;
+  padding: 9px 10px;
+}
+.settlement-details b,
+.invoice-totals b,
+.settlement-summary b {
+  font-size: 14px;
+  line-height: 1.3;
+}
+.settlement-table-wrap {
+  border-radius: 8px;
+  margin: 0;
+}
+.settlement-table-wrap th {
+  font-size: 10px;
+  padding: 9px 10px;
+}
+.settlement-table-wrap td {
+  font-size: 13px;
+  padding: 9px 10px;
+  vertical-align: middle;
+}
+.settlement-table-wrap th:not(:first-child),
+.settlement-table-wrap td:not(:first-child) {
+  text-align: right;
+  white-space: nowrap;
+}
+.settlement-table-wrap td:first-child {
+  max-width: 190px;
+  overflow-wrap: anywhere;
+}
+.invoice-totals {
+  gap: 8px;
+  margin: 0;
+}
+.invoice-totals strong {
+  font-size: 17px;
+}
+.settlement-invoice {
+  border-radius: 9px;
+  gap: 2px;
+  margin: 16px 0 18px;
+  padding: 11px 14px;
+}
+.settlement-invoice strong {
+  font-size: 23px;
+  line-height: 1.2;
+}
+.settlement-inputs {
+  gap: 12px;
+  margin: 0 0 14px;
+}
+.settlement-inputs input {
+  height: 40px;
+  text-align: right;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.settlement-inputs input:focus {
+  border-color: var(--ui-emerald, #16a34a);
+  box-shadow: 0 0 0 3px rgb(22 163 74 / 0.14);
+  outline: 0;
+}
+.settlement-summary {
+  gap: 8px;
+  margin: 0;
+}
+.settlement-summary small {
+  color: var(--ui-muted, #64748b);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.settlement-error {
+  margin: 12px 0 0;
+}
+.settlement-modal > footer {
+  background: var(--ui-surface, #fff);
+  border-top: 1px solid var(--ui-border, #dfe4e8);
+  flex: 0 0 auto;
+  padding: 13px 20px;
+}
+.stage-two-close {
+  color: var(--ui-muted, #64748b) !important;
+  font-size: 15px !important;
+  font-weight: 800;
+  height: 32px;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+  width: 32px;
+}
+.stage-two-close:hover,
+.stage-two-close:focus-visible {
+  background: var(--ui-surface-subtle, #f1f5f9) !important;
+  color: var(--ui-text, #172033) !important;
+  outline: 0;
+}
+html[data-theme="dark"] .settlement-modal-content,
+html[data-theme="dark"] .settlement-modal > footer {
+  background: #182231;
+}
+html[data-theme="dark"] .settlement-section h4 {
+  color: #e5edf6;
+}
+html[data-theme="dark"] .settlement-details span,
+html[data-theme="dark"] .invoice-totals span,
+html[data-theme="dark"] .settlement-summary span {
+  background: transparent;
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .settlement-table-wrap th {
+  background: #223142;
+  color: #cbd5e1;
+}
+html[data-theme="dark"] .settlement-inputs input:focus {
+  border-color: #34a77c;
+  box-shadow: 0 0 0 3px rgb(52 167 124 / 0.18);
+}
+html[data-theme="dark"] .settlement-modal > footer {
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .stage-two-close:hover,
+html[data-theme="dark"] .stage-two-close:focus-visible {
+  background: #223142 !important;
+  color: #f8fafc !important;
+}
+@media (max-width: 850px) {
+  .list-head.stage-column-hidden,
+  .challan-row.stage-column-hidden {
+    min-width: 940px;
+  }
+}
+@media (max-width: 700px) {
+  .settlement-modal-content {
+    padding: 14px 16px 2px;
+  }
+  .settlement-section + .settlement-section {
+    margin-top: 16px;
+  }
+  .settlement-details,
+  .invoice-totals,
+  .settlement-inputs,
+  .settlement-summary {
+    gap: 8px;
+  }
+  .settlement-modal > footer {
+    padding: 12px 16px;
+  }
+}
 /* Final spacing and surface normalization for Challan movement modals. */
-.settlement-modal { border-radius: 14px; }
-.settlement-modal > header { padding: 15px 18px; }
-.settlement-modal-content { padding: 14px 18px 0; }
-.settlement-modal header p { margin-bottom: 3px; }
-.settlement-modal h3 { font-size: 19px; }
-.settlement-section + .settlement-section { margin-top: 16px; }
-.settlement-section h4 { margin-bottom: 8px; }
-.settlement-message { border-radius: 8px; margin-bottom: 14px; padding: 9px 11px; }
-.settlement-details, .invoice-totals { gap: 7px; }
-.settlement-details span, .invoice-totals span, .settlement-summary span { border-radius: 6px; min-height: 0; padding: 8px 9px; }
-.settlement-table-wrap { border-radius: 7px; }
-.settlement-table-wrap th { background: transparent; border-bottom: 1px solid var(--ui-border, #dfe4e8); padding: 8px 9px; }
-.settlement-table-wrap td { padding: 8px 9px; }
-.settlement-invoice { margin: 14px 0 16px; padding: 10px 12px; }
-.settlement-inputs { gap: 10px; margin-bottom: 12px; }
-.settlement-inputs label { gap: 6px; }
-.settlement-inputs input { border-radius: 7px; height: 38px; padding: 0 10px; }
-.settlement-summary { gap: 7px; }
-.settlement-modal > footer { padding: 12px 18px; }
-.settlement-modal > footer button { min-height: 38px; padding: 8px 12px; }
-html[data-theme="dark"] .settlement-table-wrap th { background: transparent; border-color: #3b4b5e; }
-html[data-theme="dark"] .settlement-message { background: #182231; border-color: #285a9f; }
-@media (max-width: 700px) { .settlement-modal > header, .settlement-modal-content, .settlement-modal > footer { padding-left: 14px; padding-right: 14px; } .settlement-modal-content { padding-top: 12px; } .settlement-details, .invoice-totals, .settlement-inputs, .settlement-summary { grid-template-columns: 1fr; } }
+.settlement-modal {
+  border-radius: 14px;
+}
+.settlement-modal > header {
+  padding: 15px 18px;
+}
+.settlement-modal-content {
+  padding: 14px 18px 0;
+}
+.settlement-modal header p {
+  margin-bottom: 3px;
+}
+.settlement-modal h3 {
+  font-size: 19px;
+}
+.settlement-section + .settlement-section {
+  margin-top: 16px;
+}
+.settlement-section h4 {
+  margin-bottom: 8px;
+}
+.settlement-message {
+  border-radius: 8px;
+  margin-bottom: 14px;
+  padding: 9px 11px;
+}
+.settlement-details,
+.invoice-totals {
+  gap: 7px;
+}
+.settlement-details span,
+.invoice-totals span,
+.settlement-summary span {
+  border-radius: 6px;
+  min-height: 0;
+  padding: 8px 9px;
+}
+.settlement-table-wrap {
+  border-radius: 7px;
+}
+.settlement-table-wrap th {
+  background: transparent;
+  border-bottom: 1px solid var(--ui-border, #dfe4e8);
+  padding: 8px 9px;
+}
+.settlement-table-wrap td {
+  padding: 8px 9px;
+}
+.settlement-invoice {
+  margin: 14px 0 16px;
+  padding: 10px 12px;
+}
+.settlement-inputs {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.settlement-inputs label {
+  gap: 6px;
+}
+.settlement-inputs input {
+  border-radius: 7px;
+  height: 38px;
+  padding: 0 10px;
+}
+.settlement-summary {
+  gap: 7px;
+}
+.settlement-modal > footer {
+  padding: 12px 18px;
+}
+.settlement-modal > footer button {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+html[data-theme="dark"] .settlement-table-wrap th {
+  background: transparent;
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .settlement-message {
+  background: #182231;
+  border-color: #285a9f;
+}
+@media (max-width: 700px) {
+  .settlement-modal > header,
+  .settlement-modal-content,
+  .settlement-modal > footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .settlement-modal-content {
+    padding-top: 12px;
+  }
+  .settlement-details,
+  .invoice-totals,
+  .settlement-inputs,
+  .settlement-summary {
+    grid-template-columns: 1fr;
+  }
+}
 /* Consolidated Challan list and View presentation. */
-.challan-row { min-height: 58px; padding-bottom: 8px; padding-top: 8px; }
-.challan-actions { align-content: center; display: grid; gap: 5px; grid-template-columns: repeat(2, max-content); justify-content: start; }
-.challan-actions > button { font-size: 12px; line-height: 1.2; min-height: 30px; padding: 6px 8px; }
-.challan-workflow-button { max-width: 174px; }
-.challan-actions > button svg { height: 14px; width: 14px; }
-.challan-row-actions { gap: 5px; }
-.challan-row-actions button { font-size: 11px; min-height: 28px; padding: 5px 7px; }
-.challan-row-actions small { font-size: 10px; line-height: 1.2; }
-.challan-view-items tfoot td { background: var(--ui-surface-subtle, #f8fafc); border-top: 2px solid var(--ui-border); font-size: 12px; font-weight: 800; }
-.challan-view-payable { align-items: baseline; background: var(--ui-emerald-soft); border: 1px solid var(--ui-border); border-radius: 8px; display: flex; gap: 10px; justify-content: space-between; margin-top: 14px; padding: 12px 14px; }
-.challan-view-payable small { color: var(--ui-muted); font-size: 11px; font-weight: 800; letter-spacing: .06em; }
-.challan-view-payable strong { color: var(--ui-emerald); font-size: 21px; }
-.challan-image-placeholder { align-items: center; border: 1px dashed var(--ui-border); border-radius: 9px; display: flex; flex-wrap: wrap; gap: 9px 14px; margin-top: 18px; padding: 12px; }
-.challan-image-placeholder b { font-size: 14px; }
-.challan-image-placeholder span { color: var(--ui-muted); flex: 1 1 210px; font-size: 12px; }
-.challan-image-placeholder button { background: var(--ui-surface); border: 1px solid var(--ui-border); border-radius: 7px; color: var(--ui-text); font-size: 12px; font-weight: 800; padding: 8px 10px; }
-html[data-theme="dark"] .challan-view-items tfoot td { background: #182231; border-color: #3b4b5e; }
-html[data-theme="dark"] .challan-view-payable { background: #173c32; border-color: #267b5d; }
-html[data-theme="dark"] .challan-image-placeholder { border-color: #3b4b5e; }
-html[data-theme="dark"] .challan-image-placeholder button { background: #182231; border-color: #3b4b5e; color: #e5edf6; }
-@media (max-width: 850px) { .challan-actions { grid-template-columns: repeat(2, max-content); } }
-@media (max-width: 620px) { .challan-actions { grid-template-columns: 1fr; width: 100%; } .challan-workflow-button { max-width: none; } .challan-view-payable { align-items: flex-start; flex-direction: column; } }
-@media print { .challan-aging-badge, .challan-image-placeholder, .challan-view-toolbar, .challan-view-current { display: none !important; } }
-.challan-view-types { color: var(--ui-emerald); display: inline-block; font-size: 12px; margin-top: 4px; }
+.challan-row {
+  min-height: 58px;
+  padding-bottom: 8px;
+  padding-top: 8px;
+}
+.challan-actions {
+  align-content: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: start;
+}
+.challan-actions > button {
+  font-size: 12px;
+  line-height: 1.2;
+  min-height: 30px;
+  padding: 6px 8px;
+}
+.challan-workflow-button {
+  max-width: 174px;
+}
+.challan-actions > button svg {
+  height: 14px;
+  width: 14px;
+}
+.challan-row-actions {
+  gap: 5px;
+}
+.challan-row-actions button {
+  font-size: 11px;
+  min-height: 28px;
+  padding: 5px 7px;
+}
+.challan-row-actions small {
+  font-size: 10px;
+  line-height: 1.2;
+}
+.challan-view-items tfoot td {
+  background: var(--ui-surface-subtle, #f8fafc);
+  border-top: 2px solid var(--ui-border);
+  font-size: 12px;
+  font-weight: 800;
+}
+.challan-view-payable {
+  align-items: baseline;
+  background: var(--ui-emerald-soft);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 12px 14px;
+}
+.challan-view-payable small {
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.challan-view-payable strong {
+  color: var(--ui-emerald);
+  font-size: 21px;
+}
+.challan-image-placeholder {
+  align-items: center;
+  border: 1px dashed var(--ui-border);
+  border-radius: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 14px;
+  margin-top: 18px;
+  padding: 12px;
+}
+.challan-image-placeholder b {
+  font-size: 14px;
+}
+.challan-image-placeholder span {
+  color: var(--ui-muted);
+  flex: 1 1 210px;
+  font-size: 12px;
+}
+.challan-image-placeholder button {
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 10px;
+}
+html[data-theme="dark"] .challan-view-items tfoot td {
+  background: #182231;
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .challan-view-payable {
+  background: #173c32;
+  border-color: #267b5d;
+}
+html[data-theme="dark"] .challan-image-placeholder {
+  border-color: #3b4b5e;
+}
+html[data-theme="dark"] .challan-image-placeholder button {
+  background: #182231;
+  border-color: #3b4b5e;
+  color: #e5edf6;
+}
+@media (max-width: 850px) {
+  .challan-actions {
+    grid-template-columns: repeat(2, max-content);
+  }
+}
+@media (max-width: 620px) {
+  .challan-actions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .challan-workflow-button {
+    max-width: none;
+  }
+  .challan-view-payable {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media print {
+  .challan-aging-badge,
+  .challan-image-placeholder,
+  .challan-view-toolbar,
+  .challan-view-current {
+    display: none !important;
+  }
+}
+.challan-view-types {
+  color: var(--ui-emerald);
+  display: inline-block;
+  font-size: 12px;
+  margin-top: 4px;
+}

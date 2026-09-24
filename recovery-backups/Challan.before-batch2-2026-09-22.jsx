@@ -916,7 +916,9 @@ export default function Challan() {
       return;
     }
     if (
-      previous?.items?.some((item) => item.sourceInventoryId || item.inventoryId) &&
+      previous?.items?.some(
+        (item) => item.sourceInventoryId || item.inventoryId,
+      ) &&
       (previous.items.length !== pricedItems.length ||
         previous.items.some((item, index) => {
           const next = pricedItems[index];
@@ -986,7 +988,9 @@ export default function Challan() {
           const inventoryRef = doc(db, "inventory", item.inventoryId);
           const inventorySnapshot = inventorySnapshots[index];
           if (!inventorySnapshot.exists())
-            throw new Error(`Inventory item ${item.sku} is no longer available.`);
+            throw new Error(
+              `Inventory item ${item.sku} is no longer available.`,
+            );
           const stock = inventorySnapshot.data();
           const requestedWeight = Number(item.weight || 0);
           const requestedPieces = pieceValue(item.pieces);
@@ -1125,7 +1129,9 @@ export default function Challan() {
         const stock = inventorySnapshot.data();
         tx.update(inventorySnapshot.ref, {
           weight: Number(
-            (Number(stock.weight || 0) + Number(item.returnWeight || 0)).toFixed(3),
+            (
+              Number(stock.weight || 0) + Number(item.returnWeight || 0)
+            ).toFixed(3),
           ),
           pieces: stockPieces(stock) + pieceValue(item.returnPieces),
           updatedAt: serverTimestamp(),

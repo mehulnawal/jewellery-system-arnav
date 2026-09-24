@@ -36,7 +36,9 @@ export function HistoryDirectory({
   onSelect,
 }) {
   const normalized = normalizeSearch(query);
-  const results = entries.filter((entry) => normalizeSearch(entry).includes(normalized));
+  const results = entries.filter((entry) =>
+    normalizeSearch(entry).includes(normalized),
+  );
   return (
     <aside className="history-directory">
       <label className="history-search-label" htmlFor={`${title}-search`}>
@@ -62,7 +64,10 @@ export function HistoryDirectory({
             </button>
           ))
         ) : (
-          <p>No {title.toLocaleLowerCase()} found{query.trim() ? ` for “${query.trim()}”` : ""}.</p>
+          <p>
+            No {title.toLocaleLowerCase()} found
+            {query.trim() ? ` for “${query.trim()}”` : ""}.
+          </p>
         )}
       </div>
     </aside>

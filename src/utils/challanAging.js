@@ -14,7 +14,11 @@ export const formatElapsed = (milliseconds) => {
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;
-  return days ? `${days}d ${hours}h` : hours ? `${hours}h ${mins}m` : `${mins}m`;
+  return days
+    ? `${days}d ${hours}h`
+    : hours
+      ? `${hours}h ${mins}m`
+      : `${mins}m`;
 };
 
 export const challanAging = (record, now = Date.now()) => {

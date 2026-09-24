@@ -11,6 +11,7 @@ service cloud.firestore {
     function activeOrGraceEmployee() { return activeEmployee() || graceEmployee(); }
     function authenticActor() { return request.resource.data.actor.uid == request.auth.uid && request.resource.data.actor.accessId == profile().accessId && request.resource.data.actor.role == profile().role; }
     function inventoryEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['inventory']); }
+    function challanStageOneEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-1']); }
     function challanEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-1', 'challan-stage-2', 'challan-stage-3', 'challan-stage-4']); }
     function purchaseEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['purchase']); }
     match /employeeProfiles/{uid} {
@@ -28,7 +29,7 @@ service cloud.firestore {
       allow create: if admin() || (inventoryEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time) || (purchaseEmployee() && request.resource.data.sourcePurchaseId is string && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time);
       // Staff can update their own server-timestamped inventory entry for two minutes.
       // Creation ownership/timing fields cannot be changed to extend that window.
-      allow update: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(2, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt);
+      allow update: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(2, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && request.resource.data.pieces <= resource.data.pieces);
       allow delete: if admin();
     }
     match /shapes/{entry} { allow read: if activeOrGraceEmployee() || admin(); allow write: if admin() || inventoryEmployee(); }

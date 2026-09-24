@@ -40,12 +40,17 @@ export default function VendorPurchaseHistory() {
   useEffect(() => {
     if (!selectedVendor) return undefined;
     return onSnapshot(
-      query(collection(db, "purchases"), where("vendorName", "==", selectedVendor)),
+      query(
+        collection(db, "purchases"),
+        where("vendorName", "==", selectedVendor),
+      ),
       (snapshot) => {
         setPurchases(
           snapshot.docs
             .map((entry) => ({ id: entry.id, ...entry.data() }))
-            .sort((left, right) => String(right.date || "").localeCompare(String(left.date || ""))),
+            .sort((left, right) =>
+              String(right.date || "").localeCompare(String(left.date || "")),
+            ),
         );
         setLoadedVendor(selectedVendor);
       },
@@ -63,11 +68,19 @@ export default function VendorPurchaseHistory() {
   );
   const summary = useMemo(() => {
     const amount = visiblePurchases.reduce(
-      (total, purchase) => total + (Number.isFinite(Number(purchase.amount)) ? Number(purchase.amount) : 0),
+      (total, purchase) =>
+        total +
+        (Number.isFinite(Number(purchase.amount))
+          ? Number(purchase.amount)
+          : 0),
       0,
     );
     const weight = visiblePurchases.reduce(
-      (total, purchase) => total + (Number.isFinite(Number(purchase.totalWeight)) ? Number(purchase.totalWeight) : 0),
+      (total, purchase) =>
+        total +
+        (Number.isFinite(Number(purchase.totalWeight))
+          ? Number(purchase.totalWeight)
+          : 0),
       0,
     );
     return [
@@ -95,7 +108,9 @@ export default function VendorPurchaseHistory() {
         />
         <main className="history-main">
           {!selectedVendor ? (
-            <div className="history-empty">Select a vendor to view purchase history.</div>
+            <div className="history-empty">
+              Select a vendor to view purchase history.
+            </div>
           ) : (
             <>
               <header className="history-selected-header">
@@ -115,13 +130,23 @@ export default function VendorPurchaseHistory() {
                     <table>
                       <thead>
                         <tr>
-                          <th>Purchase ID</th><th>Date</th><th>Broker</th><th>Total Weight</th><th>Amount</th><th>Discount</th><th>Net Payable</th><th>Due Date</th><th>Details</th>
+                          <th>Purchase ID</th>
+                          <th>Date</th>
+                          <th>Broker</th>
+                          <th>Total Weight</th>
+                          <th>Amount</th>
+                          <th>Discount</th>
+                          <th>Net Payable</th>
+                          <th>Due Date</th>
+                          <th>Details</th>
                         </tr>
                       </thead>
                       <tbody>
                         {visiblePurchases.map((purchase) => (
                           <tr key={purchase.id}>
-                            <td><strong>{purchase.purchaseId || "—"}</strong></td>
+                            <td>
+                              <strong>{purchase.purchaseId || "—"}</strong>
+                            </td>
                             <td>{formatDate(purchase.date)}</td>
                             <td>{purchase.brokerName || "—"}</td>
                             <td>{formatWeight(purchase.totalWeight)}</td>
@@ -129,14 +154,27 @@ export default function VendorPurchaseHistory() {
                             <td>{Number(purchase.discount || 0)}%</td>
                             <td>{formatCurrency(purchase.netPayable)}</td>
                             <td>{formatDate(purchase.paymentDueDate)}</td>
-                            <td><button type="button" onClick={() => navigate("/dashboard/purchase", { state: { viewPurchaseId: purchase.id } })}>Details</button></td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate("/dashboard/purchase", {
+                                    state: { viewPurchaseId: purchase.id },
+                                  })
+                                }
+                              >
+                                Details
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <div className="history-empty">No purchases found for this vendor.</div>
+                  <div className="history-empty">
+                    No purchases found for this vendor.
+                  </div>
                 )}
               </section>
             </>

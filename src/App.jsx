@@ -46,18 +46,24 @@ export default function App() {
             />
             <Route
               path="admin/vendor-purchase-history"
-              element={<Navigate to="/dashboard/vendor-purchase-history" replace />}
+              element={
+                <Navigate to="/dashboard/vendor-purchase-history" replace />
+              }
             />
             <Route
               path="admin/party-challan-history"
-              element={<Navigate to="/dashboard/party-challan-history" replace />}
+              element={
+                <Navigate to="/dashboard/party-challan-history" replace />
+              }
             />
           </Route>
         </Route>
         <Route element={<PermissionRoute adminOnly />}>
           <Route
             path="/admin/vendor-purchase-history"
-            element={<Navigate to="/dashboard/vendor-purchase-history" replace />}
+            element={
+              <Navigate to="/dashboard/vendor-purchase-history" replace />
+            }
           />
           <Route
             path="/admin/party-challan-history"

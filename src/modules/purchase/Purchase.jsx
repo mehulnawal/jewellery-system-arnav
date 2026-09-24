@@ -666,7 +666,9 @@ export default function Purchase() {
           const records = s.docs.map((d) => ({ id: d.id, ...d.data() }));
           setPurchases(records);
           const viewPurchaseId = location.state?.viewPurchaseId;
-          const record = records.find((purchase) => purchase.id === viewPurchaseId);
+          const record = records.find(
+            (purchase) => purchase.id === viewPurchaseId,
+          );
           if (record) {
             setModal({ type: "view", record });
             navigate(location.pathname, { replace: true, state: null });
