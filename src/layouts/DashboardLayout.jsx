@@ -163,6 +163,7 @@ export default function DashboardLayout() {
   const { user, logout, hasPermission } = useAuth(),
     location = useLocation(),
     [expanded, setExpanded] = useState(false),
+    [adminRailCollapsed, setAdminRailCollapsed] = useState(false),
     [pageLoading, setPageLoading] = useState(false),
     [theme, setTheme] = useState(
       () => localStorage.getItem("theme") || "light",
@@ -231,7 +232,7 @@ export default function DashboardLayout() {
   };
   return (
     <div
-      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-flyout-mode" : ""}`}
+      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-flyout-mode" : ""} ${isAdmin && adminRailCollapsed ? "admin-rail-collapsed" : ""}`}
     >
       <aside className={`dashboard-sidebar ${isAdmin ? "dashboard-admin-rail" : ""}`} ref={adminNavRef}>
         <div className="dashboard-brand">
@@ -274,16 +275,24 @@ export default function DashboardLayout() {
             <Icon name={theme === "light" ? "moon" : "sun"} />
             <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
           </button>
-          {!isAdmin && <button
+          <button
             className="dashboard-collapse"
-            onClick={() => setExpanded((value) => !value)}
-            aria-label="Toggle sidebar"
+            onClick={() => {
+              if (isAdmin) {
+                setAdminOpen(false);
+                setAdminRailCollapsed((value) => !value);
+              } else {
+                setExpanded((value) => !value);
+              }
+            }}
+            aria-label={isAdmin ? adminRailCollapsed ? "Expand sidebar" : "Collapse sidebar" : "Toggle sidebar"}
+            title={isAdmin ? adminRailCollapsed ? "Expand sidebar" : "Collapse sidebar" : undefined}
           >
-            <span className={expanded ? "collapse-reverse" : ""}>
+            <span className={isAdmin ? adminRailCollapsed ? "" : "collapse-reverse" : expanded ? "collapse-reverse" : ""}>
               <Icon name="chevron" />
             </span>
-            <em>Collapse</em>
-          </button>}
+            <em>{isAdmin ? adminRailCollapsed ? "Expand" : "Collapse" : "Collapse"}</em>
+          </button>
           <button
             className="dashboard-logout"
             onClick={() => setLogoutConfirm(true)}
