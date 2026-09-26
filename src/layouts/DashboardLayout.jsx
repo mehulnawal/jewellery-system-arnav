@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import "./dashboardLayout.css";
@@ -118,7 +118,6 @@ const modules = [
   },
 ];
 const adminGroups = [
-  { title: "Operations", items: modules },
   {
     title: "History",
     items: [
@@ -135,7 +134,7 @@ const adminGroups = [
     ],
   },
   {
-    title: "Reports",
+    title: "Monitoring / Reports",
     items: [
       {
         label: "Activity Log",
@@ -164,14 +163,13 @@ export default function DashboardLayout() {
   const { user, logout, hasPermission } = useAuth(),
     location = useLocation(),
     [expanded, setExpanded] = useState(false),
-    [adminSidebarExpanded, setAdminSidebarExpanded] = useState(
-      () => localStorage.getItem("adminSidebarCollapsed") === "false",
-    ),
     [pageLoading, setPageLoading] = useState(false),
     [theme, setTheme] = useState(
       () => localStorage.getItem("theme") || "light",
     ),
-    [logoutConfirm, setLogoutConfirm] = useState(false);
+    [logoutConfirm, setLogoutConfirm] = useState(false),
+    [adminOpen, setAdminOpen] = useState(false),
+    adminNavRef = useRef(null);
   const isAdmin = user?.role === "superadmin",
     inventoryPage = location.pathname.endsWith("/inventory"),
     available = modules.filter((m) =>
@@ -188,23 +186,25 @@ export default function DashboardLayout() {
     localStorage.setItem("theme", theme);
   }, [theme]);
   useEffect(() => {
-    if (!isAdmin) return;
-    localStorage.setItem("adminSidebarCollapsed", String(!adminSidebarExpanded));
-  }, [adminSidebarExpanded, isAdmin]);
-  useEffect(() => {
     if (!pageLoading) return;
     const timer = window.setTimeout(() => setPageLoading(false), 350);
     return () => window.clearTimeout(timer);
   }, [location.pathname, pageLoading]);
   useEffect(() => {
-    if (!isAdmin || !adminSidebarExpanded) return;
-    const closeNarrowDrawer = (event) => {
-      if (event.key === "Escape" && window.matchMedia("(max-width: 760px)").matches)
-        setAdminSidebarExpanded(false);
+    if (!adminOpen) return;
+    const closeAdminNavigation = (event) => {
+      if (event.key === "Escape") setAdminOpen(false);
     };
-    window.addEventListener("keydown", closeNarrowDrawer);
-    return () => window.removeEventListener("keydown", closeNarrowDrawer);
-  }, [adminSidebarExpanded, isAdmin]);
+    const closeOnOutsidePress = (event) => {
+      if (!adminNavRef.current?.contains(event.target)) setAdminOpen(false);
+    };
+    window.addEventListener("keydown", closeAdminNavigation);
+    window.addEventListener("mousedown", closeOnOutsidePress);
+    return () => {
+      window.removeEventListener("keydown", closeAdminNavigation);
+      window.removeEventListener("mousedown", closeOnOutsidePress);
+    };
+  }, [adminOpen]);
   useEffect(() => {
     if (!logoutConfirm) return;
     const previousOverflow = document.body.style.overflow;
@@ -226,15 +226,14 @@ export default function DashboardLayout() {
     };
   }, [logoutConfirm, logout]);
   const handleNavigation = () => {
-    if (isAdmin && window.matchMedia("(max-width: 760px)").matches)
-      setAdminSidebarExpanded(false);
+    setAdminOpen(false);
     setPageLoading(true);
   };
   return (
     <div
-      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${!isAdmin && expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-sidebar-mode" : ""} ${isAdmin && adminSidebarExpanded ? "admin-sidebar-expanded" : ""}`}
+      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-flyout-mode" : ""}`}
     >
-      <aside className={`dashboard-sidebar ${isAdmin ? "admin-sidebar" : ""}`}>
+      <aside className={`dashboard-sidebar ${isAdmin ? "dashboard-admin-rail" : ""}`} ref={adminNavRef}>
         <div className="dashboard-brand">
           <div className="dashboard-logo">
             <Icon name="diamond" />
@@ -244,28 +243,8 @@ export default function DashboardLayout() {
             <small>Exports</small>
           </span>
         </div>
-        <nav className={isAdmin ? "admin-sidebar-nav" : ""}>
-          {isAdmin
-            ? adminGroups.map((group) => (
-              <section className="admin-nav-section" key={group.title}>
-                <h2 className="admin-nav-group-title">{group.title}</h2>
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={handleNavigation}
-                    className={({ isActive }) =>
-                      `dashboard-nav-item admin-nav-item ${isActive ? "active" : ""}`
-                    }
-                  >
-                    <span className="dashboard-nav-icon"><Icon name={item.icon} /></span>
-                    <span className="dashboard-nav-label">{item.label}</span>
-                    <span className="dashboard-tooltip">{item.label}</span>
-                  </NavLink>
-                ))}
-              </section>
-            ))
-            : available.map((m) => (
+        <nav>
+          {available.map((m) => (
             <NavLink
               key={m.label}
               to={m.to}
@@ -281,7 +260,9 @@ export default function DashboardLayout() {
               <span className="dashboard-tooltip">{m.label}</span>
             </NavLink>
           ))}
+          {isAdmin && <button type="button" className={`dashboard-nav-item dashboard-admin-trigger ${adminOpen ? "active" : ""}`} onClick={() => setAdminOpen((open) => !open)} aria-expanded={adminOpen} aria-controls="admin-management-flyout" aria-label="Admin / Management"><span className="dashboard-nav-icon"><Icon name="management" /></span><span className="dashboard-nav-label">Admin / Management</span><span className="dashboard-tooltip">Admin / Management</span></button>}
         </nav>
+        {isAdmin && adminOpen && <section className="admin-management-flyout" id="admin-management-flyout" aria-label="Admin / Management navigation"><header><small>ADMIN</small><h2>Management</h2></header><div className="admin-management-groups">{adminGroups.map((group) => <section key={group.title}><h3>{group.title}</h3>{group.items.map((item) => <NavLink key={item.to} to={item.to} onClick={handleNavigation} className={({ isActive }) => `admin-management-item ${isActive ? "active" : ""}`}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}</div></section>}
         <div className="dashboard-sidebar-footer">
           <button
             className="dashboard-theme-toggle"
@@ -291,20 +272,18 @@ export default function DashboardLayout() {
             aria-label="Toggle color theme"
           >
             <Icon name={theme === "light" ? "moon" : "sun"} />
-            <span className={isAdmin ? "dashboard-control-label" : ""}>{theme === "light" ? "Dark mode" : "Light mode"}</span>
-            {isAdmin && <span className="dashboard-control-tooltip">Theme</span>}
+            <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
           </button>
-          <button
+          {!isAdmin && <button
             className="dashboard-collapse"
-            onClick={() => isAdmin ? setAdminSidebarExpanded((value) => !value) : setExpanded((value) => !value)}
-            aria-label={isAdmin ? adminSidebarExpanded ? "Collapse sidebar" : "Expand sidebar" : "Toggle sidebar"}
+            onClick={() => setExpanded((value) => !value)}
+            aria-label="Toggle sidebar"
           >
-            <span className={!isAdmin && expanded ? "collapse-reverse" : isAdmin && !adminSidebarExpanded ? "collapse-reverse" : ""}>
+            <span className={expanded ? "collapse-reverse" : ""}>
               <Icon name="chevron" />
             </span>
-            <em>{isAdmin ? adminSidebarExpanded ? "Collapse sidebar" : "Expand sidebar" : "Collapse"}</em>
-            {isAdmin && <span className="dashboard-control-tooltip">{adminSidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}</span>}
-          </button>
+            <em>Collapse</em>
+          </button>}
           <button
             className="dashboard-collapse"
             onClick={() => setLogoutConfirm(true)}
@@ -314,11 +293,9 @@ export default function DashboardLayout() {
               <Icon name="logout" />
             </span>
             <em>Logout</em>
-            {isAdmin && <span className="dashboard-control-tooltip">Logout</span>}
           </button>
         </div>
       </aside>
-      {isAdmin && adminSidebarExpanded && <button className="admin-sidebar-backdrop" type="button" aria-label="Close sidebar" onClick={() => setAdminSidebarExpanded(false)} />}
       <main className="dashboard-main">
         <header className="dashboard-header">
           <h1>Grantha Exports</h1>
