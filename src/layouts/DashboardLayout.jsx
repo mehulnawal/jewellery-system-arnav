@@ -79,8 +79,8 @@ const Icon = ({ name }) => (
     )}
     {name === "logout" && (
       <>
-        <path d="M10 5H5v14h5" />
-        <path d="M14 8l4 4-4 4M18 12H9" />
+        <path d="M4 3h11v18H4z" />
+        <path d="M11 12h9m-3-3 3 3-3 3" />
       </>
     )}
     {name === "chevron" && <path d="m9 18 6-6-6-6" />}
@@ -285,9 +285,10 @@ export default function DashboardLayout() {
             <em>Collapse</em>
           </button>}
           <button
-            className="dashboard-collapse"
+            className="dashboard-logout"
             onClick={() => setLogoutConfirm(true)}
             aria-label="Logout"
+            title="Logout"
           >
             <span>
               <Icon name="logout" />
