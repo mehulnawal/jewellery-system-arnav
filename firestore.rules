@@ -18,22 +18,28 @@ service cloud.firestore {
       let marker = /databases/$(database)/documents/numberingMigrations/manual-v1;
       return exists(marker) && get(marker).data.ready == true;
     }
+    function lettersReady() {
+      let marker = /databases/$(database)/documents/numberingMigrations/letters-v1;
+      return exists(marker) && get(marker).data.ready == true;
+    }
     function validChallanNumber(value) {
-      return value is string && value.matches('A[0-9]+/([1-9]|[1-9][0-9]|100)');
+      return value is string && value.matches('[A-Z][0-9]+/([1-9]|[1-9][0-9]|100)');
     }
     function validPurchaseNumber(value) {
-      return value is string && value.matches('PR-A[0-9]+-([1-9]|[1-9][0-9]|100)');
+      return value is string && value.matches('PR-[A-Z][0-9]+-([1-9]|[1-9][0-9]|100)');
     }
     function claimedChallanNumber(entry) {
       let number = request.resource.data.number;
       let key = number.replace('/', '-');
       return validChallanNumber(number) && numberingReady()
+        && (number.matches('A.*') || lettersReady())
         && getAfter(/databases/$(database)/documents/challanNumbers/$(key)).data.recordId == entry
         && getAfter(/databases/$(database)/documents/challanNumbers/$(key)).data.number == number;
     }
     function claimedPurchaseNumber(entry) {
       let number = request.resource.data.purchaseId;
       return validPurchaseNumber(number) && numberingReady()
+        && (number.matches('PR-A.*') || lettersReady())
         && getAfter(/databases/$(database)/documents/purchaseNumbers/$(number)).data.recordId == entry
         && getAfter(/databases/$(database)/documents/purchaseNumbers/$(number)).data.number == number;
     }
@@ -58,25 +64,26 @@ service cloud.firestore {
     match /numberingMigrations/{entry} {
       allow read: if admin() || challanEmployee() || purchaseEmployee();
       // An Admin completes the one-time index from Settings on the free plan.
-      allow create, update: if entry == 'manual-v1' && admin()
+      allow create, update: if entry in ['manual-v1', 'letters-v1'] && admin()
         && request.resource.data.keys().hasOnly(['ready', 'completedAt'])
         && request.resource.data.ready == true;
       allow delete: if false;
     }
     match /challanNumbers/{key} {
       allow read: if admin() || challanEmployee();
-      allow create: if admin() && !numberingReady()
+      allow create: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validChallanNumber(request.resource.data.number)
         && key == request.resource.data.number.replace('/', '-')
         && (request.resource.data.recordId is string || request.resource.data.recordId == null)
         || (admin() || challanEmployee()) && numberingReady()
+        && (request.resource.data.number.matches('A.*') || lettersReady())
         && request.resource.data.keys().hasOnly(['number', 'recordId'])
         && validChallanNumber(request.resource.data.number)
         && key == request.resource.data.number.replace('/', '-')
         && request.resource.data.recordId is string
         && getAfter(/databases/$(database)/documents/challans/$(request.resource.data.recordId)).data.number == request.resource.data.number;
-      allow update: if admin() && !numberingReady()
+      allow update: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validChallanNumber(request.resource.data.number)
         && key == request.resource.data.number.replace('/', '-');
@@ -86,18 +93,19 @@ service cloud.firestore {
     }
     match /purchaseNumbers/{key} {
       allow read: if admin() || purchaseEmployee();
-      allow create: if admin() && !numberingReady()
+      allow create: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('PR-A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validPurchaseNumber(request.resource.data.number)
         && key == request.resource.data.number
         && (request.resource.data.recordId is string || request.resource.data.recordId == null)
         || (admin() || purchaseEmployee()) && numberingReady()
+        && (request.resource.data.number.matches('PR-A.*') || lettersReady())
         && request.resource.data.keys().hasOnly(['number', 'recordId'])
         && validPurchaseNumber(request.resource.data.number)
         && key == request.resource.data.number
         && request.resource.data.recordId is string
         && getAfter(/databases/$(database)/documents/purchases/$(request.resource.data.recordId)).data.purchaseId == request.resource.data.number;
-      allow update: if admin() && !numberingReady()
+      allow update: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('PR-A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validPurchaseNumber(request.resource.data.number)
         && key == request.resource.data.number;

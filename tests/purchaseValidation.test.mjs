@@ -11,8 +11,8 @@ test("valid fields and optional broker/box; due date crosses a month", () => {
   assert.equal(checked.discount, 6);
 });
 test("number format, range, leading zeros, duplicates and corrected number", () => {
-  for (const number of ["", "PR-", "PR-A1-0", "PR-A1-101", "PR-A1-01", "PR-A-1", "PR-A1/1", " PR-A1-1", "PR-A1-1\n"]) assert.ok(purchaseNumberError(number), number);
-  for (const number of ["PR-A1-1", "PR-A12-25", "PR-A125-100"]) assert.equal(purchaseNumberError(number), "");
+  for (const number of ["", "PR-", "PR-B1-0", "PR-Z1-101", "PR-B1-01", "PR-A-1", "PR-Z1/1", " PR-B1-1", "PR-Z1-1\n", "PR-b1-1", "PR-AB1-1"]) assert.ok(purchaseNumberError(number), number);
+  for (const number of ["PR-A1-1", "PR-B12-25", "PR-Z125-100"]) assert.equal(purchaseNumberError(number), "");
   const f = form(), options = { purchases: [{ id: "taken", purchaseId: f.purchaseId }] };
   assert.equal(validatePurchaseForm(f, options).errors.purchaseId, "This Purchase Number already exists.");
   assert.equal(validatePurchaseForm({ ...f, purchaseId: "PR-A1-2" }, options).errors.purchaseId, undefined);
@@ -68,6 +68,7 @@ test("legacy edit number and own stock retained; conflicting SKU owns size error
 });
 test("save errors distinguish number setup, permission and session failures", () => {
   assert.match(purchaseSaveError(new Error("Number setup is incomplete. An administrator needs to open Settings and select Register existing numbers once.")), /Register existing numbers/);
+  assert.match(purchaseSaveError(new Error("Letter-series number setup is incomplete. An administrator needs to open Settings and select Register existing numbers once.")), /Register existing numbers/);
   assert.match(purchaseSaveError({ code: "permission-denied" }), /permission to create/);
   assert.match(purchaseSaveError({ code: "unauthenticated" }), /sign in again/);
 });

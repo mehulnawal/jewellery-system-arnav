@@ -2,12 +2,19 @@ import { collection, doc, getDocFromServer, getDocsFromServer, serverTimestamp, 
 import { isValidDocumentNumber, numberRegistryCollection, numberRegistryKey } from "./documentNumbers.js";
 
 const markerPath = ["numberingMigrations", "manual-v1"];
+const lettersMarkerPath = ["numberingMigrations", "letters-v1"];
+const isAValue = (kind, value) => kind === "challan" ? value.startsWith("A") : value.startsWith("PR-A");
 
 // Called only by an Admin clicking the Settings button. Existing business
 // records are read, never modified. Registry writes fit Spark's Firestore plan.
 export async function registerExistingNumbers(db) {
   const marker = doc(db, ...markerPath);
-  if ((await getDocFromServer(marker)).data()?.ready === true)
+  const lettersMarker = doc(db, ...lettersMarkerPath);
+  const [manualReady, lettersReady] = await Promise.all([
+    getDocFromServer(marker).then((snapshot) => snapshot.data()?.ready === true),
+    getDocFromServer(lettersMarker).then((snapshot) => snapshot.data()?.ready === true),
+  ]);
+  if (manualReady && lettersReady)
     return { ready: true, alreadyReady: true, challans: 0, purchases: 0, conflicts: 0 };
 
   const counts = { ready: true, alreadyReady: false, challans: 0, purchases: 0, conflicts: 0 };
@@ -20,6 +27,7 @@ export async function registerExistingNumbers(db) {
     for (const row of sourceRows.docs) {
       const value = row.data()[field];
       if (!isValidDocumentNumber(kind, value)) continue;
+      if (manualReady && isAValue(kind, value)) continue;
       groups.set(value, [...(groups.get(value) || []), row.id]);
     }
     counts[source] = groups.size;
@@ -36,6 +44,7 @@ export async function registerExistingNumbers(db) {
       // can be safely retried once the conflict is resolved.
       if (old && (old.number !== number || (old.recordId !== data.recordId && old.recordId !== null)))
         throw new Error(`Number ${number} has a conflicting reservation. Ask an administrator to review it.`);
+      if (old && old.recordId === data.recordId) continue;
       operations.push({ ref: doc(db, numberRegistryCollection(kind), key), data });
     }
     for (let offset = 0; offset < operations.length; offset += 400) {
@@ -45,7 +54,8 @@ export async function registerExistingNumbers(db) {
     }
   }
   const batch = writeBatch(db);
-  batch.set(marker, { ready: true, completedAt: serverTimestamp() });
+  if (!manualReady) batch.set(marker, { ready: true, completedAt: serverTimestamp() });
+  batch.set(lettersMarker, { ready: true, completedAt: serverTimestamp() });
   await batch.commit();
   return counts;
 }

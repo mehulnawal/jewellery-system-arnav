@@ -114,7 +114,7 @@ export default function PurchaseForm({ record, purchases, onClose, vendors, brok
     <p>Enter a Purchase Number. SKU, Group and Ageing are generated automatically.</p>
     <section className="purchase-form-grid">
       <Field label="Purchase Number" field="purchaseId" error={visibleError("purchaseId")} help={PURCHASE_NUMBER_HELP}>
-        {record ? <input aria-label="Purchase Number" value={record.purchaseId || ""} readOnly /> : <div className={`purchase-number-input ${visibleError("purchaseId") ? "has-error" : ""}`}><span aria-hidden="true">PR-</span><input {...inputProps("purchaseId", "Purchase Number after PR-")} pattern={PURCHASE_SUFFIX_PATTERN} placeholder="A35-1" value={form.purchaseId.slice(3)} onChange={(event) => update("purchaseId", `PR-${event.target.value}`)} /></div>}
+        {record ? <input aria-label="Purchase Number" value={record.purchaseId || ""} readOnly /> : <div className={`purchase-number-input ${visibleError("purchaseId") ? "has-error" : ""}`}><span aria-hidden="true">PR-</span><input {...inputProps("purchaseId", "Purchase Number after PR-")} pattern={PURCHASE_SUFFIX_PATTERN} placeholder="B35-1" value={form.purchaseId.slice(3)} onChange={(event) => update("purchaseId", `PR-${event.target.value}`)} /></div>}
         {numberPending && <small className="purchase-availability" role="status">Checking availability...</small>}
         {numberStatus === "failed" && shouldCheckNumber && <button type="button" className="purchase-check-again" onClick={() => setAvailabilityAttempt((value) => value + 1)}>Check again</button>}
       </Field>

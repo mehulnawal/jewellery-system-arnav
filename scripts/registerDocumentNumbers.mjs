@@ -9,6 +9,7 @@ const apply = args.includes("--apply");
 const app = initializeApp({ projectId, ...(process.env.FIRESTORE_EMULATOR_HOST ? {} : { credential: applicationDefault() }) });
 const db = getFirestore(app);
 const marker = db.doc("numberingMigrations/manual-v1");
+const lettersMarker = db.doc("numberingMigrations/letters-v1");
 
 try {
   // Deploy the new rules first. This marker blocks new numbers and renames
@@ -59,7 +60,12 @@ try {
       }
     }
   }
-  if (apply) await marker.set({ ready: true, completedAt: FieldValue.serverTimestamp() });
+  if (apply) {
+    const ready = db.batch();
+    ready.set(marker, { ready: true, completedAt: FieldValue.serverTimestamp() });
+    ready.set(lettersMarker, { ready: true, completedAt: FieldValue.serverTimestamp() });
+    await ready.commit();
+  }
   console.log(apply ? "Number registry is ready. Original records were not modified." : "Read-only audit complete. No writes performed.");
 } finally {
   await deleteApp(app);

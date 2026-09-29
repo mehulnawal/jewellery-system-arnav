@@ -7,7 +7,7 @@ export function purchaseSaveError(error, edit = false) {
     return "Your session has expired. Please sign in again.";
   if (code === "unavailable" || code === "deadline-exceeded")
     return "Could not reach Purchases. Check your connection and try again.";
-  if (error?.message?.startsWith("Number setup is incomplete"))
+  if (error?.message?.startsWith("Number setup is incomplete") || error?.message?.startsWith("Letter-series number setup is incomplete"))
     return error.message;
   return code ? "Could not save this Purchase. Please try again." : error?.message || "Could not save this Purchase. Please try again.";
 }

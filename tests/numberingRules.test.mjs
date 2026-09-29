@@ -25,7 +25,10 @@ beforeEach(async () => {
       uid, role: uid === "admin" ? "superadmin" : "employee", active: true,
       accessId: uid, permissions: ["limited", "admin"].includes(uid) ? [] : permissions,
     })));
-    await setDoc(doc(db, "numberingMigrations", "manual-v1"), { ready: true });
+    await Promise.all([
+      setDoc(doc(db, "numberingMigrations", "manual-v1"), { ready: true }),
+      setDoc(doc(db, "numberingMigrations", "letters-v1"), { ready: true }),
+    ]);
   });
 });
 const source = (kind) => kind === "challan" ? "challans" : "purchases";
@@ -48,6 +51,12 @@ async function rawCreate(db, kind, value, id = crypto.randomUUID(), includeClaim
   const batch = writeBatch(db);
   const data = { stage: 1, createdBy: uid, createdAt: serverTimestamp() };
   if (value !== undefined) data[field(kind)] = value;
+  if (kind === "purchase") Object.assign(data, {
+    id, date: "2026-09-29", vendorName: "Test Vendor", totalWeight: 1,
+    amount: 100, discount: 0, discountAmount: 0, netPayable: 100,
+    paymentDueDays: 0, paymentDueDate: "2026-09-29",
+    items: [{ id: "line", weight: 1 }], itemCount: 1,
+  });
   batch.set(doc(db, source(kind), id), data);
   if (includeClaim && typeof value === "string" && value) {
     const key = value.replaceAll("/", "-");
@@ -60,18 +69,18 @@ for (const uid of ["staff", "admin"]) {
   for (const kind of ["challan", "purchase"]) {
     test(`${uid} ${kind}: dynamic series, valid boundaries, duplicates`, async () => {
       const db = database(uid);
-      for (const [series, n] of [[1, 1], [12, 25], [35, 50], [99, 100], [125, 7]]) {
-        const number = kind === "challan" ? `A${series}/${n}` : `PR-A${series}-${n}`;
-        await assertSucceeds(create(db, kind, number, `${series}`, uid));
-        await assert.rejects(create(db, kind, number, `duplicate-${series}`, uid), /already exists/);
-        await assertFails(rawCreate(db, kind, number, `bypass-${series}`, true, uid));
+      for (const [letter, series, n] of [["A", 1, 1], ["B", 12, 25], ["M", 35, 50], ["Y", 99, 100], ["Z", 125, 7]]) {
+        const number = kind === "challan" ? `${letter}${series}/${n}` : `PR-${letter}${series}-${n}`;
+        await assertSucceeds(create(db, kind, number, `${letter}${series}`, uid));
+        await assert.rejects(create(db, kind, number, `duplicate-${letter}${series}`, uid), /already exists/);
+        await assertFails(rawCreate(db, kind, number, `bypass-${letter}${series}`, true, uid));
       }
     });
     test(`${uid} ${kind}: server rejects malformed, required, and unclaimed numbers`, async () => {
       const db = database(uid);
       const invalid = kind === "challan"
-        ? [undefined, "", "A35/0", "A35/101", "A35/01", "a35/1", "35/1", "A35-1", " A35/1", "A35/1 ", "A35/1\n", "A/1", "A3.5/1"]
-        : [undefined, "", "PR-", "PR-A35-0", "PR-A35-101", "PR-A35-01", "PR-a35-1", "A35-1", "PR-A35/1", " PR-A35-1", "PR-A35-1\n", "PR-A-1", "PR-A3.5-1"];
+        ? [undefined, "", "B35/0", "Z35/101", "B35/01", "b35/1", "AB35/1", "35/1", "A35-1", " B35/1", "Z35/1 ", "A35/1\n", "Z/1", "A3.5/1"]
+        : [undefined, "", "PR-", "PR-B35-0", "PR-Z35-101", "PR-B35-01", "PR-b35-1", "PR-AB35-1", "B35-1", "PR-Z35/1", " PR-B35-1", "PR-Z35-1\n", "PR-Z-1", "PR-A3.5-1"];
       for (const value of invalid) await assertFails(rawCreate(db, kind, value, crypto.randomUUID(), true, uid));
       await assertFails(rawCreate(db, kind, kind === "challan" ? "A1/1" : "PR-A1-1", "unclaimed", false, uid));
     });
@@ -79,7 +88,7 @@ for (const uid of ["staff", "admin"]) {
 }
 test("concurrent requests have exactly one winner for each number", async () => {
   for (const kind of ["challan", "purchase"]) {
-    const number = kind === "challan" ? "A125/7" : "PR-A125-7";
+    const number = kind === "challan" ? "Z125/7" : "PR-Z125-7";
     const outcomes = await Promise.allSettled([
       create(database("staff"), kind, number, "first"),
       create(database("other"), kind, number, "second", "other"),
@@ -204,6 +213,33 @@ test("Admin can register existing numbers from Settings on the free plan", async
   assert.equal((await getDoc(numberRegistryRef(admin, "purchase", "PR-A1-1"))).data().recordId, "old");
   await assert.rejects(create(admin, "purchase", "PR-A1-1", "repeat", "admin"), /already exists/);
   await assertSucceeds(create(staff, "challan", "A1/1", "after"));
+});
+
+test("expanded letters require one supplemental legacy registration, then Staff saves reserve new letters", async () => {
+  const admin = database("admin"), staff = database("staff");
+  await env.withSecurityRulesDisabled(async (context) => {
+    const local = context.firestore();
+    await deleteDoc(doc(local, "numberingMigrations", "letters-v1"));
+    await setDoc(doc(local, "challans", "old-b"), { number: "B35/1", stage: 1 });
+    await setDoc(doc(local, "purchases", "old-z"), { purchaseId: "PR-Z125-100", amount: 10 });
+  });
+  await assertSucceeds(create(staff, "challan", "A1/1", "old-letter-still-works"));
+  await assert.rejects(create(staff, "challan", "B35/1", "blocked-duplicate"), /Letter-series number setup is incomplete/);
+  await assert.rejects(create(staff, "purchase", "PR-Y1-1", "blocked-new"), /Letter-series number setup is incomplete/);
+  await assertFails(rawCreate(admin, "challan", "C1/1", "raw-before-setup", true, "admin"));
+  const result = await registerExistingNumbers(admin);
+  assert.equal(result.challans, 1);
+  assert.equal(result.purchases, 1);
+  assert.equal((await getDoc(doc(admin, "numberingMigrations", "letters-v1"))).data().ready, true);
+  assert.equal((await getDoc(numberRegistryRef(admin, "challan", "B35/1"))).data().recordId, "old-b");
+  assert.equal((await getDoc(numberRegistryRef(admin, "purchase", "PR-Z125-100"))).data().recordId, "old-z");
+  await assert.rejects(create(staff, "challan", "B35/1", "still-duplicate"), /already exists/);
+  await assert.rejects(create(staff, "purchase", "PR-Z125-100", "still-duplicate"), /already exists/);
+  await assertSucceeds(create(staff, "challan", "C1/1", "new-c"));
+  await assertSucceeds(create(staff, "purchase", "PR-Y1-1", "new-y"));
+  assert.equal((await getDoc(numberRegistryRef(admin, "challan", "C1/1"))).data().recordId, "new-c");
+  assert.equal((await getDoc(numberRegistryRef(admin, "purchase", "PR-Y1-1"))).data().recordId, "new-y");
+  assert.equal((await registerExistingNumbers(admin)).alreadyReady, true);
 });
 
 test("audit: Staff Stage 2 stock return is denied for older Admin-owned Inventory", async () => {

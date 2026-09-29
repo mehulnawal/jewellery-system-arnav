@@ -4,7 +4,7 @@ The app uses Firebase Authentication, Firestore, and Firestore Security Rules.
 It has no Cloud Functions deployment and works on the Firebase Spark plan,
 subject to Firestore's normal free quotas.
 
-## What the owner does once
+## Initial setup
 
 1. Publish the complete, current `firestore.rules` file in Firebase Console >
    Firestore Database > Rules. Replace the previous rules, then click Publish.
@@ -16,18 +16,28 @@ subject to Firestore's normal free quotas.
 
 Do not deploy the old `approvePurchase` function or use `gcloud` for this version.
 The one-time button reads existing Challans and Purchases and writes only
-`challanNumbers`, `purchaseNumbers`, and `numberingMigrations/manual-v1`.
+`challanNumbers`, `purchaseNumbers`, and the `manual-v1` and `letters-v1`
+numbering migration markers.
 It does not change or delete source records, Inventory, counters, or activity.
 If no source records exist, the button still marks numbering ready. If setup
 stops partway, click the button again. Pre-existing duplicate numbers are
 reserved so new documents cannot reuse them; the original records remain.
 
 Existing records keep their stored IDs and relations. New Challans require
-`A{series}/{1..100}` and new Purchases require `PR-A{series}-{1..100}`.
-`35` in examples is not fixed. The Purchase form fixes `PR-` and users enter
-the rest. Admin can rename Challan numbers; Staff cannot. Purchase numbers
+`{letter}{series}/{1..100}` and new Purchases require `PR-{letter}{series}-{1..100}`.
+The letter is one uppercase A-Z character, and the series is numeric. For
+example, `B35/1` and `PR-Z125-100` are valid. The Purchase form fixes `PR-`
+and users enter the rest. Admin can rename Challan numbers; Staff cannot. Purchase numbers
 are read-only after creation. Registry claims and source documents commit in
 one Firestore transaction to prevent two new records sharing a number.
+
+When upgrading a database that already completed the original A-series setup,
+publish the updated rules and have Admin click **Register existing numbers**
+once more. This supplemental pass reserves any older B-Z numbers that the
+original A-only setup could not index. It writes `letters-v1` when finished.
+Until then A-series saves continue, while B-Z saves are blocked to prevent
+duplicates with legacy records. After this format upgrade, every new letter
+and number is reserved during its normal save. No daily registration is needed.
 
 ## Security and validation limit on Spark
 

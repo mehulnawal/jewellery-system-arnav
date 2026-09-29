@@ -68,17 +68,22 @@ export default function AdminSettings() {
     [copyMessage, setCopyMessage] = useState(""),
     [deactivateTarget, setDeactivateTarget] = useState(null);
   const [numbersReady, setNumbersReady] = useState(null),
+    [lettersReady, setLettersReady] = useState(null),
     [registeringNumbers, setRegisteringNumbers] = useState(false),
     [numberSetupMessage, setNumberSetupMessage] = useState("");
   useEffect(() => onSnapshot(doc(db, "numberingMigrations", "manual-v1"),
     (snapshot) => setNumbersReady(snapshot.data()?.ready === true),
     () => setNumberSetupMessage("Could not check number setup. Check your connection.")), []);
+  useEffect(() => onSnapshot(doc(db, "numberingMigrations", "letters-v1"),
+    (snapshot) => setLettersReady(snapshot.data()?.ready === true),
+    () => setNumberSetupMessage("Could not check letter-series setup. Check your connection.")), []);
   const setupNumbers = async () => {
     setRegisteringNumbers(true); setNumberSetupMessage("");
     try {
       const result = await registerExistingNumbers(db);
       setNumberSetupMessage(`Number setup complete. ${result.challans} Challan numbers and ${result.purchases} Purchase numbers registered.${result.conflicts ? ` ${result.conflicts} existing duplicate groups remain reserved.` : ""}`);
       setNumbersReady(true);
+      setLettersReady(true);
     } catch (reason) {
       setNumberSetupMessage(reason.code === "permission-denied"
         ? "Number setup is blocked. Publish the updated Firestore rules, then try again."
@@ -235,13 +240,13 @@ export default function AdminSettings() {
         <h2>Settings</h2>
         <p>Access control and Inventory format settings.</p>
       </header>
-      {numbersReady === false && <article className="number-setup-card">
+      {numbersReady !== null && lettersReady !== null && (!numbersReady || !lettersReady) && <article className="number-setup-card">
         <h3>Challan and Purchase numbers</h3>
-        <p>Register existing numbers once before creating new Challans or Purchases. Existing records will not be changed.</p>
+        <p>{numbersReady ? "Register existing B to Z letter-series numbers once before using the expanded format. Existing records will not be changed." : "Register existing numbers once before creating new Challans or Purchases. Existing records will not be changed."}</p>
         <button type="button" className="settings-primary" disabled={registeringNumbers} onClick={setupNumbers}>{registeringNumbers ? "Registering numbers..." : "Register existing numbers"}</button>
         {numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
       </article>}
-      {numbersReady === true && numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
+      {numbersReady === true && lettersReady === true && numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
       <nav className="settings-tabs">
         <button
           className={tab === "access" ? "active" : ""}

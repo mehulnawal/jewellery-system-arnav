@@ -19,6 +19,7 @@ test.beforeEach(async ({ page }) => {
   await Promise.all([
     ...["admin", "staff", "purchase-only", "no-purchase"].map((uid) => db.doc(`employeeProfiles/${uid}`).set({ uid, accessId: uid, role: uid === "admin" ? "superadmin" : "employee", active: true, permissions: uid === "admin" ? [] : uid === "purchase-only" ? ["purchase"] : uid === "no-purchase" ? ["inventory"] : permissions })),
     db.doc("numberingMigrations/manual-v1").set({ ready: true }),
+    db.doc("numberingMigrations/letters-v1").set({ ready: true }),
     db.doc("inventory/stock").set({ sku: "1_Round_CVD", shape: "Round", type: "CVD", size: "1", weight: 10, pieces: 10, createdAt: Timestamp.now(), createdBy: "admin" }),
   ]);
   await page.addInitScript(() => localStorage.setItem("theme", "dark"));
@@ -31,7 +32,7 @@ async function asRole(page, role, path) {
 }
 async function fillChallan(page, number) {
   await page.getByRole("button", { name: "Create Challan", exact: true }).click();
-  await page.getByPlaceholder("A35/1", { exact: true }).fill(number);
+  await page.getByPlaceholder("B35/1", { exact: true }).fill(number);
   await page.locator(".party-picker input").fill("Test Party");
   await page.getByPlaceholder("Search SKU...").fill("1_Round_CVD");
   await page.locator(".sku-menu button").first().click();
@@ -43,29 +44,29 @@ async function fillChallan(page, number) {
 for (const role of ["staff", "admin"]) {
   test(`${role}: Challan valid/invalid/duplicate/required and Price calculations`, async ({ page }) => {
     await asRole(page, role, "/dashboard/challan");
-    await fillChallan(page, "A125/7");
-    const number = page.getByPlaceholder("A35/1", { exact: true });
+    await fillChallan(page, "B125/7");
+    const number = page.getByPlaceholder("B35/1", { exact: true });
     const save = page.getByRole("button", { name: "Create Challan", exact: true });
-    for (const invalid of ["", "A35/0", "A35/101", "A35/01", "A35-1", " A35/1"]) {
+    for (const invalid of ["", "B35/0", "Z35/101", "B35/01", "B35-1", " B35/1", "b35/1", "AB35/1"]) {
       await number.fill(invalid); await save.click();
       expect(await number.evaluate((input) => input.checkValidity())).toBe(false);
       expect((await db.collection("challans").get()).size).toBe(0);
     }
-    await number.fill("A125/7"); await save.click();
-    await expect(page.locator(".challan-row").filter({ hasText: "A125/7" })).toBeVisible();
+    await number.fill("B125/7"); await save.click();
+    await expect(page.locator(".challan-row").filter({ hasText: "B125/7" })).toBeVisible();
     const record = (await db.collection("challans").get()).docs[0].data();
     expect(record.items[0].amount).toBe(100);
     expect(record.netAmount).toBe(90);
-    await fillChallan(page, "A125/7"); await save.click();
-    await expect(page.getByText("Challan Number A125/7 already exists.", { exact: true })).toBeVisible();
+    await fillChallan(page, "B125/7"); await save.click();
+    await expect(page.getByText("Challan Number B125/7 already exists.", { exact: true })).toBeVisible();
     expect((await db.collection("challans").get()).size).toBe(1);
     await page.getByRole("button", { name: "Back to Challans", exact: true }).click();
     await page.locator(".challan-row").getByRole("button", { name: "Edit", exact: true }).click();
     if (role === "staff") await expect(number).toHaveAttribute("readonly", "");
     else {
-      await number.fill("A1/100");
+      await number.fill("Z1/100");
       await page.getByRole("button", { name: "Save Changes", exact: true }).click();
-      await expect(page.locator(".challan-row").filter({ hasText: "A1/100" })).toBeVisible();
+      await expect(page.locator(".challan-row").filter({ hasText: "Z1/100" })).toBeVisible();
       expect((await db.collection("challans").get()).size).toBe(1);
       expect((await db.doc("inventory/stock").get()).data().weight).toBe(9);
     }
@@ -78,12 +79,12 @@ for (const role of ["staff", "admin"]) {
     await suffix.fill("A12-25"); await suffix.press("Control+a"); await suffix.press("Backspace");
     await expect(page.locator(".purchase-number-input > span")).toHaveText("PR-");
     const save = page.getByRole("button", { name: "Create Purchase", exact: true });
-    for (const invalid of ["", "A35-0", "A35-101", "A35-01", "PR-A35-1", " A35-1", "A35/1"]) {
+    for (const invalid of ["", "B35-0", "Z35-101", "B35-01", "PR-B35-1", " B35-1", "B35/1", "b35-1", "AB35-1"]) {
       await suffix.fill(invalid); await save.click();
       expect(await suffix.evaluate((input) => input.checkValidity())).toBe(false);
       expect((await db.collection("purchases").get()).size).toBe(0);
     }
-    await suffix.fill("A12-25");
+    await suffix.fill("Z12-25");
     await page.getByLabel("Vendor Name", { exact: true }).fill("Test Vendor");
     await page.getByLabel("Total Purchase Weight (ct)", { exact: true }).fill("1");
     await page.getByLabel("Amount", { exact: true }).fill("100");
@@ -93,21 +94,21 @@ for (const role of ["staff", "admin"]) {
     for (const [index, value] of ["2", "1", "1", "AB29"].entries()) await item.locator("input").nth(index).fill(value);
     await save.click();
     await expect(page.locator(".purchase-form-card")).toHaveCount(0);
-    await expect(page.getByText("PR-A12-25", { exact: true })).toBeVisible();
-    expect((await db.collection("purchases").get()).docs[0].data().purchaseId).toBe("PR-A12-25");
+    await expect(page.getByText("PR-Z12-25", { exact: true })).toBeVisible();
+    expect((await db.collection("purchases").get()).docs[0].data().purchaseId).toBe("PR-Z12-25");
     await page.locator(".purchase-actions").getByRole("button", { name: /Create Purchase/ }).click();
-    await suffix.fill("A12-25"); await save.click();
+    await suffix.fill("Z12-25"); await save.click();
     await expect(page.getByText("This Purchase Number already exists.", { exact: true })).toBeVisible();
     expect((await db.collection("purchases").get()).size).toBe(1);
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.locator(".purchase-row-actions").getByRole("button", { name: "Edit", exact: true }).click();
-    await expect(page.locator(".purchase-form-card input[readonly]")).toHaveValue("PR-A12-25");
+    await expect(page.locator(".purchase-form-card input[readonly]")).toHaveValue("PR-Z12-25");
     await page.getByLabel("Amount", { exact: true }).fill("200");
     await page.getByLabel("Discount", { exact: true }).selectOption("6");
     await page.getByRole("button", { name: "Save Purchase", exact: true }).click();
     await expect(page.locator(".purchase-form-card")).toHaveCount(0);
     const updated = (await db.collection("purchases").get()).docs[0].data();
-    expect(updated.purchaseId).toBe("PR-A12-25");
+    expect(updated.purchaseId).toBe("PR-Z12-25");
     expect(updated.netPayable).toBe(188);
     expect(updated.items[0].sku).toBe("2_Round_HP");
   });
@@ -160,7 +161,7 @@ test("Purchase field errors, red borders and corrections update without submit",
     await expect(input).not.toHaveCSS("border-top-color", "rgb(228, 92, 92)");
   };
   const number = field("Purchase Number after PR-");
-  await number.fill("A12/1"); await invalid(number, "must follow the format");
+  await number.fill("A12/1"); await invalid(number, "must follow PR-{letter}{series}-{number}");
   await number.fill("A12-101"); await invalid(number, "between 1 and 100");
   await number.fill("A12-01"); await invalid(number, "leading zeros");
   await number.fill("A12-1"); await valid(number);
@@ -216,18 +217,20 @@ test("Challan and Party helpers use dark text on their existing light background
     await expect(page.locator(selector)).toHaveCSS("color", "rgb(51, 65, 85)");
     await expect(page.locator(selector)).toHaveCSS("background-color", "rgb(238, 242, 247)");
   }
-  await expect(page.locator("#challan-number-help")).toHaveText("Format: A35/1. Use A{series}/{number}. Number must be 1-100.");
+  await expect(page.locator("#challan-number-help")).toHaveText("Format: B35/1. Use one letter from A to Z, a numeric series, and a final number from 1 to 100.");
   await page.screenshot({ path: "test-results/challan-helper-dark.png" });
 });
 test("Admin Settings registers old numbers once and unlocks both forms", async ({ page }) => {
   test.setTimeout(90000);
   await db.doc("numberingMigrations/manual-v1").delete();
+  await db.doc("numberingMigrations/letters-v1").delete();
   await db.doc("challans/old-challan").set({ number: "A125/7", stage: 4, items: [], party: "Old Party", date: "2026-09-29" });
   await db.doc("purchases/old-purchase").set({ purchaseId: "PR-A99-100", vendorName: "Old Vendor", amount: 100, items: [], createdAt: Timestamp.now() });
   await asRole(page, "admin", "/dashboard/admin-settings");
   await page.getByRole("button", { name: "Register existing numbers", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Number setup complete" })).toBeVisible();
   expect((await db.doc("numberingMigrations/manual-v1").get()).data().ready).toBe(true);
+  expect((await db.doc("numberingMigrations/letters-v1").get()).data().ready).toBe(true);
   expect((await db.doc("challanNumbers/A125-7").get()).data().recordId).toBe("old-challan");
   expect((await db.doc("purchaseNumbers/PR-A99-100").get()).data().recordId).toBe("old-purchase");
   await page.goto("/dashboard/challan");

@@ -6,8 +6,8 @@ const whole = (value) => !missing(value) && /^\d+$/.test(String(value)) && Numbe
 export const PURCHASE_WEIGHT_TOLERANCE = 0.0005;
 export function purchaseNumberError(value) {
   if (!value || value === "PR-") return "Purchase Number is required.";
-  if (!/^PR-A[0-9]+-[0-9]+$/.test(value) || /\s/.test(value))
-    return "Purchase Number must follow the format PR-A{series}-{number}.";
+  if (!/^PR-[A-Z][0-9]+-[0-9]+$/.test(value) || /\s/.test(value))
+    return "Purchase Number must follow PR-{letter}{series}-{number}, using one uppercase letter from A to Z.";
   const number = value.split("-").at(-1);
   if (Number(number) < 1 || Number(number) > 100) return "Purchase number must be between 1 and 100.";
   if (number.length > 1 && number.startsWith("0")) return "The final Purchase number must not have leading zeros.";

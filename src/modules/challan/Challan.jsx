@@ -3221,7 +3221,7 @@ export default function Challan() {
                   required={!editingId || form.number !== records.find((record) => record.id === editingId)?.number}
                   pattern={!editingId || form.number !== records.find((record) => record.id === editingId)?.number ? CHALLAN_NUMBER_PATTERN : undefined}
                   readOnly={Boolean(editingId) && !isAdmin}
-                  placeholder="A35/1"
+                  placeholder="B35/1"
                   aria-describedby="challan-number-help challan-number-error"
                   aria-invalid={Boolean(challanFieldErrors.number)}
                   onChange={(event) => {

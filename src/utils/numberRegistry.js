@@ -18,6 +18,12 @@ export async function prepareNumberClaim(tx, db, kind, value, recordId, oldValue
   const readiness = await tx.get(doc(db, "numberingMigrations", "manual-v1"));
   if (readiness.data()?.ready !== true)
     throw new Error("Number setup is incomplete. An administrator needs to open Settings and select Register existing numbers once.");
+  const usesNewLetter = kind === "challan" ? !value.startsWith("A") : !value.startsWith("PR-A");
+  if (usesNewLetter) {
+    const letters = await tx.get(doc(db, "numberingMigrations", "letters-v1"));
+    if (letters.data()?.ready !== true)
+      throw new Error("Letter-series number setup is incomplete. An administrator needs to open Settings and select Register existing numbers once.");
+  }
   const ref = numberRegistryRef(db, kind, value);
   const existing = await tx.get(ref);
   if (existing.exists() && existing.data().recordId !== recordId) {
