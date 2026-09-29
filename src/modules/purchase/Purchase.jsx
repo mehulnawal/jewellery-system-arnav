@@ -341,6 +341,7 @@ function PurchaseForm({
           ) || form.brokerName.trim();
       const payload = {
         ...form,
+        origin: record?.origin || "Manual",
         vendorName,
         brokerName,
         totalWeight: Number(form.totalWeight),
@@ -398,6 +399,12 @@ function PurchaseForm({
       <form
         className="purchase-modal-card purchase-form-card"
         onSubmit={submit}
+        onKeyDown={(event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.requestSubmit();
+          }
+        }}
       >
         <button type="button" className="purchase-close" onClick={onClose}>
           ×
@@ -506,19 +513,19 @@ function PurchaseForm({
         />
         {error && <p className="purchase-error">{error}</p>}
         <footer>
-          <button
-            type="button"
-            className="purchase-button secondary"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
           <button className="purchase-button primary" disabled={saving}>
             {saving
               ? "Saving..."
               : record
                 ? "Save Purchase"
                 : "Create Purchase"}
+          </button>
+          <button
+            type="button"
+            className="purchase-button secondary"
+            onClick={onClose}
+          >
+            Cancel
           </button>
         </footer>
       </form>
@@ -615,15 +622,15 @@ function ImportPreview({ rows, onClose, onImport }) {
           </section>
         ))}
         <footer>
-          <button className="purchase-button secondary" onClick={onClose}>
-            Cancel
-          </button>
           <button
             className="purchase-button primary"
             disabled={!valid.length}
             onClick={() => onImport(valid)}
           >
             Import {valid.length} valid Purchases
+          </button>
+          <button className="purchase-button secondary" onClick={onClose}>
+            Cancel
           </button>
         </footer>
       </div>
@@ -904,7 +911,7 @@ export default function Purchase() {
     try {
       for (const row of rows) {
         await savePurchase({
-          purchase: row.purchase,
+          purchase: { ...row.purchase, origin: "Import" },
           items: row.purchase.items,
           user,
           existingInventory: inventory,

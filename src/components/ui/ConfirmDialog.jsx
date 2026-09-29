@@ -20,15 +20,15 @@ export default function ConfirmDialog({
         <h2 id="confirm-dialog-title">{title}</h2>
         <div className="confirm-dialog-body">{children}</div>
         <footer>
-          <button type="button" onClick={onCancel}>
-            {cancelLabel}
-          </button>
           <button
             type="button"
             className={destructive ? "is-destructive" : ""}
             onClick={onConfirm}
           >
             {confirmLabel}
+          </button>
+          <button type="button" onClick={onCancel}>
+            {cancelLabel}
           </button>
         </footer>
       </section>

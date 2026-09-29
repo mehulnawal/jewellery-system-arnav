@@ -355,17 +355,17 @@ function AddModal({
         {errors.form && <p className="inventory-error">{errors.form}</p>}
         <footer>
           <button
-            className="inventory-button inventory-secondary"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
             className="inventory-button inventory-primary"
             disabled={saving}
             onClick={save}
           >
             {saving ? "Saving..." : item ? "Save changes" : "Add item"}
+          </button>
+          <button
+            className="inventory-button inventory-secondary"
+            onClick={onClose}
+          >
+            Cancel
           </button>
         </footer>
       </div>
@@ -499,12 +499,6 @@ function ImportPreview({ rows, onClose, onImport }) {
         </section>
         <footer>
           <button
-            className="inventory-button inventory-secondary"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
             className="inventory-button inventory-primary"
             disabled={!valid.length}
             onClick={() => {
@@ -513,6 +507,12 @@ function ImportPreview({ rows, onClose, onImport }) {
             }}
           >
             Import {valid.length} valid items
+          </button>
+          <button
+            className="inventory-button inventory-secondary"
+            onClick={onClose}
+          >
+            Cancel
           </button>
         </footer>
       </div>
@@ -559,18 +559,18 @@ function DeleteModal({ items, onClose, onConfirm }) {
         {error && <p className="inventory-error">{error}</p>}
         <footer>
           <button
-            className="inventory-button inventory-secondary"
-            disabled={deleting}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
             className="inventory-button inventory-delete"
             disabled={deleting}
             onClick={remove}
           >
             {deleting ? "Deleting..." : "Delete"}
+          </button>
+          <button
+            className="inventory-button inventory-secondary"
+            disabled={deleting}
+            onClick={onClose}
+          >
+            Cancel
           </button>
         </footer>
       </div>

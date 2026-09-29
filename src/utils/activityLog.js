@@ -108,6 +108,7 @@ export async function writeActivity({
   recordId,
   snapshot = {},
   before,
+  transition,
   user,
 }) {
   const login = await captureFirstLogin(user);
@@ -125,6 +126,7 @@ export async function writeActivity({
     eventDate: dateKey(),
     createdAt: serverTimestamp(),
   };
+  if (transition) event.transition = transition;
   if (action === "edited" || action === "stage_changed")
     event.changes = changedFields(before, snapshot);
   await addDoc(collection(db, "activityLog"), event);

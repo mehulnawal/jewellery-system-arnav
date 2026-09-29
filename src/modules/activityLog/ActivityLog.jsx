@@ -68,10 +68,21 @@ const sourceLabel = (entry) => {
   if (origin === "Manual") return "Manually Created";
   return value(origin);
 };
+const actionLabel = (entry) =>
+  ({
+    created: "Created",
+    edited: "Edited",
+    deleted: "Deleted",
+    stage_moved: "Stage Move",
+    return_recorded: "Stage Move",
+    final_invoice_confirmed: "Stage Move",
+    final_settlement_completed: "Stage Move",
+  })[entry.action] || "Activity";
 const columnsFor = (panel) => {
   if (panel === "inventory")
     return [
       ["Timestamp", eventTime],
+      ["Action", actionLabel],
       [
         "Shape (Type)",
         (entry) => {
@@ -90,6 +101,7 @@ const columnsFor = (panel) => {
   if (panel === "challan")
     return [
       ["Timestamp", eventTime],
+      ["Action", actionLabel],
       [
         "Challan Number",
         (entry) => value(entry.snapshot?.challanNo ?? entry.challanNo),
@@ -105,6 +117,7 @@ const columnsFor = (panel) => {
     ];
   return [
     ["Timestamp", eventTime],
+    ["Action", actionLabel],
     [
       "Party Name",
       (entry) => value(entry.snapshot?.partyName ?? entry.partyName),

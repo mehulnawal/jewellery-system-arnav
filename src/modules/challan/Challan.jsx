@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./challan.css";
 import {
@@ -16,6 +16,8 @@ import { writeActivity } from "../../utils/activityLog";
 import { isWholePieces, pieceValue } from "../../utils/pieces";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import { challanAging, timestampMs } from "../../utils/challanAging";
+import { uploadChallanImage } from "../../utils/cloudinary";
+import { useToast } from "../../ui/ToastContext";
 const STAGES = {
   1: "Goods Out",
   2: "Return / Sale",
@@ -833,9 +835,6 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
         </div>
         {error && <p className="stage-two-error">{error}</p>}
         <footer>
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
           <button
             type="button"
             className="primary"
@@ -845,6 +844,9 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
             {saving
               ? "Confirming..."
               : "Confirm Final Invoice / Move to Stage 3"}
+          </button>
+          <button type="button" onClick={onClose}>
+            Cancel
           </button>
         </footer>
       </section>
@@ -958,9 +960,6 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
         </div>
         {error && <p className="stage-two-error">{error}</p>}
         <footer>
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
           <button
             type="button"
             className="primary"
@@ -968,6 +967,9 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
             onClick={submit}
           >
             {saving ? "Completing..." : "Record Payment / Complete"}
+          </button>
+          <button type="button" onClick={onClose}>
+            Cancel
           </button>
         </footer>
       </section>
@@ -1034,11 +1036,10 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
   useEffect(() => {
     const keys = (event) => {
       if (event.key === "Escape") onClose();
-      if (event.key === "Enter") onConfirm(record.id);
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
-  }, [record, onClose, onConfirm]);
+  }, [onClose]);
   return (
     <div
       className="challan-delete-overlay"
@@ -1058,13 +1059,8 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
           {" "}
           {record.number} for {record.party} will be permanently removed.{" "}
         </p>{" "}
-        <small>Esc - Cancel | Enter - Delete</small>{" "}
+        <small>Press Esc to cancel.</small>{" "}
         <footer>
-          {" "}
-          <button type="button" onClick={onClose}>
-            {" "}
-            Cancel{" "}
-          </button>{" "}
           <button
             type="button"
             className="challan-delete-confirm"
@@ -1072,6 +1068,10 @@ const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
           >
             {" "}
             Delete Challan{" "}
+          </button>{" "}
+          <button type="button" onClick={onClose}>
+            {" "}
+            Cancel{" "}
           </button>{" "}
         </footer>{" "}
       </div>{" "}
@@ -1424,14 +1424,114 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
     </div>
   </div>
 );
+const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) => {
+  const fileInput = useRef(null);
+  const [preview, setPreview] = useState(null);
+  const title = `Stage ${stage} Images`;
+  useEffect(() => {
+    if (!preview) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [preview]);
+  return (
+    <>
+      <article className="challan-view-card challan-image-section">
+        <div className="challan-image-section-heading">
+          <div>
+            <h2>{title}</h2>
+            <p>Up to 2 images for this stage.</p>
+          </div>
+          <small>{images.length} / 2</small>
+        </div>
+        <div className="challan-image-gallery">
+          {images.map((image) => (
+            <button
+              className="challan-image-thumbnail"
+              key={image.publicId || image.secureUrl}
+              type="button"
+              onClick={() => setPreview(image)}
+              aria-label={`Preview ${image.originalFilename || "challan image"}`}
+            >
+              <img
+                src={image.secureUrl}
+                alt={image.originalFilename || "Challan image"}
+              />
+            </button>
+          ))}
+          {images.length < 2 && canUpload && (
+            <button
+              className="challan-image-upload"
+              type="button"
+              disabled={uploading}
+              onClick={() => fileInput.current?.click()}
+            >
+              <b>{uploading ? "Uploading..." : "Upload Challan Image"}</b>
+              <span>JPG, PNG, WEBP and other images</span>
+            </button>
+          )}
+        </div>
+        <input
+          ref={fileInput}
+          className="challan-image-input"
+          type="file"
+          accept="image/*"
+          disabled={uploading || images.length >= 2 || !canUpload}
+          onChange={(event) => {
+            const [file] = event.target.files || [];
+            event.target.value = "";
+            if (file) onUpload(file, stage);
+          }}
+        />
+      </article>
+      {preview && (
+        <div
+          className="challan-image-preview"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Challan image preview"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPreview(null);
+          }}
+        >
+          <div className="challan-image-preview-card">
+            <button
+              type="button"
+              className="challan-image-preview-close"
+              onClick={() => setPreview(null)}
+              aria-label="Close image preview"
+            >
+              ×
+            </button>
+            <img
+              src={preview.secureUrl}
+              alt={preview.originalFilename || "Challan image preview"}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 export default function Challan() {
   const { user } = useAuth();
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const hasStagePermission = (stage) =>
     user?.role === "superadmin" ||
     Boolean(user?.permissions?.includes(`challan-stage-${stage}`));
+  const isAdmin = user?.role === "superadmin";
+  const permittedStages = useMemo(
+    () =>
+      isAdmin
+        ? [1, 2, 3, 4]
+        : [1, 2, 3, 4].filter((stage) => hasStagePermission(stage)),
+    [isAdmin, user?.permissions],
+  );
   const [records, setRecords] = useState([]);
   const [page, setPage] = useState("list"),
     [viewId, setViewId] = useState(null),
@@ -1462,6 +1562,7 @@ export default function Challan() {
   const [finalSettlementCandidate, setFinalSettlementCandidate] =
     useState(null);
   const [legacyInvoiceCandidate, setLegacyInvoiceCandidate] = useState(null);
+  const [uploadingStage, setUploadingStage] = useState(null);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -1518,20 +1619,56 @@ export default function Challan() {
       ),
     [],
   );
+  useEffect(() => {
+    if (!isAdmin && !permittedStages.includes(Number(tab)))
+      setTab(permittedStages[0] ?? "all");
+  }, [isAdmin, permittedStages, tab]);
+  const accessibleRecords = useMemo(
+    () =>
+      isAdmin
+        ? records
+        : records.filter((record) =>
+            permittedStages.includes(Number(record.stage || 1)),
+          ),
+    [isAdmin, permittedStages, records],
+  );
   const count = (stage) =>
     stage === "all"
-      ? records.length
-      : records.filter((item) => item.stage === Number(stage)).length;
+      ? accessibleRecords.length
+      : accessibleRecords.filter((item) => item.stage === Number(stage)).length;
+  const stageTabs = isAdmin
+    ? [
+        ["all", "All Challans"],
+        [1, "Stage 1"],
+        [2, "Stage 2"],
+        [3, "Stage 3"],
+        [4, "Stage 4"],
+      ]
+    : permittedStages.map((stage) => [stage, `Stage ${stage}`]);
+  const metrics = isAdmin
+    ? [
+        ["Total Challans", count("all")],
+        ["Goods Out", count(1)],
+        ["Payment Pending", count(3)],
+        ["Completed", count(4)],
+      ]
+    : permittedStages.map((stage) => [
+        `Stage ${stage} · ${STAGES[stage]}`,
+        count(stage),
+      ]);
   const parties = useMemo(
     () =>
       [
-        ...new Set([...partyOptions, ...records.map((item) => item.party)]),
+        ...new Set([
+          ...partyOptions,
+          ...accessibleRecords.map((item) => item.party),
+        ]),
       ].sort((a, b) => a.localeCompare(b)),
-    [records, partyOptions],
+    [accessibleRecords, partyOptions],
   );
   const shown = useMemo(
     () =>
-      records
+      accessibleRecords
         .filter((item) => {
           const matchAge =
             agingFilter === "all" ||
@@ -1558,7 +1695,7 @@ export default function Challan() {
             : a.createdAt - b.createdAt,
         ),
     [
-      records,
+      accessibleRecords,
       search,
       tab,
       dateFilter,
@@ -1614,6 +1751,7 @@ export default function Challan() {
   };
   const create = async (event) => {
     event.preventDefault();
+    try {
     if (!hasStagePermission(1)) {
       setFormError("Your account does not have Challan Stage 1 permission.");
       return;
@@ -1790,6 +1928,14 @@ export default function Challan() {
     setEditingId(null);
     setForm({ date: today(), party: "", notes: "", items: [blank()] });
     setPage("list");
+    } catch (error) {
+      console.error("Challan could not be saved", error);
+      setFormError(
+        error?.code === "permission-denied"
+          ? "Your account is not permitted to save this Challan. Please contact an administrator."
+          : error?.message || "Could not save this Challan. Please try again.",
+      );
+    }
   };
   const addItem = () => {
     const next = blank();
@@ -1912,7 +2058,8 @@ export default function Challan() {
     void writeActivity({
       panel: "challan",
       stage: "Stage 2",
-      action: "return_recorded",
+      action: "stage_moved",
+      transition: "Stage 1 → Stage 2",
       recordId: record.id,
       snapshot: challanSnapshot(record),
       before: challanSnapshot(previous),
@@ -1953,7 +2100,8 @@ export default function Challan() {
     void writeActivity({
       panel: "challan",
       stage: "Stage 3",
-      action: "final_invoice_confirmed",
+      action: "stage_moved",
+      transition: "Stage 2 → Stage 3",
       recordId: saved.id,
       snapshot: challanSnapshot(saved),
       before: challanSnapshot(previous),
@@ -2028,7 +2176,8 @@ export default function Challan() {
     void writeActivity({
       panel: "challan",
       stage: "Stage 4",
-      action: "final_settlement_completed",
+      action: "stage_moved",
+      transition: "Stage 3 → Stage 4",
       recordId: saved.id,
       snapshot: challanSnapshot(saved),
       before: challanSnapshot(previous),
@@ -2037,7 +2186,6 @@ export default function Challan() {
       console.warn("Final settlement activity could not be saved.", error),
     );
   };
-  const isAdmin = user?.role === "superadmin";
   const staffEditRemaining = (record) =>
     record.createdByRole === "superadmin" || record.createdBy !== user?.uid
       ? 0
@@ -2434,8 +2582,63 @@ export default function Challan() {
     window.setTimeout(() => popup.print(), 250);
   };
   const viewRecord = viewId
-    ? records.find((record) => record.id === viewId)
+    ? accessibleRecords.find((record) => record.id === viewId)
     : null;
+  const uploadImage = async (file, stage) => {
+    const imageField = stage === 1 ? "stage1Images" : "stage2Images";
+    if (!file.type?.startsWith("image/")) {
+      toast("Please select an image file.", "error");
+      return;
+    }
+    if (!viewRecord || Number(viewRecord.stage) !== stage || !canEditChallan(viewRecord)) {
+      toast("You are not permitted to upload an image for this Challan.", "error");
+      return;
+    }
+    if ((viewRecord[imageField] || []).length >= 2) {
+      toast(`Maximum 2 images can be uploaded for Stage ${stage}.`, "error");
+      return;
+    }
+    setUploadingStage(stage);
+    let image;
+    try {
+      image = await uploadChallanImage(file);
+    } catch (error) {
+      toast(`Image upload failed. ${error.message || "Please try again."}`, "error");
+      setUploadingStage(null);
+      return;
+    }
+    try {
+      await runTransaction(db, async (tx) => {
+        const challanRef = doc(db, "challans", viewRecord.id);
+        const snapshot = await tx.get(challanRef);
+        if (!snapshot.exists() || Number(snapshot.data().stage) !== stage)
+          throw new Error("This Challan is no longer in the selected stage.");
+        const currentImages = Array.isArray(snapshot.data()[imageField])
+          ? snapshot.data()[imageField]
+          : [];
+        if (currentImages.length >= 2)
+          throw new Error(`Maximum 2 images can be uploaded for Stage ${stage}.`);
+        tx.update(challanRef, {
+          [imageField]: [
+            ...currentImages,
+            { ...image, uploadedAtMs: Date.now(), uploadedBy: user?.uid || "" },
+          ],
+          updatedAt: serverTimestamp(),
+        });
+      });
+      toast("Image uploaded successfully.");
+    } catch (error) {
+      const limitError = error.message?.startsWith("Maximum 2 images");
+      toast(
+        limitError
+          ? error.message
+          : "Image uploaded but could not be linked to the Challan. Please try again or contact Admin.",
+        "error",
+      );
+    } finally {
+      setUploadingStage(null);
+    }
+  };
   const exportDraft = () => {
     const rows = [
       [
@@ -2872,22 +3075,33 @@ export default function Challan() {
             {viewRecord.notes?.trim() ||
               "No notes added for this Challan."}{" "}
           </p>{" "}
-          {Number(viewRecord.stage) <= 2 && (
-            <section
-              className="challan-image-placeholder"
-              aria-label="Image upload placeholder"
-            >
-              {" "}
-              <b>Image Upload</b>{" "}
-              <span>
-                Images can be attached to this Challan here in a future update.
-              </span>{" "}
-              <button type="button" disabled aria-disabled="true">
-                Upload Image
-              </button>{" "}
-            </section>
-          )}{" "}
         </article>{" "}
+        {stage === 1 && (
+          <ChallanImageSection
+            stage={1}
+            images={
+              Array.isArray(viewRecord.stage1Images)
+                ? viewRecord.stage1Images
+                : []
+            }
+            canUpload={canEditChallan(viewRecord)}
+            uploading={uploadingStage === 1}
+            onUpload={uploadImage}
+          />
+        )}
+        {stage === 2 && (
+          <ChallanImageSection
+            stage={2}
+            images={
+              Array.isArray(viewRecord.stage2Images)
+                ? viewRecord.stage2Images
+                : []
+            }
+            canUpload={canEditChallan(viewRecord)}
+            uploading={uploadingStage === 2}
+            onUpload={uploadImage}
+          />
+        )}
       </section>
     );
   }
@@ -2925,7 +3139,15 @@ export default function Challan() {
             </button>{" "}
           </div>{" "}
         </header>{" "}
-        <form onSubmit={create}>
+        <form
+          onSubmit={create}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.requestSubmit();
+            }
+          }}
+        >
           {" "}
           <datalist id="challan-skus">
             {" "}
@@ -3233,13 +3455,7 @@ export default function Challan() {
       </label>{" "}
       <nav>
         {" "}
-        {[
-          ["all", "All Challans"],
-          [1, "Stage 1"],
-          [2, "Stage 2"],
-          [3, "Stage 3"],
-          [4, "Stage 4"],
-        ].map(([key, label]) => (
+        {stageTabs.map(([key, label]) => (
           <button
             key={key}
             className={String(tab) === String(key) ? "active" : ""}
@@ -3258,12 +3474,7 @@ export default function Challan() {
       </nav>{" "}
       <div className="metrics">
         {" "}
-        {[
-          ["Total Challans", count("all")],
-          ["Goods Out", count(1)],
-          ["Payment Pending", count(3)],
-          ["Completed", count(4)],
-        ].map(([label, value]) => (
+        {metrics.map(([label, value]) => (
           <article key={label}>
             {" "}
             <span>{label}</span> <b>{value}</b>{" "}
@@ -3395,7 +3606,7 @@ export default function Challan() {
                   return (
                     <span className={`challan-aging-badge ${age.status}`}>
                       {" "}
-                      <i /> {age.label} <b>-</b> {age.elapsedLabel}{" "}
+                      <i /> {age.elapsedLabel}
                     </span>
                   );
                 })()
@@ -3469,15 +3680,15 @@ export default function Challan() {
           {" "}
           <h3>
             {" "}
-            {records.length
+            {accessibleRecords.length
               ? "No challans found"
               : "No challans created yet"}{" "}
           </h3>{" "}
           <p>
             {" "}
-            {records.length
+            {accessibleRecords.length
               ? "Try changing your search or stage filter."
-              : "Create your first Stage 1 challan to get started."}{" "}
+              : "No Challans are available for your assigned stage."}{" "}
           </p>{" "}
           {![2, 3, 4].includes(Number(tab)) && (
             <button

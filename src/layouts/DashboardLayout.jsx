@@ -163,7 +163,6 @@ export default function DashboardLayout() {
   const { user, logout, hasPermission } = useAuth(),
     location = useLocation(),
     [expanded, setExpanded] = useState(false),
-    [adminRailCollapsed, setAdminRailCollapsed] = useState(false),
     [pageLoading, setPageLoading] = useState(false),
     [theme, setTheme] = useState(
       () => localStorage.getItem("theme") || "light",
@@ -232,7 +231,7 @@ export default function DashboardLayout() {
   };
   return (
     <div
-      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-flyout-mode" : ""} ${isAdmin && adminRailCollapsed ? "admin-rail-collapsed" : ""}`}
+      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-flyout-mode" : ""}`}
     >
       <aside className={`dashboard-sidebar ${isAdmin ? "dashboard-admin-rail" : ""}`} ref={adminNavRef}>
         <div className="dashboard-brand">
@@ -280,18 +279,18 @@ export default function DashboardLayout() {
             onClick={() => {
               if (isAdmin) {
                 setAdminOpen(false);
-                setAdminRailCollapsed((value) => !value);
+                setExpanded((value) => !value);
               } else {
                 setExpanded((value) => !value);
               }
             }}
-            aria-label={isAdmin ? adminRailCollapsed ? "Expand sidebar" : "Collapse sidebar" : "Toggle sidebar"}
-            title={isAdmin ? adminRailCollapsed ? "Expand sidebar" : "Collapse sidebar" : undefined}
+            aria-label={isAdmin ? expanded ? "Collapse sidebar" : "Expand sidebar" : "Toggle sidebar"}
+            title={isAdmin ? expanded ? "Collapse sidebar" : "Expand sidebar" : undefined}
           >
-            <span className={isAdmin ? adminRailCollapsed ? "" : "collapse-reverse" : expanded ? "collapse-reverse" : ""}>
+            <span className={expanded ? "collapse-reverse" : ""}>
               <Icon name="chevron" />
             </span>
-            <em>{isAdmin ? adminRailCollapsed ? "Expand" : "Collapse" : "Collapse"}</em>
+            <em>{isAdmin ? expanded ? "Collapse" : "Expand" : "Collapse"}</em>
           </button>
           <button
             className="dashboard-logout"

@@ -265,6 +265,7 @@ export async function savePurchase({
         partyName: payload.vendorName,
         amount: payload.amount,
         weight: payload.totalWeight,
+        origin: payload.origin || "Manual",
       },
       actor: {
         uid: user?.uid || "",
@@ -305,6 +306,7 @@ export async function deletePurchase({ purchaseId, user }) {
         partyName: record.vendorName,
         amount: record.amount,
         weight: record.totalWeight,
+        origin: record.origin || "Manual",
       },
       actor: {
         uid: user?.uid || "",

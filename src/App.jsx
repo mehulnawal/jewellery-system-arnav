@@ -6,6 +6,7 @@ import CheckInventory from "./modules/checkInventory/CheckInventory";
 import Challan from "./modules/challan/Challan";
 import AdminSettings from "./modules/admin/AdminSettings";
 import ActivityLog from "./modules/activityLog/ActivityLog";
+import WeeklyReport from "./modules/weeklyReport/WeeklyReport";
 import Purchase from "./modules/purchase/Purchase";
 import VendorPurchaseHistory from "./modules/history/VendorPurchaseHistory";
 import PartyChallanHistory from "./modules/history/PartyChallanHistory";
@@ -35,6 +36,7 @@ export default function App() {
           </Route>
           <Route element={<PermissionRoute adminOnly />}>
             <Route path="activity-log" element={<ActivityLog />} />
+            <Route path="weekly-report" element={<WeeklyReport />} />
             <Route path="admin-settings" element={<AdminSettings />} />
             <Route
               path="vendor-purchase-history"

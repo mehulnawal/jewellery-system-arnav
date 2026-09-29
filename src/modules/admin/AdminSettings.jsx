@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   collection,
   doc,
@@ -20,6 +20,13 @@ import { PURCHASE_HEADERS, PURCHASE_ITEM_HEADERS } from "../../utils/purchase";
 import "./adminSettings.css";
 
 const SETTINGS = doc(db, "settings", "inventory");
+const ACTIVE_STAFF_SORT_KEY = "admin-settings-active-staff-sort";
+const ACTIVE_STAFF_SORT_OPTIONS = [
+  ["newest", "Newest first"],
+  ["oldest", "Oldest first"],
+  ["id-asc", "Staff ID A-Z"],
+  ["id-desc", "Staff ID Z-A"],
+];
 const isAdminAccount = (account) =>
   account.role === "superadmin" || account.role === "admin";
 const permissionLabels = (account) =>
@@ -35,6 +42,13 @@ const formatAccountDate = (value) => {
       })
     : "Not recorded";
 };
+const savedActiveStaffSort = () => {
+  try {
+    return localStorage.getItem(ACTIVE_STAFF_SORT_KEY) || "newest";
+  } catch {
+    return "newest";
+  }
+};
 
 export default function AdminSettings() {
   const [tab, setTab] = useState("access"),
@@ -48,7 +62,9 @@ export default function AdminSettings() {
     [saving, setSaving] = useState(false),
     [allowDimensionSizes, setAllowDimensionSizes] = useState(false),
     [createdCredentials, setCreatedCredentials] = useState(null),
+    [activeStaffSort, setActiveStaffSort] = useState(savedActiveStaffSort),
     [copied, setCopied] = useState(""),
+    [copyMessage, setCopyMessage] = useState(""),
     [deactivateTarget, setDeactivateTarget] = useState(null);
   useEffect(
     () =>
@@ -79,7 +95,16 @@ export default function AdminSettings() {
   );
   const admins = accounts.filter(isAdminAccount),
     staff = accounts.filter((account) => !isAdminAccount(account)),
-    activeStaff = staff.filter((account) => account.active),
+    activeStaff = staff.filter((account) => account.active).sort((a, b) => {
+      const aIsJustCreated = createdCredentials?.accessId === a.accessId,
+        bIsJustCreated = createdCredentials?.accessId === b.accessId;
+      if (activeStaffSort === "newest" && aIsJustCreated !== bIsJustCreated)
+        return aIsJustCreated ? -1 : 1;
+      if (activeStaffSort === "oldest") return timestampMs(a.createdAt) - timestampMs(b.createdAt);
+      if (activeStaffSort === "id-asc") return (a.accessId || "").localeCompare(b.accessId || "");
+      if (activeStaffSort === "id-desc") return (b.accessId || "").localeCompare(a.accessId || "");
+      return timestampMs(b.createdAt) - timestampMs(a.createdAt);
+    }),
     inactiveStaff = staff
       .filter((account) => !account.active)
       .sort(
@@ -87,6 +112,13 @@ export default function AdminSettings() {
           timestampMs(b.deactivatedAt || b.accessRevokedAt) -
           timestampMs(a.deactivatedAt || a.accessRevokedAt),
       );
+  useEffect(() => {
+    try {
+      localStorage.setItem(ACTIVE_STAFF_SORT_KEY, activeStaffSort);
+    } catch {
+      // Sorting remains available even if browser storage is unavailable.
+    }
+  }, [activeStaffSort]);
   const permissionOwner = (key) =>
     activeStaff.find((account) => account.permissions?.includes(key));
   const toggle = (key) => {
@@ -97,10 +129,26 @@ export default function AdminSettings() {
         : [...current, key],
     );
   };
-  const copy = async (value, key) => {
-    await navigator.clipboard.writeText(value);
+  const copy = async (value, key, message) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
     setCopied(key);
-    window.setTimeout(() => setCopied(""), 1800);
+    setCopyMessage(message);
+    window.setTimeout(() => {
+      setCopied("");
+      setCopyMessage("");
+    }, 1800);
   };
   const create = async (event) => {
     event.preventDefault();
@@ -187,6 +235,11 @@ export default function AdminSettings() {
           Import Templates
         </button>
       </nav>
+      {copyMessage && (
+        <div className="settings-copy-feedback" role="status">
+          {copyMessage}
+        </div>
+      )}
       {tab === "access" ? (
         <>
           <article className="access-create">
@@ -194,7 +247,16 @@ export default function AdminSettings() {
             <p>
               Create one staff account with at least one assigned permission.
             </p>
-            <form onSubmit={create} autoComplete="off">
+            <form
+              onSubmit={create}
+              autoComplete="off"
+              onKeyDown={(event) => {
+                if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.requestSubmit();
+                }
+              }}
+            >
               <div className="credential-fields">
                 <label>
                   Access ID
@@ -276,6 +338,7 @@ export default function AdminSettings() {
           <AccountSection
             title="Active Staff Accounts"
             empty="No active staff accounts yet."
+            action={<AccountSort value={activeStaffSort} onChange={setActiveStaffSort} />}
           >
             {activeStaff.map((account) => (
               <EmployeeCard
@@ -325,6 +388,8 @@ export default function AdminSettings() {
                 account={account}
                 persistedPassword={credentialsByUid[account.uid]?.password}
                 historical
+                copied={copied}
+                onCopy={copy}
               />
             ))}
           </AccountSection>
@@ -378,14 +443,33 @@ export default function AdminSettings() {
     </section>
   );
 }
-function AccountSection({ title, children, empty }) {
+function AccountSection({ title, children, empty, action }) {
   const hasAccounts = Boolean(children?.length);
   return (
     <article className="access-list account-section">
-      <h3>{title}</h3>
+      <header className="account-section-heading"><h3>{title}</h3>{action}</header>
       {hasAccounts ? children : <p>{empty}</p>}
     </article>
   );
+}
+function AccountSort({ value, onChange }) {
+  const [open, setOpen] = useState(false), ref = useRef(null);
+  const selectedLabel = ACTIVE_STAFF_SORT_OPTIONS.find(([key]) => key === value)?.[1];
+  useEffect(() => {
+    const closeOnOutsidePress = (event) => {
+      if (!ref.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+  return <div className="account-sort" ref={ref}><span>Sort</span><button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} onKeyDown={(event) => { if (["ArrowDown", "Enter", " "].includes(event.key)) { event.preventDefault(); setOpen(true); } }}>{selectedLabel}<i aria-hidden="true" /></button>{open && <div className="account-sort-menu" role="listbox" aria-label="Sort active staff accounts">{ACTIVE_STAFF_SORT_OPTIONS.map(([key, label]) => <button type="button" role="option" aria-selected={key === value} className={key === value ? "selected" : ""} key={key} onClick={() => { onChange(key); setOpen(false); }}>{label}</button>)}</div>}</div>;
 }
 function EmployeeCard({
   account,
@@ -400,21 +484,18 @@ function EmployeeCard({
   const isNew = createdCredentials?.accessId === account.accessId,
     assigned = permissionLabels(account),
     password = persistedPassword || (isNew ? createdCredentials.password : ""),
-    deactivatedAt = account.deactivatedAt || account.accessRevokedAt;
+    deactivatedAt = account.deactivatedAt || account.accessRevokedAt,
+    credentialText = password
+      ? [`Staff ID: ${account.accessId}`, `Password: ${password}`].join("\r\n")
+      : `Staff ID: ${account.accessId}`;
   return (
     <div
       className={
         "access-account staff-account" + (historical ? " inactive" : "")
       }
     >
-      <header>
-        <div>
-          <b>{account.accessId}</b>
-          <small>Staff account</small>
-        </div>
-        <span>{historical ? "Inactive" : "Active"}</span>
-      </header>
-      <div className="account-dates">
+      <div className="account-meta">
+        <div className="account-dates">
         <span>
           Created <b>{formatAccountDate(account.createdAt)}</b>
         </span>
@@ -423,23 +504,17 @@ function EmployeeCard({
             Deactivated <b>{formatAccountDate(deactivatedAt)}</b>
           </span>
         )}
+        </div>
+        <span className="account-status">{historical ? "Inactive" : "Active"}</span>
       </div>
       {
         <section className="staff-credentials">
           <small>Login credentials</small>
-          <div className="credential-row">
+          <div className="credential-details">
             <span>
               <small>Staff ID</small>
               <b>{account.accessId}</b>
             </span>
-            <button
-              type="button"
-              onClick={() => onCopy(account.accessId, "id-" + account.uid)}
-            >
-              {copied === "id-" + account.uid ? "Copied" : "Copy"}
-            </button>
-          </div>
-          <div className="credential-row">
             <span>
               <small>Password</small>
               {password ? (
@@ -448,17 +523,22 @@ function EmployeeCard({
                 <em>Password was not recorded for this legacy account.</em>
               )}
             </span>
-            {password && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => onCopy(password, "password-" + account.uid)}
-                >
-                  {copied === "password-" + account.uid ? "Copied" : "Copy"}
-                </button>
-              </div>
-            )}
           </div>
+          <button
+            className="credential-copy"
+            type="button"
+            onClick={() =>
+              onCopy(
+                credentialText,
+                "credentials-" + account.uid,
+                password
+                  ? "Staff ID and password copied."
+                  : "Staff ID copied. Password is unavailable for this legacy account.",
+              )
+            }
+          >
+            {copied === "credentials-" + account.uid ? "Copied" : password ? "Copy" : "Copy ID"}
+          </button>
         </section>
       }
       <div className="staff-permissions">
@@ -476,12 +556,12 @@ function EmployeeCard({
         )}
       </div>
       {!historical && (
-        <PermissionsEditor account={account} onSave={onUpdatePermissions} />
-      )}
-      {!historical && (
-        <button className="settings-delete" onClick={onDeactivate}>
-          Deactivate account
-        </button>
+        <div className="staff-actions">
+          <PermissionsEditor account={account} onSave={onUpdatePermissions} />
+          <button className="settings-delete" onClick={onDeactivate}>
+            Deactivate account
+          </button>
+        </div>
       )}
     </div>
   );
@@ -520,6 +600,7 @@ function PermissionsEditor({ account, onSave }) {
     </section>
   ) : (
     <button
+      className="settings-secondary"
       type="button"
       onClick={() => {
         setPermissions(account.permissions || []);

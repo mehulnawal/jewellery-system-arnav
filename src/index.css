@@ -8,9 +8,25 @@
   }
   button,
   input,
-  select {
+  select,
+  textarea {
     font: inherit;
   }
+}
+
+/* A consistent, keyboard-visible focus treatment across every module and theme. */
+:where(
+  a[href],
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [role="button"],
+  [role="option"]
+):focus-visible {
+  outline: 2px solid var(--ui-emerald);
+  outline-offset: 2px;
 }
 
 @layer base {

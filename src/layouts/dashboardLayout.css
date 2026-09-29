@@ -565,8 +565,8 @@ html[data-theme="dark"] .dashboard-nav-item.active .dashboard-nav-icon {
 /* Admin uses the same compact rail, with a separate contextual flyout. */
 .admin-flyout-mode .dashboard-admin-rail { width: 80px; }
 .admin-flyout-mode .dashboard-main { margin-left: 80px; width: calc(100% - 80px); }
-.admin-flyout-mode.admin-rail-collapsed .dashboard-admin-rail { width: 64px; }
-.admin-flyout-mode.admin-rail-collapsed .dashboard-main { margin-left: 64px; width: calc(100% - 64px); }
+.admin-flyout-mode.sidebar-expanded .dashboard-admin-rail { width: 224px; }
+.admin-flyout-mode.sidebar-expanded .dashboard-main { margin-left: 224px; width: calc(100% - 224px); }
 .dashboard-admin-rail .dashboard-brand { justify-content: center; }
 .dashboard-admin-rail nav .dashboard-nav-item { justify-content: center; }
 .dashboard-admin-rail .dashboard-nav-icon { min-width: 40px; }
@@ -574,7 +574,6 @@ html[data-theme="dark"] .dashboard-nav-item.active .dashboard-nav-icon {
 .dashboard-admin-rail .dashboard-theme-toggle,
 .dashboard-admin-rail .dashboard-collapse,
 .dashboard-admin-rail .dashboard-logout { justify-content: center; width: 40px; }
-.admin-flyout-mode.admin-rail-collapsed .dashboard-admin-rail .dashboard-sidebar-footer { left: 12px; right: 12px; }
 .admin-flyout-mode .dashboard-admin-rail .dashboard-collapse { border-top: 0; padding-top: 0; }
 .dashboard-admin-trigger.active .dashboard-tooltip { opacity: 0 !important; }
 .dashboard-admin-trigger {
@@ -601,6 +600,7 @@ html[data-theme="dark"] .dashboard-nav-item.active .dashboard-nav-icon {
   width: min(340px, calc(100vw - 104px));
   z-index: 40;
 }
+.admin-flyout-mode.sidebar-expanded .admin-management-flyout { left: 236px; }
 .admin-management-flyout header { border-bottom: 1px solid var(--ui-border); padding-bottom: 14px; }
 .admin-management-flyout header small,
 .admin-management-groups h3 { color: var(--ui-muted); display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; margin: 0; text-transform: uppercase; }
