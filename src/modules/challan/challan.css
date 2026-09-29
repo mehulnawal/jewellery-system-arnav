@@ -798,7 +798,7 @@ html[data-theme="dark"] .challan-form-error {
   margin: 0 0 10px;
 }
 .challan-delete-dialog small {
-  color: var(--ui-muted);
+  color: #334155;
 }
 .challan-delete-dialog footer {
   display: flex;
