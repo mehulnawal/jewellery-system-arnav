@@ -7,10 +7,10 @@ export const normalizeSearch = (value) =>
     .toLocaleLowerCase();
 
 export const formatDate = (value) => {
-  if (!value) return "—";
+  if (!value) return "--";
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
   return Number.isNaN(date.getTime())
-    ? "—"
+    ? "--"
     : date.toLocaleDateString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -23,7 +23,7 @@ export const formatWeight = (value) =>
   value === null ||
   value === "" ||
   !Number.isFinite(Number(value))
-    ? "—"
+    ? "--"
     : `${Number(value).toFixed(3)} ct`;
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -37,7 +37,7 @@ export const formatCurrency = (value) =>
   value === null ||
   value === "" ||
   !Number.isFinite(Number(value))
-    ? "—"
+    ? "--"
     : inr.format(Number(value));
 
 export function HistoryDirectory({

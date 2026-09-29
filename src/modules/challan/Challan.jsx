@@ -8,7 +8,6 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
-  deleteDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
@@ -18,6 +17,8 @@ import { usePageFreeze } from "../../hooks/usePageFreeze";
 import { challanAging, timestampMs } from "../../utils/challanAging";
 import { uploadChallanImage } from "../../utils/cloudinary";
 import { useToast } from "../../ui/ToastContext";
+import { CHALLAN_NUMBER_HELP, CHALLAN_NUMBER_PATTERN, documentNumberError } from "../../utils/documentNumbers.js";
+import { prepareNumberClaim, prepareNumberRelease } from "../../utils/numberRegistry.js";
 const STAGES = {
   1: "Goods Out",
   2: "Return / Sale",
@@ -55,11 +56,11 @@ const hasStoredNumber = (value) =>
   value !== null &&
   value !== "" &&
   Number.isFinite(Number(value));
-const viewCurrency = (value, fallback = "—") =>
+const viewCurrency = (value, fallback = "--") =>
   hasStoredNumber(value) ? inrFormatter.format(Number(value)) : fallback;
-const viewWeight = (value, fallback = "—") =>
+const viewWeight = (value, fallback = "--") =>
   hasStoredNumber(value) ? `${Number(value).toFixed(3)} ct` : fallback;
-const viewPieces = (value, fallback = "—") =>
+const viewPieces = (value, fallback = "--") =>
   hasStoredNumber(value) ? String(pieceValue(value)) : fallback;
 const sumStored = (items, key) => {
   let found = false;
@@ -81,18 +82,18 @@ const sumStoredBy = (items, read) => {
   return found ? total : undefined;
 };
 const viewPercent = (value) =>
-  hasStoredNumber(value) ? `${Number(value)}%` : "—";
+  hasStoredNumber(value) ? `${Number(value)}%` : "--";
 const soldKeptText = (item) =>
   hasStoredNumber(item.soldPieces) || hasStoredNumber(item.soldWeight)
     ? `${viewPieces(item.soldPieces)} pcs / ${viewWeight(item.soldWeight)}`
-    : "—";
+    : "--";
 const invoiceSnapshotFor = (record) => {
   const stageTwoItems = record.stage2Return?.items;
   if (!Array.isArray(stageTwoItems) || !stageTwoItems.length)
     throw new Error("This Stage 2 Challan has no return/sale item history.");
   const items = stageTwoItems.map((item) => {
     if (item.amount === "" || item.amount === null || item.amount === undefined)
-      throw new Error(`Item ${item.sku || ""} has no quoted Amount.`);
+      throw new Error(`Item ${item.sku || ""} has no quoted Price.`);
     const grossAmount = money(item.amount);
     const stage1DiscountPercent = money(item.discount);
     const stage1DiscountAmount = money(
@@ -587,7 +588,7 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
                 {" "}
                 SOLD <br /> WEIGHT{" "}
               </span>{" "}
-              <span>AMOUNT</span> <span>DISCOUNT</span>{" "}
+              <span>PRICE</span> <span>DISCOUNT</span>{" "}
             </div>{" "}
             {record.items.map((item, index) => {
               const row = rows[index],
@@ -784,7 +785,7 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
               <span>ISSUED</span>
               <span>RETURN</span>
               <span>SOLD / KEPT</span>
-              <span>AMOUNT</span>
+              <span>PRICE</span>
               <span>STAGE 1 DISCOUNT</span>
             </div>
             {invoice.items.map((item) => (
@@ -795,8 +796,8 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
                 <b>
                   {item.sku}
                   <small>
-                    {item.type || "—"} · {item.shape || "—"} ·{" "}
-                    {item.size || "—"}
+                    {item.type || "--"} · {item.shape || "--"} ·{" "}
+                    {item.size || "--"}
                   </small>
                 </b>
                 <span>
@@ -1089,16 +1090,16 @@ export const StageOneView = ({ items }) => (
           <th>Size</th>
           <th>Pieces</th>
           <th>Weight</th>
-          <th>Amount</th>
+          <th>Price</th>
           <th>Discount %</th>
         </tr>
       </thead>
       <tbody>
         {items.map((item, index) => (
           <tr key={item.id || item.sku || index}>
-            <td>{item.sku || "—"}</td>
-            <td>{item.shape || "—"}</td>
-            <td>{item.size || "—"}</td>
+            <td>{item.sku || "--"}</td>
+            <td>{item.shape || "--"}</td>
+            <td>{item.size || "--"}</td>
             <td>{viewPieces(item.pieces)}</td>
             <td>{viewWeight(item.weight)}</td>
             <td>{viewCurrency(item.amount)}</td>
@@ -1142,16 +1143,16 @@ export const StageTwoView = ({ items }) => (
             <th>Return Weight</th>
             <th>Sold / Kept Pieces</th>
             <th>Sold / Kept Weight</th>
-            <th>Amount</th>
+            <th>Price</th>
             <th>Discount %</th>
           </tr>
         </thead>
         <tbody>
           {items.map((item, index) => (
             <tr key={item.id || item.sku || index}>
-              <td>{item.sku || "—"}</td>
-              <td>{item.shape || "—"}</td>
-              <td>{item.size || "—"}</td>
+              <td>{item.sku || "--"}</td>
+              <td>{item.shape || "--"}</td>
+              <td>{item.size || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
               <td>{viewWeight(item.issuedWeight)}</td>
               <td>{viewPieces(item.returnPieces)}</td>
@@ -1213,7 +1214,7 @@ export const StageThreeView = ({ invoice }) => {
               <th>Shape</th>
               <th>Size</th>
               <th>Sold / Kept</th>
-              <th>Amount</th>
+              <th>Price</th>
               <th>Stage 1 Discount</th>
               <th>Discount Amount</th>
             </tr>
@@ -1221,9 +1222,9 @@ export const StageThreeView = ({ invoice }) => {
           <tbody>
             {items.map((item, index) => (
               <tr key={item.id || item.sku || index}>
-                <td>{item.sku || "—"}</td>
-                <td>{item.shape || "—"}</td>
-                <td>{item.size || "—"}</td>
+                <td>{item.sku || "--"}</td>
+                <td>{item.shape || "--"}</td>
+                <td>{item.size || "--"}</td>
                 <td>{soldKeptText(item)}</td>
                 <td>{viewCurrency(item.grossAmount ?? item.amount)}</td>
                 <td>{viewPercent(item.stage1DiscountPercent)}</td>
@@ -1242,7 +1243,7 @@ export const StageThreeView = ({ invoice }) => {
         Final Invoice confirmed:{" "}
         {invoice?.confirmedAtMs
           ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}`
-          : "—"}
+          : "--"}
       </p>
     </article>
   );
@@ -1263,7 +1264,7 @@ export const StageFourView = ({ items, invoice, settlement }) => (
             <th>Return Weight</th>
             <th>Sold / Kept Pieces</th>
             <th>Sold / Kept Weight</th>
-            <th>Amount</th>
+            <th>Price</th>
             <th>Stage 1 Discount</th>
             <th>Discount Amount</th>
           </tr>
@@ -1271,9 +1272,9 @@ export const StageFourView = ({ items, invoice, settlement }) => (
         <tbody>
           {items.map((item, index) => (
             <tr key={item.id || item.sku || index}>
-              <td>{item.sku || "—"}</td>
-              <td>{item.shape || "—"}</td>
-              <td>{item.size || "—"}</td>
+              <td>{item.sku || "--"}</td>
+              <td>{item.shape || "--"}</td>
+              <td>{item.size || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
               <td>{viewWeight(item.issuedWeight)}</td>
               <td>{viewPieces(item.returnPieces)}</td>
@@ -1337,13 +1338,13 @@ export const StageFourView = ({ items, invoice, settlement }) => (
       Final Invoice confirmed:{" "}
       {invoice?.confirmedAtMs
         ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}`
-        : "—"}
+        : "--"}
     </p>
     <p className="challan-view-timestamp">
       Completed:{" "}
       {settlement?.completedAtMs
         ? `${formatStageDate(settlement.completedAtMs)}, ${formatStageTime(settlement.completedAtMs)}`
-        : "—"}
+        : "--"}
     </p>
   </article>
 );
@@ -1542,6 +1543,7 @@ export default function Challan() {
     [agingFilter, setAgingFilter] = useState("all"),
     [sortMode, setSortMode] = useState("newest");
   const [form, setForm] = useState({
+    number: "",
     date: today(),
     party: "",
     amount: "",
@@ -1554,6 +1556,7 @@ export default function Challan() {
   const [formError, setFormError] = useState("");
   const [challanFieldErrors, setChallanFieldErrors] = useState({});
   const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const [partyOptions, setPartyOptions] = useState([]);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
@@ -1751,6 +1754,8 @@ export default function Challan() {
   };
   const create = async (event) => {
     event.preventDefault();
+    if (saving) return;
+    setSaving(true);
     try {
     if (!hasStagePermission(1)) {
       setFormError("Your account does not have Challan Stage 1 permission.");
@@ -1763,6 +1768,15 @@ export default function Challan() {
     );
     const party = existingParty || typedParty;
     const fieldErrors = {};
+    const previous = editingId
+      ? records.find((record) => record.id === editingId)
+      : null;
+    if (editingId && !previous) throw new Error("This Challan is no longer available.");
+    if (!previous || form.number !== previous.number) {
+      const numberError = documentNumberError("challan", form.number, records, editingId);
+      if (numberError) fieldErrors.number = numberError;
+      if (previous && !isAdmin) fieldErrors.number = "Only Admin can change the Challan Number.";
+    }
     if (!party) fieldErrors.party = "Party Name is required.";
     if (!items.length)
       fieldErrors.items =
@@ -1771,7 +1785,7 @@ export default function Challan() {
       setChallanFieldErrors(fieldErrors);
       return;
     }
-    const stockIssue = stockError(items, inventory);
+    const stockIssue = previous ? "" : stockError(items, inventory);
     if (stockIssue) {
       setFormError(stockIssue);
       return;
@@ -1797,9 +1811,6 @@ export default function Challan() {
     pricing.discount = pricing.amount
       ? Number(((pricing.discountAmount * 100) / pricing.amount).toFixed(2))
       : 0;
-    const previous = editingId
-      ? records.find((record) => record.id === editingId)
-      : null;
     if (previous && !canEditChallan(previous)) {
       setFormError("Your 60-minute staff edit window has ended.");
       return;
@@ -1826,6 +1837,7 @@ export default function Challan() {
     const record = previous
       ? {
           ...previous,
+          number: form.number,
           party,
           date: form.date,
           notes: form.notes,
@@ -1834,6 +1846,7 @@ export default function Challan() {
         }
       : {
           id: crypto.randomUUID(),
+          number: form.number,
           party,
           date: form.date,
           notes: form.notes,
@@ -1844,20 +1857,27 @@ export default function Challan() {
           createdByRole: user?.role || "staff",
         };
     if (previous) {
-      await setDoc(doc(db, "challans", record.id), record);
+      await runTransaction(db, async (tx) => {
+        const ref = doc(db, "challans", record.id);
+        const snapshot = await tx.get(ref);
+        if (!snapshot.exists()) throw new Error("This Challan is no longer available.");
+        const latest = snapshot.data();
+        if (latest.stage !== previous.stage || latest.number !== previous.number)
+          throw new Error("This Challan changed while you were editing. Reopen it and try again.");
+        const claimNumber = record.number !== latest.number
+          ? await prepareNumberClaim(tx, db, "challan", record.number, record.id, latest.number)
+          : () => {};
+        claimNumber();
+        // Update only editable fields; retain concurrently uploaded images/history.
+        tx.update(ref, {
+          number: record.number, party, date: form.date, notes: form.notes,
+          items: pricedItems, ...pricing,
+        });
+      });
     } else {
       const saved = await runTransaction(db, async (tx) => {
         const now = Date.now();
-        const counterRef = doc(db, "counters", "challan");
-        const counter = await tx.get(counterRef);
-        const current = counter.exists() ? counter.data() : {};
-        const series = Math.max(35, Number(current.series || 35));
-        const previousNumber =
-          Number(current.series || 0) < 35 ? 0 : Number(current.number || 0);
-        const next =
-          previousNumber >= 100
-            ? { series: series + 1, number: 1 }
-            : { series, number: previousNumber + 1 };
+        const claimNumber = await prepareNumberClaim(tx, db, "challan", record.number, record.id);
         const inventorySnapshots = await Promise.all(
           pricedItems.map((item) => {
             if (!item.inventoryId)
@@ -1901,13 +1921,12 @@ export default function Challan() {
         }
         const savedRecord = {
           ...record,
-          number: `A${next.series}/${next.number}`,
           items: issuedItems,
           createdAt: serverTimestamp(),
           createdAtMs: now,
           stageHistory: { stage1: { enteredAtMs: now } },
         };
-        tx.set(counterRef, next, { merge: true });
+        claimNumber();
         tx.set(doc(db, "challans", record.id), savedRecord);
         return { ...savedRecord, createdAt: now };
       });
@@ -1926,7 +1945,7 @@ export default function Challan() {
     );
     if (!editingId && !existingParty) await saveParty(party);
     setEditingId(null);
-    setForm({ date: today(), party: "", notes: "", items: [blank()] });
+    setForm({ number: "", date: today(), party: "", notes: "", items: [blank()] });
     setPage("list");
     } catch (error) {
       console.error("Challan could not be saved", error);
@@ -1935,6 +1954,8 @@ export default function Challan() {
           ? "Your account is not permitted to save this Challan. Please contact an administrator."
           : error?.message || "Could not save this Challan. Please try again.",
       );
+    } finally {
+      setSaving(false);
     }
   };
   const addItem = () => {
@@ -2198,13 +2219,18 @@ export default function Challan() {
     (hasStagePermission(record.stage) && staffEditRemaining(record) > 0);
   const closeEditor = () => {
     setEditingId(null);
-    setForm({ date: today(), party: "", notes: "", items: [blank()] });
+    setForm({ number: "", date: today(), party: "", notes: "", items: [blank()] });
+    setFormError("");
+    setChallanFieldErrors({});
     setPage("list");
   };
   const editChallan = (record) => {
     if (!canEditChallan(record)) return;
     setEditingId(record.id);
+    setFormError("");
+    setChallanFieldErrors({});
     setForm({
+      number: record.number || "",
       date: record.date,
       party: record.party,
       notes: record.notes || "",
@@ -2220,7 +2246,14 @@ export default function Challan() {
   const deleteChallan = async (id) => {
     const record = records.find((entry) => entry.id === id);
     if (!record || !isAdmin) return;
-    await deleteDoc(doc(db, "challans", id));
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "challans", id);
+      const snapshot = await tx.get(ref);
+      if (!snapshot.exists()) return;
+      const releaseNumber = await prepareNumberRelease(tx, db, "challan", snapshot.data().number, id);
+      releaseNumber();
+      tx.delete(ref);
+    });
     void writeActivity({
       panel: "challan",
       stage: "Stage " + record.stage,
@@ -2311,7 +2344,7 @@ export default function Challan() {
           row.stage >= 2 && item.soldWeight !== undefined
             ? Number(item.soldWeight)
             : "",
-        "Original Amount": Number(item.amount || 0),
+        "Original Price": Number(item.amount || 0),
         "Stage 1 Discount %": Number(
           item.stage1DiscountPercent ?? item.discount ?? 0,
         ),
@@ -2458,7 +2491,7 @@ export default function Challan() {
         "Sold / Kept Weight",
       );
     if (stage === 3) headers.push("Sold / Kept");
-    headers.push("Original Amount", "Stage 1 Discount %");
+    headers.push("Original Price", "Stage 1 Discount %");
     const itemRows = items
       .map((item) => {
         const cells = [escape(item.sku), escape(item.shape), escape(item.size)];
@@ -2646,7 +2679,7 @@ export default function Challan() {
         "Shape",
         "Weight (ct)",
         "Pieces",
-        "Amount",
+        "Price",
         "Discount (%)",
         "Discount Amount",
         "Net Amount",
@@ -2836,7 +2869,7 @@ export default function Challan() {
                         {formatStageTime(entered)}
                       </>
                     ) : (
-                      "—"
+                      "--"
                     )}
                   </small>{" "}
                 </div>
@@ -2893,7 +2926,7 @@ export default function Challan() {
                       </>
                     )}
                     {stage === 3 && <th>Sold / Kept</th>}
-                    <th>Amount</th>
+                    <th>Price</th>
                     <th>Stage 1 Discount</th>
                     {stage >= 3 && <th>Discount Amount</th>}
                   </tr>{" "}
@@ -3181,9 +3214,24 @@ export default function Challan() {
                   }}
                 />{" "}
               </label>{" "}
-              <label>
-                {" "}
-                Challan No. <input disabled value="Auto-generated" />{" "}
+              <label className={challanFieldErrors.number ? "has-error" : ""}>
+                Challan Number *
+                <input
+                  value={form.number || ""}
+                  required={!editingId || form.number !== records.find((record) => record.id === editingId)?.number}
+                  pattern={!editingId || form.number !== records.find((record) => record.id === editingId)?.number ? CHALLAN_NUMBER_PATTERN : undefined}
+                  readOnly={Boolean(editingId) && !isAdmin}
+                  placeholder="A35/1"
+                  aria-describedby="challan-number-help challan-number-error"
+                  aria-invalid={Boolean(challanFieldErrors.number)}
+                  onChange={(event) => {
+                    setFormError("");
+                    setChallanFieldErrors((errors) => ({ ...errors, number: "" }));
+                    setForm({ ...form, number: event.target.value });
+                  }}
+                />
+                <small id="challan-number-help">{CHALLAN_NUMBER_HELP}</small>
+                <small id="challan-number-error" role="alert">{challanFieldErrors.number}</small>
               </label>{" "}
               <label className={challanFieldErrors.party ? "has-error" : ""}>
                 {" "}
@@ -3243,7 +3291,7 @@ export default function Challan() {
               </span>{" "}
               <span>Shape</span> <span>Size</span> <span>Type</span>{" "}
               <span>Weight / Carat</span> <span>Pieces</span>{" "}
-              <span>Amount</span> <span>Discount %</span>{" "}
+              <span>Price</span> <span>Discount %</span>{" "}
               <span>Discount / Net</span> <span />{" "}
             </div>{" "}
             {form.items.map((item) => (
@@ -3295,7 +3343,7 @@ export default function Challan() {
                   onChange={(event) =>
                     itemChange(item.id, "amount", event.target.value)
                   }
-                  placeholder="Amount"
+                  placeholder="Price"
                 />{" "}
                 <input
                   type="number"
@@ -3390,10 +3438,10 @@ export default function Challan() {
             {" "}
             <button
               className="primary"
-              disabled={!editingId && !hasStagePermission(1)}
+              disabled={saving || (!editingId && !hasStagePermission(1))}
             >
               {" "}
-              {editingId ? "Save Changes" : "Create Challan"}{" "}
+              {saving ? "Saving..." : editingId ? "Save Changes" : "Create Challan"}{" "}
             </button>{" "}
             <button type="button" onClick={closeEditor}>
               {" "}
@@ -3422,7 +3470,10 @@ export default function Challan() {
             disabled={!hasStagePermission(1)}
             onClick={() => {
               setEditingId(null);
+              setFormError("");
+              setChallanFieldErrors({});
               setForm({
+                number: "",
                 date: today(),
                 party: "",
                 notes: "",
@@ -3611,7 +3662,7 @@ export default function Challan() {
                   );
                 })()
               ) : (
-                <span className="challan-aging-empty">—</span>
+                <span className="challan-aging-empty">--</span>
               )}{" "}
               <span className="challan-actions">
                 {" "}
@@ -3696,7 +3747,10 @@ export default function Challan() {
               disabled={!hasStagePermission(1)}
               onClick={() => {
                 setEditingId(null);
+                setFormError("");
+                setChallanFieldErrors({});
                 setForm({
+                  number: "",
                   date: today(),
                   party: "",
                   notes: "",

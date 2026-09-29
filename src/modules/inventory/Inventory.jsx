@@ -467,8 +467,8 @@ function ImportPreview({ rows, onClose, onImport }) {
               <td>{row.weight}</td>
               <td>{row.size}</td>
               <td>{row.sku}</td>
-              <td>{row.box || "--"}</td>
-              <td>{row.errors.join(" / ") || "Ready to import"}</td>
+              <td className={row.box ? undefined : "inventory-import-placeholder"}>{row.box || "--"}</td>
+              <td className={row.errors.length ? "inventory-import-result-error" : "inventory-import-result-ready"}>{row.errors.join(" / ") || "Ready to import"}</td>
             </tr>
           ))}
         </tbody>

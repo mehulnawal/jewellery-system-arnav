@@ -341,10 +341,10 @@ function PurchaseTable({ rows, onDetails }) {
           {rows.map((purchase) => (
             <tr key={purchase.id}>
               <td>
-                <strong>{purchase.purchaseId || "—"}</strong>
+                <strong>{purchase.purchaseId || "--"}</strong>
               </td>
               <td>{formatDate(purchase.date)}</td>
-              <td>{purchase.brokerName || "—"}</td>
+              <td>{purchase.brokerName || "--"}</td>
               <td>{formatWeight(purchase.totalWeight)}</td>
               <td>{formatCurrency(purchase.amount)}</td>
               <td>{Number(purchase.discount || 0)}%</td>

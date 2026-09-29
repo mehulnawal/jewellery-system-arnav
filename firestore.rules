@@ -14,6 +14,96 @@ service cloud.firestore {
     function challanStageOneEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-1']); }
     function challanEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-1', 'challan-stage-2', 'challan-stage-3', 'challan-stage-4']); }
     function purchaseEmployee() { return activeOrGraceEmployee() && profile().permissions.hasAny(['purchase']); }
+    function numberingReady() {
+      let marker = /databases/$(database)/documents/numberingMigrations/manual-v1;
+      return exists(marker) && get(marker).data.ready == true;
+    }
+    function validChallanNumber(value) {
+      return value is string && value.matches('A[0-9]+/([1-9]|[1-9][0-9]|100)');
+    }
+    function validPurchaseNumber(value) {
+      return value is string && value.matches('PR-A[0-9]+-([1-9]|[1-9][0-9]|100)');
+    }
+    function claimedChallanNumber(entry) {
+      let number = request.resource.data.number;
+      let key = number.replace('/', '-');
+      return validChallanNumber(number) && numberingReady()
+        && getAfter(/databases/$(database)/documents/challanNumbers/$(key)).data.recordId == entry
+        && getAfter(/databases/$(database)/documents/challanNumbers/$(key)).data.number == number;
+    }
+    function claimedPurchaseNumber(entry) {
+      let number = request.resource.data.purchaseId;
+      return validPurchaseNumber(number) && numberingReady()
+        && getAfter(/databases/$(database)/documents/purchaseNumbers/$(number)).data.recordId == entry
+        && getAfter(/databases/$(database)/documents/purchaseNumbers/$(number)).data.number == number;
+    }
+    function validPurchaseFields(entry) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'purchaseId', 'date', 'vendorName', 'totalWeight', 'amount', 'discount', 'discountAmount', 'netPayable', 'paymentDueDays', 'paymentDueDate', 'items', 'itemCount'])
+        && data.id == entry
+        && data.purchaseId is string
+        && data.date is string && data.date.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && data.vendorName is string && data.vendorName.size() > 0
+        && data.get('brokerName', '') is string
+        && data.totalWeight is number && data.totalWeight > 0
+        && data.amount is number && data.amount > 0
+        && data.discount is number && data.discount >= 0 && data.discount <= 100
+        && data.discountAmount is number && data.discountAmount >= 0 && data.discountAmount <= data.amount
+        && data.netPayable is number && data.netPayable >= 0 && data.netPayable <= data.amount
+        && data.paymentDueDays is int && data.paymentDueDays >= 0
+        && data.paymentDueDate is string && data.paymentDueDate.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && data.items is list && data.items.size() > 0
+        && data.itemCount == data.items.size();
+    }
+    match /numberingMigrations/{entry} {
+      allow read: if admin() || challanEmployee() || purchaseEmployee();
+      // An Admin completes the one-time index from Settings on the free plan.
+      allow create, update: if entry == 'manual-v1' && admin()
+        && request.resource.data.keys().hasOnly(['ready', 'completedAt'])
+        && request.resource.data.ready == true;
+      allow delete: if false;
+    }
+    match /challanNumbers/{key} {
+      allow read: if admin() || challanEmployee();
+      allow create: if admin() && !numberingReady()
+        && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
+        && validChallanNumber(request.resource.data.number)
+        && key == request.resource.data.number.replace('/', '-')
+        && (request.resource.data.recordId is string || request.resource.data.recordId == null)
+        || (admin() || challanEmployee()) && numberingReady()
+        && request.resource.data.keys().hasOnly(['number', 'recordId'])
+        && validChallanNumber(request.resource.data.number)
+        && key == request.resource.data.number.replace('/', '-')
+        && request.resource.data.recordId is string
+        && getAfter(/databases/$(database)/documents/challans/$(request.resource.data.recordId)).data.number == request.resource.data.number;
+      allow update: if admin() && !numberingReady()
+        && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
+        && validChallanNumber(request.resource.data.number)
+        && key == request.resource.data.number.replace('/', '-');
+      allow delete: if admin() && resource.data.recordId is string
+        && (!existsAfter(/databases/$(database)/documents/challans/$(resource.data.recordId))
+          || getAfter(/databases/$(database)/documents/challans/$(resource.data.recordId)).data.number != resource.data.number);
+    }
+    match /purchaseNumbers/{key} {
+      allow read: if admin() || purchaseEmployee();
+      allow create: if admin() && !numberingReady()
+        && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
+        && validPurchaseNumber(request.resource.data.number)
+        && key == request.resource.data.number
+        && (request.resource.data.recordId is string || request.resource.data.recordId == null)
+        || (admin() || purchaseEmployee()) && numberingReady()
+        && request.resource.data.keys().hasOnly(['number', 'recordId'])
+        && validPurchaseNumber(request.resource.data.number)
+        && key == request.resource.data.number
+        && request.resource.data.recordId is string
+        && getAfter(/databases/$(database)/documents/purchases/$(request.resource.data.recordId)).data.purchaseId == request.resource.data.number;
+      allow update: if admin() && !numberingReady()
+        && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
+        && validPurchaseNumber(request.resource.data.number)
+        && key == request.resource.data.number;
+      allow delete: if admin() && resource.data.recordId is string
+        && !existsAfter(/databases/$(database)/documents/purchases/$(resource.data.recordId));
+    }
     match /employeeProfiles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || admin());
       allow create: if admin() || (request.auth.uid == 'rK6ZhxFiauVodjzbssviy5sUyP03' && request.auth.uid == uid && request.resource.data.role == 'superadmin');
@@ -27,10 +117,10 @@ service cloud.firestore {
       // Check Inventory is a read-only stock lookup available to every active staff account.
       allow read: if admin() || activeOrGraceEmployee();
       allow create: if admin() || (inventoryEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time) || (purchaseEmployee() && request.resource.data.sourcePurchaseId is string && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time);
-      // Staff can update their own server-timestamped inventory entry for two minutes.
+      // Preserve the deployed 60-minute Inventory and 10-minute Purchase windows.
       // Creation ownership/timing fields cannot be changed to extend that window.
-      allow update: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(2, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && request.resource.data.pieces <= resource.data.pieces);
-      allow delete: if admin();
+      allow update: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && (!resource.data.keys().hasAll(['pieces']) || request.resource.data.pieces <= resource.data.pieces));
+      allow delete: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m")) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m"));
     }
     match /shapes/{entry} { allow read: if activeOrGraceEmployee() || admin(); allow write: if admin() || inventoryEmployee(); }
     match /settings/{entry} { allow read: if activeEmployee() || admin(); allow write: if admin(); }
@@ -40,22 +130,26 @@ service cloud.firestore {
       allow update, delete: if admin();
     }
     match /challans/{entry} {
-      allow read, create: if admin() || challanEmployee();
+      allow read: if admin() || challanEmployee() || purchaseEmployee();
+      allow create: if (admin() || challanStageOneEmployee()) && claimedChallanNumber(entry);
       // Staff may only edit their own Challan during its server-timestamped 60-minute window.
       // Stage-only updates remain available for the normal Challan workflow.
-      allow update: if admin() || (activeOrGraceEmployee() && ((resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && ((resource.data.stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))) || (resource.data.stage == 1 && request.resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2']) && request.resource.data.stage2Return.items is list && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stage2Return", "stageHistory"])) || (resource.data.stage == 2 && request.resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalInvoice", "stageHistory"])) || (resource.data.stage == 3 && request.resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalSettlement", "stageHistory"]))));
+      allow update: if (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
+        && (admin() || (activeOrGraceEmployee() && ((resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && ((resource.data.stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))) || (resource.data.stage == 1 && request.resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2']) && request.resource.data.stage2Return.items is list && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stage2Return", "stageHistory"])) || (resource.data.stage == 2 && request.resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalInvoice", "stageHistory"])) || (resource.data.stage == 3 && request.resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalSettlement", "stageHistory"])) )));
       allow delete: if admin();
     }
     match /purchases/{entry} {
       allow read: if admin() || purchaseEmployee();
-      allow create: if admin() || (purchaseEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time);
-      allow update: if admin() || (purchaseEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt);
+      allow create: if claimedPurchaseNumber(entry) && validPurchaseFields(entry) && (admin() || (purchaseEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time));
+      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['purchaseId'])
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'updatedAt', 'updatedAtMs']) || validPurchaseFields(entry))
+        && (admin() || (purchaseEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt));
       allow delete: if admin();
     }
     match /vendors/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if admin() || purchaseEmployee(); allow delete: if admin(); }
     match /brokers/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if admin() || purchaseEmployee(); allow delete: if admin(); }
-    match /counters/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if admin() || purchaseEmployee(); allow delete: if false; }
+    match /counters/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if !(entry in ['challan', 'purchase']) && (admin() || purchaseEmployee()); allow delete: if false; }
     match /activityLog/{entry} { allow read: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
-    match /activityLogFirstLogins/{entry} { allow read: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
+    match /activityLogFirstLogins/{entry} { allow get: if admin() || activeOrGraceEmployee(); allow list: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
   }
 }

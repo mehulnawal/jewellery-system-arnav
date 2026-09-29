@@ -3571,3 +3571,10 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
     display: none !important;
   }
 }
+.challan-fields #challan-number-help,
+.challan-fields .party-help {
+  color: #334155;
+}
+.challan-fields #challan-number-error {
+  color: #b42318;
+}

@@ -9,10 +9,10 @@ import "./history.css";
 
 const stageLabel = (stage) =>
   ({
-    1: "Stage 1 — Goods Out",
-    2: "Stage 2 — Return / Sale",
-    3: "Stage 3 — Final Invoice / Payment Pending",
-    4: "Stage 4 — Completed",
+    1: "Stage 1: Goods Out",
+    2: "Stage 2: Return / Sale",
+    3: "Stage 3: Final Invoice / Payment Pending",
+    4: "Stage 4: Completed",
   })[Number(stage)] || "Stage unavailable";
 const todayKey = () => new Date().toLocaleDateString("en-CA");
 const daysAgo = (days) => {
@@ -208,7 +208,7 @@ export default function PartyChallanHistory() {
               />
               <HistoryTable
                 title="Current / Active Challans"
-                subtitle="Stages 1–3"
+                subtitle="Stages 1 to 3"
                 rows={visibleActive}
                 clock={clock}
                 onDetails={setSelectedChallan}
@@ -252,10 +252,10 @@ function PartyFilters({ filters, setFilters, showReset }) {
       />
       <select value={filters.stage} onChange={update("stage")}>
         <option value="all">All stages</option>
-        <option value="1">Stage 1 — Goods Out</option>
-        <option value="2">Stage 2 — Return / Sale</option>
-        <option value="3">Stage 3 — Payment Pending</option>
-        <option value="4">Stage 4 — Completed</option>
+        <option value="1">Stage 1: Goods Out</option>
+        <option value="2">Stage 2: Return / Sale</option>
+        <option value="3">Stage 3: Payment Pending</option>
+        <option value="4">Stage 4: Completed</option>
       </select>
       <select value={filters.date} onChange={update("date")}>
         <option value="all">All dates</option>
@@ -289,8 +289,8 @@ function PartyFilters({ filters, setFilters, showReset }) {
       <select value={filters.sort} onChange={update("sort")}>
         <option value="newest">Newest first</option>
         <option value="oldest">Oldest first</option>
-        <option value="number-asc">Challan number: A–Z</option>
-        <option value="number-desc">Challan number: Z–A</option>
+        <option value="number-asc">Challan number: A to Z</option>
+        <option value="number-desc">Challan number: Z to A</option>
         <option value="aging-oldest">Oldest active first</option>
       </select>
       {showReset && (
@@ -346,7 +346,7 @@ function HistoryTable({
                 return (
                   <tr key={challan.id}>
                     <td>
-                      <strong>{challan.number || "—"}</strong>
+                      <strong>{challan.number || "--"}</strong>
                     </td>
                     <td>{formatDate(challan.date)}</td>
                     <td>{challan.items?.length || 0}</td>

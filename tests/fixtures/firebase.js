@@ -1,0 +1,10 @@
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { testUser } from "./auth.jsx";
+const app = initializeApp({ projectId: "demo-jewellery-ui", apiKey: "demo-test-key", appId: "demo-test-app" });
+export const db = getFirestore(app);
+connectFirestoreEmulator(db, "127.0.0.1", 8180, { mockUserToken: { sub: testUser.uid, user_id: testUser.uid } });
+export const auth = getAuth(app);
+export const secondaryApp = () => app;
+export default app;

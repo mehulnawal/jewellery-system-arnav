@@ -23,33 +23,9 @@ import {
   validatePurchaseItem,
 } from "../../utils/purchase";
 import "./purchase.css";
+import PurchaseForm from "./PurchaseForm";
+import { documentNumberError } from "../../utils/documentNumbers.js";
 
-const blankItem = () => ({
-  id: crypto.randomUUID(),
-  type: "",
-  shape: "",
-  size: "",
-  weight: "",
-  pieces: "",
-  box: "",
-});
-const localToday = () => {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10);
-};
-const blankPurchase = () => ({
-  date: localToday(),
-  vendorName: "",
-  brokerName: "",
-  totalWeight: "",
-  amount: "",
-  discountChoice: "0",
-  customDiscount: "",
-  paymentDueDays: "0",
-  items: [blankItem()],
-});
 const time = (value) => value?.toMillis?.() ?? Number(value || 0);
 const labelDate = (value) =>
   value
@@ -74,464 +50,6 @@ const escape = (value) =>
         c
       ],
   );
-const purchaseErrorMessage = (error, fallback) => {
-  const code = error?.code || "";
-  const raw = String(error?.message || "").toLowerCase();
-  if (code === "permission-denied" || raw.includes("insufficient permissions"))
-    return "Purchase action was denied. This account needs Purchase permission and the deployed Firestore rules must allow Purchase access.";
-  if (code === "unavailable")
-    return "Purchase data could not be reached. Check your connection and try again.";
-  if (code === "failed-precondition")
-    return "Purchase data needs a database index. Please contact an administrator.";
-  return fallback;
-};
-
-function MasterInput({ label, value, options, onChange, optional = false }) {
-  const [focus, setFocus] = useState(false),
-    matches = options
-      .filter((item) => item.toLowerCase().includes(value.toLowerCase()))
-      .slice(0, 7);
-  return (
-    <label className="purchase-field">
-      <span>
-        {label}
-        {optional && <em>Optional</em>}
-      </span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setTimeout(() => setFocus(false), 120)}
-        placeholder={
-          optional ? "Optional" : `Search or add ${label.toLowerCase()}`
-        }
-      />
-      {focus && value && (
-        <div className="purchase-master-menu">
-          {matches.map((item) => (
-            <button type="button" key={item} onMouseDown={() => onChange(item)}>
-              {item}
-            </button>
-          ))}
-          {!matches.some(
-            (item) => item.toLowerCase() === value.trim().toLowerCase(),
-          ) && <small>New {label.toLowerCase()} will be saved</small>}
-        </div>
-      )}
-    </label>
-  );
-}
-function ItemRows({ items, setItems, shapes, allowDimensions }) {
-  const update = (id, key, value) =>
-    setItems((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, [key]: value } : row)),
-    );
-  return (
-    <div className="purchase-items">
-      <div className="purchase-items-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Shape</th>
-              <th>Size (mm)</th>
-              <th>Weight (ct)</th>
-              <th>Pieces</th>
-              <th>BOX</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => {
-              const result = validatePurchaseItem(item, allowDimensions);
-              return (
-                <tr key={item.id}>
-                  <td>
-                    <select
-                      value={item.type}
-                      onChange={(e) => update(item.id, "type", e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      <option>CVD</option>
-                      <option>HP</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      value={item.shape}
-                      onChange={(e) => update(item.id, "shape", e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      {shapes.map((shape) => (
-                        <option key={shape}>{shape}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      value={item.size}
-                      onChange={(e) => update(item.id, "size", e.target.value)}
-                      placeholder={allowDimensions ? "4.3X2.0" : "4.3"}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      inputMode="decimal"
-                      value={item.weight}
-                      onChange={(e) =>
-                        update(item.id, "weight", e.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      inputMode="numeric"
-                      value={item.pieces}
-                      onChange={(e) =>
-                        update(item.id, "pieces", e.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      value={item.box}
-                      onChange={(e) =>
-                        update(item.id, "box", e.target.value.toUpperCase())
-                      }
-                    />
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="purchase-icon-button remove"
-                      disabled={items.length === 1}
-                      onClick={() =>
-                        setItems((rows) =>
-                          rows.filter((row) => row.id !== item.id),
-                        )
-                      }
-                      aria-label="Remove item"
-                    >
-                      ×
-                    </button>
-                    {result.errors.length > 0 && (
-                      <span
-                        className="purchase-row-error"
-                        title={result.errors.join(" ")}
-                      >
-                        !
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan="3">Total Items: {items.length}</td>
-              <td>
-                {formatDecimal(
-                  items.reduce(
-                    (sum, item) => sum + Number(item.weight || 0),
-                    0,
-                  ),
-                )}
-              </td>
-              <td>
-                {items.reduce((sum, item) => sum + Number(item.pieces || 0), 0)}
-              </td>
-              <td colSpan="2" />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <button
-        type="button"
-        className="purchase-add-item"
-        onClick={() => setItems((rows) => [...rows, blankItem()])}
-      >
-        + Add Item
-      </button>
-    </div>
-  );
-}
-function PurchaseForm({
-  record,
-  onClose,
-  vendors,
-  brokers,
-  shapes,
-  allowDimensions,
-  inventory,
-  challans,
-}) {
-  const { user } = useAuth(),
-    toast = useToast();
-  const [form, setForm] = useState(
-      record
-        ? {
-            ...record,
-            discountChoice: ["0", "6", "7", "8"].includes(
-              String(record.discount),
-            )
-              ? String(record.discount)
-              : "custom",
-            customDiscount: [0, 6, 7, 8].includes(Number(record.discount))
-              ? ""
-              : String(record.discount),
-            items: record.items || [blankItem()],
-          }
-        : blankPurchase(),
-    ),
-    [error, setError] = useState(""),
-    [saving, setSaving] = useState(false);
-  const discount =
-      form.discountChoice === "custom"
-        ? Number(form.customDiscount)
-        : Number(form.discountChoice),
-    itemsWeight = form.items.reduce(
-      (sum, row) => sum + Number(row.weight || 0),
-      0,
-    ),
-    pricing = pricingFor(form.amount, discount),
-    dueDate = datePlusDays(form.date, form.paymentDueDays);
-  const update = (key, value) =>
-    setForm((state) => ({ ...state, [key]: value }));
-  const submit = async (event) => {
-    event.preventDefault();
-    setError("");
-    const normalizedItems = form.items.map((item) =>
-      validatePurchaseItem(item, allowDimensions),
-    );
-    if (
-      !form.date ||
-      !form.vendorName.trim() ||
-      !(Number(form.totalWeight) > 0) ||
-      !(Number(form.amount) > 0) ||
-      !Number.isInteger(Number(form.paymentDueDays)) ||
-      Number(form.paymentDueDays) < 0
-    )
-      return setError(
-        "Complete all required Purchase fields with valid values.",
-      );
-    if (!(discount >= 0 && discount <= 100))
-      return setError("Discount must be between 0% and 100%.");
-    const bad = normalizedItems.find((entry) => entry.errors.length);
-    if (bad) return setError(`Purchase item: ${bad.errors[0]}`);
-    if (Math.abs(itemsWeight - Number(form.totalWeight)) > 0.0005)
-      return setError(
-        `Item weight total is ${formatDecimal(itemsWeight)} ct, but Purchase Total Weight is ${formatDecimal(form.totalWeight)} ct. The totals must match before saving.`,
-      );
-    if (record && purchaseLockedByChallan(record, inventory, challans))
-      return setError(
-        "This Purchase cannot be edited because stock from this Purchase has already been used in a Challan.",
-      );
-    setSaving(true);
-    try {
-      const vendorName =
-          vendors.find(
-            (name) =>
-              name.toLowerCase() === form.vendorName.trim().toLowerCase(),
-          ) || form.vendorName.trim(),
-        brokerName =
-          brokers.find(
-            (name) =>
-              name.toLowerCase() === form.brokerName.trim().toLowerCase(),
-          ) || form.brokerName.trim();
-      const payload = {
-        ...form,
-        origin: record?.origin || "Manual",
-        vendorName,
-        brokerName,
-        totalWeight: Number(form.totalWeight),
-        paymentDueDays: Number(form.paymentDueDays),
-        paymentDueDate: dueDate,
-        ...pricing,
-      };
-      const saved = await savePurchase({
-        purchase: payload,
-        items: normalizedItems.map((entry) => entry.item),
-        user,
-        existingInventory: inventory,
-        edit: Boolean(record),
-      });
-      await Promise.all([
-        setDoc(
-          doc(db, "vendors", encodeURIComponent(vendorName.toLowerCase())),
-          {
-            name: vendorName,
-            normalized: vendorName.toLowerCase(),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true },
-        ),
-        brokerName
-          ? setDoc(
-              doc(db, "brokers", encodeURIComponent(brokerName.toLowerCase())),
-              {
-                name: brokerName,
-                normalized: brokerName.toLowerCase(),
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true },
-            )
-          : Promise.resolve(),
-      ]);
-      toast(
-        `Purchase ${saved.purchaseId} ${record ? "updated" : "created"}.`,
-        "success",
-      );
-      onClose();
-    } catch (reason) {
-      setError(
-        purchaseErrorMessage(
-          reason,
-          "Could not save this Purchase. Please try again.",
-        ),
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <div className="purchase-modal">
-      <form
-        className="purchase-modal-card purchase-form-card"
-        onSubmit={submit}
-        onKeyDown={(event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-            event.preventDefault();
-            event.currentTarget.requestSubmit();
-          }
-        }}
-      >
-        <button type="button" className="purchase-close" onClick={onClose}>
-          ×
-        </button>
-        <h2>{record ? "Edit Purchase" : "Create Purchase"}</h2>
-        <p>Purchase ID, SKU, Group and Ageing are generated automatically.</p>
-        <section className="purchase-form-grid">
-          <label className="purchase-field">
-            <span>Date</span>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => update("date", e.target.value)}
-            />
-          </label>
-          <MasterInput
-            label="Vendor Name"
-            value={form.vendorName}
-            onChange={(value) => update("vendorName", value)}
-            options={vendors}
-          />
-          <MasterInput
-            label="Broker Name"
-            optional
-            value={form.brokerName}
-            onChange={(value) => update("brokerName", value)}
-            options={brokers}
-          />
-          <label className="purchase-field">
-            <span>Total Purchase Weight (ct)</span>
-            <input
-              inputMode="decimal"
-              value={form.totalWeight}
-              onChange={(e) => update("totalWeight", e.target.value)}
-            />
-          </label>
-          <label className="purchase-field">
-            <span>Amount</span>
-            <input
-              inputMode="decimal"
-              value={form.amount}
-              onChange={(e) => update("amount", e.target.value)}
-            />
-          </label>
-          <label className="purchase-field">
-            <span>Discount</span>
-            <select
-              value={form.discountChoice}
-              onChange={(e) => update("discountChoice", e.target.value)}
-            >
-              <option value="0">0%</option>
-              <option value="6">6%</option>
-              <option value="7">7%</option>
-              <option value="8">8%</option>
-              <option value="custom">Custom</option>
-            </select>
-          </label>
-          {form.discountChoice === "custom" && (
-            <label className="purchase-field">
-              <span>Custom Discount %</span>
-              <input
-                inputMode="decimal"
-                value={form.customDiscount}
-                onChange={(e) => update("customDiscount", e.target.value)}
-              />
-            </label>
-          )}
-          <label className="purchase-field">
-            <span>Payment Due Days</span>
-            <input
-              inputMode="numeric"
-              value={form.paymentDueDays}
-              onChange={(e) => update("paymentDueDays", e.target.value)}
-            />
-          </label>
-        </section>
-        <section className="purchase-financials">
-          <div>
-            <span>Gross Amount</span>
-            <b>{currency(pricing.amount)}</b>
-          </div>
-          <div>
-            <span>Discount {discount || 0}%</span>
-            <b>- {currency(pricing.discountAmount)}</b>
-          </div>
-          <div>
-            <span>Final / Net Payable</span>
-            <b>{currency(pricing.netPayable)}</b>
-          </div>
-          <div>
-            <span>Payment Due Date</span>
-            <b>{labelDate(dueDate)}</b>
-          </div>
-        </section>
-        <h3>Purchase Items</h3>
-        <ItemRows
-          items={form.items}
-          setItems={(next) =>
-            setForm((state) => ({
-              ...state,
-              items: typeof next === "function" ? next(state.items) : next,
-            }))
-          }
-          shapes={shapes}
-          allowDimensions={allowDimensions}
-        />
-        {error && <p className="purchase-error">{error}</p>}
-        <footer>
-          <button className="purchase-button primary" disabled={saving}>
-            {saving
-              ? "Saving..."
-              : record
-                ? "Save Purchase"
-                : "Create Purchase"}
-          </button>
-          <button
-            type="button"
-            className="purchase-button secondary"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-        </footer>
-      </form>
-    </div>
-  );
-}
 function viewHtml(record) {
   const rows = (record.items || [])
     .map(
@@ -832,6 +350,7 @@ export default function Purchase() {
         refs.set(ref, {
           ref,
           purchase: {
+            purchaseId: String(row["Purchase Number"] ?? row["Purchase ID"] ?? ""),
             date: String(row.Date || "").slice(0, 10),
             vendorName: String(row["Vendor Name"] || "").trim(),
             brokerName: String(row["Broker Name"] || "").trim(),
@@ -852,7 +371,7 @@ export default function Purchase() {
             ref: `Item Row ${index + 2}`,
             purchase: { vendorName: "", items: [] },
             errors: [
-              `Unknown Import Ref "${ref || "(blank)"}" — no matching Purchase row.`,
+              `Unknown Import Ref "${ref || "(blank)"}". No matching Purchase row.`,
             ],
           });
           return;
@@ -875,6 +394,10 @@ export default function Purchase() {
       const rows = [...refs.values()].map((group) => {
         const p = group.purchase,
           total = p.items.reduce((s, item) => s + item.weight, 0);
+        const numberError = documentNumberError("purchase", p.purchaseId, purchases);
+        if (numberError) group.errors.push(numberError);
+        if ([...refs.values()].filter((entry) => entry.purchase.purchaseId === p.purchaseId).length > 1)
+          group.errors.push(`Purchase Number ${p.purchaseId} appears more than once in this file.`);
         if (!p.date || Number.isNaN(new Date(`${p.date}T00:00:00`).getTime()))
           group.errors.push("Date is missing or invalid.");
         if (!p.vendorName) group.errors.push("Vendor Name is missing.");
@@ -915,6 +438,7 @@ export default function Purchase() {
           items: row.purchase.items,
           user,
           existingInventory: inventory,
+          allowDimensions,
         });
         await setDoc(
           doc(
@@ -1203,6 +727,7 @@ export default function Purchase() {
       {modal?.type === "form" && (
         <PurchaseForm
           record={modal.record}
+          purchases={purchases}
           onClose={() => setModal(null)}
           vendors={vendors}
           brokers={brokers}

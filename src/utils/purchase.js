@@ -1,15 +1,16 @@
 import {
   collection,
   doc,
+  getDocs,
   query,
   runTransaction,
   serverTimestamp,
   where,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
+import { purchaseItemErrors, validatePurchaseForm } from "./purchaseValidation.js";
+import { prepareNumberClaim, prepareNumberRelease } from "./numberRegistry.js";
 import {
-  isValidBox,
-  isValidSize,
   normalizeBox,
   normalizeSize,
   sizeSortValue,
@@ -17,6 +18,7 @@ import {
 
 export const PURCHASE_HEADERS = [
   "Import Ref",
+  "Purchase Number",
   "Date",
   "Vendor Name",
   "Broker Name",
@@ -61,16 +63,6 @@ export const pricingFor = (amount, discount) => {
     netPayable: money(gross - discountAmount),
   };
 };
-export const nextPurchaseCounter = (current = {}) => {
-  const storedSeries = Number(current.series || 0);
-  const series = Math.max(35, storedSeries);
-  const number = storedSeries < 35 ? 0 : Number(current.number || 0);
-  return number >= 100
-    ? { series: series + 1, number: 1 }
-    : { series, number: number + 1 };
-};
-export const purchaseIdFromCounter = ({ series, number }) =>
-  `PR-A${series}-${number}`;
 export const normalizePurchaseItem = (raw) => ({
   id: raw.id || crypto.randomUUID(),
   type: String(raw.type || "")
@@ -85,21 +77,7 @@ export const normalizePurchaseItem = (raw) => ({
   box: normalizeBox(raw.box),
 });
 export const validatePurchaseItem = (raw, allowDimensions) => {
-  const item = normalizePurchaseItem(raw),
-    errors = [];
-  if (!["CVD", "HP"].includes(item.type))
-    errors.push("Type must be CVD or HP.");
-  if (!item.shape) errors.push("Shape is required.");
-  if (!isValidSize(item.size, allowDimensions))
-    errors.push("Size must be a positive valid size.");
-  if (!(item.weight > 0)) errors.push("Weight must be greater than 0.");
-  if (raw.pieces === "" || raw.pieces === null || raw.pieces === undefined)
-    errors.push("Pieces is required.");
-  else if (!Number.isInteger(item.pieces) || item.pieces < 0)
-    errors.push("Pieces must be a whole number of 0 or more.");
-  if (!isValidBox(item.box))
-    errors.push("BOX must use letters then numbers, e.g. AB29.");
-  return { item, errors };
+  return { item: normalizePurchaseItem(raw), errors: Object.values(purchaseItemErrors(raw, allowDimensions)) };
 };
 export const purchaseLockedByChallan = (purchase, inventory, challans) => {
   const inventoryIds = new Set(
@@ -113,7 +91,6 @@ export const purchaseLockedByChallan = (purchase, inventory, challans) => {
     ),
   );
 };
-const counterRef = doc(db, "counters", "purchase");
 const linkedInventoryQuery = (purchaseId) =>
   query(
     collection(db, "inventory"),
@@ -141,34 +118,44 @@ export async function savePurchase({
   user,
   existingInventory = [],
   edit = false,
+  allowDimensions = false,
 }) {
-  const normalized = items.map(normalizePurchaseItem);
+  const rows = items.map((item) => ({ ...item, id: item.id || crypto.randomUUID() }));
+  const check = validatePurchaseForm({ ...purchase, items: rows }, { original: edit ? purchase : null, inventory: existingInventory, allowDimensions });
+  if (Object.keys(check.errors).length) {
+    const error = new Error("Correct the highlighted fields.");
+    error.fields = check.errors;
+    throw error;
+  }
   const purchaseRef = purchase.id
     ? doc(db, "purchases", purchase.id)
     : doc(db, "purchases", crypto.randomUUID());
   const now = Date.now();
+  const normalized = rows.map(normalizePurchaseItem);
   return runTransaction(db, async (tx) => {
-    let purchaseId = purchase.purchaseId;
+    const purchaseId = purchase.purchaseId;
     const previous = edit ? await tx.get(purchaseRef) : null;
     if (edit && !previous?.exists())
       throw new Error("This Purchase is no longer available.");
+    if (edit && purchaseId !== previous.data().purchaseId)
+      throw new Error("Purchase Number cannot be changed after creation.");
+    // Refresh queries on retries. Read stock before querying Challans, so a
+    // concurrent stock issue conflicts with these reads and triggers a retry.
+    const linkedDocs = edit ? await getDocs(linkedInventoryQuery(purchaseRef.id)) : null;
     const linkedInventory = edit
-      ? await tx.get(linkedInventoryQuery(purchaseRef.id))
+      ? { docs: (await Promise.all(linkedDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) }
       : null;
-    const challans = edit ? await tx.get(collection(db, "challans")) : null;
+    const challanDocs = edit ? await getDocs(collection(db, "challans")) : null;
+    const challans = edit ? { docs: (await Promise.all(challanDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) } : null;
     if (edit)
       assertPurchaseIsUnlocked(
         purchaseRef.id,
         linkedInventory.docs,
         challans.docs,
       );
-    if (!edit) {
-      const counter = await tx.get(counterRef),
-        current = counter.exists() ? counter.data() : { series: 1, number: 0 };
-      const next = nextPurchaseCounter(current);
-      purchaseId = purchaseIdFromCounter(next);
-      tx.set(counterRef, next, { merge: true });
-    }
+    const claimNumber = !edit
+      ? await prepareNumberClaim(tx, db, "purchase", purchaseId, purchaseRef.id)
+      : () => {};
     const inventoryRefs = normalized.map((item) =>
       doc(db, "inventory", `${purchaseRef.id}_${item.id}`),
     );
@@ -190,10 +177,18 @@ export async function savePurchase({
       sku: purchaseSku(item),
       inventoryId: inventoryRefs[index].id,
     }));
+    const pricing = pricingFor(purchase.amount, check.discount);
     const payload = {
-      ...purchase,
-      purchaseId,
       id: purchaseRef.id,
+      purchaseId,
+      date: purchase.date,
+      vendorName: String(purchase.vendorName).trim(),
+      brokerName: String(purchase.brokerName || "").trim(),
+      totalWeight: Number(purchase.totalWeight),
+      ...pricing,
+      paymentDueDays: Number(purchase.paymentDueDays),
+      paymentDueDate: check.dueDate,
+      origin: purchase.origin || "Manual",
       items: recordItems,
       itemCount: recordItems.length,
       updatedAt: serverTimestamp(),
@@ -206,6 +201,7 @@ export async function savePurchase({
         createdAt: serverTimestamp(),
         createdAtMs: now,
       });
+    claimNumber();
     tx.set(purchaseRef, payload, { merge: edit });
     if (edit)
       linkedInventory.docs.forEach((old) => {
@@ -287,9 +283,13 @@ export async function deletePurchase({ purchaseId, user }) {
     const purchase = await tx.get(purchaseRef);
     if (!purchase.exists())
       throw new Error("This Purchase is no longer available.");
-    const linkedInventory = await tx.get(linkedInventoryQuery(purchaseId));
-    const challans = await tx.get(collection(db, "challans"));
+    const linkedDocs = await getDocs(linkedInventoryQuery(purchaseId));
+    const linkedInventory = { docs: (await Promise.all(linkedDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) };
+    const challanDocs = await getDocs(collection(db, "challans"));
+    const challans = { docs: (await Promise.all(challanDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) };
     assertPurchaseIsUnlocked(purchaseId, linkedInventory.docs, challans.docs);
+    const releaseNumber = await prepareNumberRelease(tx, db, "purchase", purchase.data().purchaseId, purchaseId);
+    releaseNumber();
     linkedInventory.docs.forEach((entry) => tx.delete(entry.ref));
     tx.delete(purchaseRef);
     const record = purchase.data();

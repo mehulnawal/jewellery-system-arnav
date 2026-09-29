@@ -1112,3 +1112,39 @@ html[data-theme="dark"] .inventory-box-editor small {
   border-color: #803345;
   color: #fecdd3;
 }
+/* Import preview text hierarchy: scoped to this modal and the dark theme. */
+html[data-theme="dark"] .inventory-import-card {
+  --import-text-primary: #edf2f8;
+  --import-text-body: #dce5ef;
+  --import-text-secondary: #bccbdd;
+  --import-text-muted: #aabbd0;
+  color: var(--import-text-body);
+}
+html[data-theme="dark"] .inventory-import-card > h3 {
+  color: var(--import-text-primary) !important;
+}
+html[data-theme="dark"] .inventory-import-card > p,
+html[data-theme="dark"] .inventory-import-card .inventory-import-table th {
+  color: var(--import-text-secondary);
+}
+html[data-theme="dark"] .inventory-import-card .inventory-import-section > header b {
+  color: var(--import-text-primary);
+}
+html[data-theme="dark"] .inventory-import-card .inventory-import-section > header span,
+html[data-theme="dark"] .inventory-import-card .inventory-import-table td {
+  color: var(--import-text-body);
+}
+html[data-theme="dark"] .inventory-import-card .inventory-import-table td.inventory-import-placeholder,
+html[data-theme="dark"] .inventory-import-card .inventory-import-empty {
+  color: var(--import-text-muted);
+}
+html[data-theme="dark"] .inventory-import-card .inventory-import-table td.inventory-import-result-ready {
+  color: #85dcb1;
+}
+html[data-theme="dark"] .inventory-import-card .inventory-import-table td.inventory-import-result-error {
+  color: #ffb4aa;
+}
+html[data-theme="dark"] .inventory-import-card .inventory-secondary,
+html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
+  color: var(--import-text-body);
+}

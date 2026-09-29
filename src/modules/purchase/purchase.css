@@ -592,3 +592,72 @@ html[data-theme="dark"] .purchase-row-error {
 .purchase-field > span:has(em)::after {
   content: "";
 }
+.purchase-number-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.purchase-number-input > span {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+}
+.purchase-field .purchase-number-input input {
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+  flex: 1;
+}
+.purchase-field > small {
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.purchase-form-card {
+  --purchase-danger: #b42318;
+}
+html[data-theme="dark"] .purchase-form-card {
+  --purchase-danger: #ffb4aa;
+}
+.purchase-form-card .purchase-field-message {
+  color: var(--purchase-danger);
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  min-height: 17px;
+  margin: 0;
+  white-space: normal;
+}
+.purchase-form-card input[aria-invalid="true"],
+.purchase-form-card select[aria-invalid="true"],
+.purchase-form-card .purchase-number-input.has-error {
+  border: 1px solid #e45c5c !important;
+}
+.purchase-form-card input[aria-invalid="true"]:focus,
+.purchase-form-card select[aria-invalid="true"]:focus,
+.purchase-form-card .purchase-number-input.has-error:focus-within {
+  outline: 2px solid color-mix(in srgb, #e45c5c 35%, transparent);
+  outline-offset: 1px;
+}
+.purchase-form-card .purchase-items td {
+  vertical-align: top;
+}
+.purchase-form-card .purchase-total-mismatch {
+  color: var(--purchase-danger);
+}
+.purchase-form-card .purchase-check-again {
+  background: transparent;
+  border: 0;
+  color: var(--ui-text);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+}

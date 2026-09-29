@@ -17,6 +17,7 @@ import {
 } from "../../utils/accessAccounts";
 import { INVENTORY_IMPORT_HEADERS } from "../../utils/inventoryRules";
 import { PURCHASE_HEADERS, PURCHASE_ITEM_HEADERS } from "../../utils/purchase";
+import { registerExistingNumbers } from "../../utils/registerExistingNumbers.js";
 import "./adminSettings.css";
 
 const SETTINGS = doc(db, "settings", "inventory");
@@ -66,6 +67,25 @@ export default function AdminSettings() {
     [copied, setCopied] = useState(""),
     [copyMessage, setCopyMessage] = useState(""),
     [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [numbersReady, setNumbersReady] = useState(null),
+    [registeringNumbers, setRegisteringNumbers] = useState(false),
+    [numberSetupMessage, setNumberSetupMessage] = useState("");
+  useEffect(() => onSnapshot(doc(db, "numberingMigrations", "manual-v1"),
+    (snapshot) => setNumbersReady(snapshot.data()?.ready === true),
+    () => setNumberSetupMessage("Could not check number setup. Check your connection.")), []);
+  const setupNumbers = async () => {
+    setRegisteringNumbers(true); setNumberSetupMessage("");
+    try {
+      const result = await registerExistingNumbers(db);
+      setNumberSetupMessage(`Number setup complete. ${result.challans} Challan numbers and ${result.purchases} Purchase numbers registered.${result.conflicts ? ` ${result.conflicts} existing duplicate groups remain reserved.` : ""}`);
+      setNumbersReady(true);
+    } catch (reason) {
+      setNumberSetupMessage(reason.code === "permission-denied"
+        ? "Number setup is blocked. Publish the updated Firestore rules, then try again."
+        : reason.message || "Could not register existing numbers. Try again.");
+    }
+    finally { setRegisteringNumbers(false); }
+  };
   useEffect(
     () =>
       onSnapshot(collection(db, "employeeProfiles"), (snapshot) =>
@@ -215,6 +235,13 @@ export default function AdminSettings() {
         <h2>Settings</h2>
         <p>Access control and Inventory format settings.</p>
       </header>
+      {numbersReady === false && <article className="number-setup-card">
+        <h3>Challan and Purchase numbers</h3>
+        <p>Register existing numbers once before creating new Challans or Purchases. Existing records will not be changed.</p>
+        <button type="button" className="settings-primary" disabled={registeringNumbers} onClick={setupNumbers}>{registeringNumbers ? "Registering numbers..." : "Register existing numbers"}</button>
+        {numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
+      </article>}
+      {numbersReady === true && numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
       <nav className="settings-tabs">
         <button
           className={tab === "access" ? "active" : ""}
@@ -666,16 +693,16 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
               <RuleSection title="Required Fields">
                 <ul>
                   <li>
-                    <b>Shape</b> — Enter a shape. This field cannot be blank.
+                    <b>Shape</b>: Enter a shape. This field cannot be blank.
                   </li>
                   <li>
-                    <b>Type</b> — Enter only <b>CVD</b> or <b>HP</b>.
+                    <b>Type</b>: Enter only <b>CVD</b> or <b>HP</b>.
                   </li>
                   <li>
-                    <b>Size (mm)</b> — Enter the stone size in millimetres.
+                    <b>Size (mm)</b>: Enter the stone size in millimetres.
                   </li>
                   <li>
-                    <b>Weight (ct)</b> — Enter the weight in carats. It must be
+                    <b>Weight (ct)</b>: Enter the weight in carats. It must be
                     greater than 0.
                   </li>
                 </ul>
@@ -683,7 +710,7 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
               <RuleSection title="Optional Field">
                 <ul>
                   <li>
-                    <b>BOX</b> — Leave it blank if not needed, or enter a box
+                    <b>BOX</b>: Leave it blank if not needed, or enter a box
                     code such as <b>AB29</b>.
                   </li>
                 </ul>
@@ -782,8 +809,8 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
                   ))}
                 </div>
                 <p className="import-rule-note">
-                  One row per Purchase. Purchase ID is generated when the import
-                  is committed.
+                  One row per Purchase. Enter a unique Purchase Number in the
+                  workbook before importing.
                 </p>
               </RuleSection>
               <RuleSection title="Items sheet">

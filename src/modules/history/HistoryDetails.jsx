@@ -52,8 +52,8 @@ export function PurchaseHistoryDetails({ record, onClose }) {
     >
       <div className="history-detail-grid">
         <Detail label="Date" value={formatDate(record.date)} />
-        <Detail label="Vendor" value={record.vendorName || "—"} />
-        <Detail label="Broker" value={record.brokerName || "—"} />
+        <Detail label="Vendor" value={record.vendorName || "--"} />
+        <Detail label="Broker" value={record.brokerName || "--"} />
         <Detail
           label="Total Purchase Weight"
           value={formatWeight(record.totalWeight)}
@@ -65,7 +65,7 @@ export function PurchaseHistoryDetails({ record, onClose }) {
           value={formatCurrency(record.discountAmount)}
         />
         <Detail label="Net Payable" value={formatCurrency(record.netPayable)} />
-        <Detail label="Payment Due Days" value={record.paymentDueDays ?? "—"} />
+        <Detail label="Payment Due Days" value={record.paymentDueDays ?? "--"} />
         <Detail label="Due Date" value={formatDate(record.paymentDueDate)} />
       </div>
       <section className="history-detail-section">
@@ -85,12 +85,12 @@ export function PurchaseHistoryDetails({ record, onClose }) {
             <tbody>
               {(record.items || []).map((item, index) => (
                 <tr key={item.id || index}>
-                  <td>{item.type || "—"}</td>
-                  <td>{item.shape || "—"}</td>
-                  <td>{item.size || "—"}</td>
+                  <td>{item.type || "--"}</td>
+                  <td>{item.shape || "--"}</td>
+                  <td>{item.size || "--"}</td>
                   <td>{formatWeight(item.weight)}</td>
-                  <td>{item.pieces ?? "—"}</td>
-                  <td>{item.box || "—"}</td>
+                  <td>{item.pieces ?? "--"}</td>
+                  <td>{item.box || "--"}</td>
                 </tr>
               ))}
             </tbody>
@@ -129,7 +129,7 @@ export function ChallanHistoryDetails({ record, onClose }) {
   const type =
     [
       ...new Set((record.items || []).map((item) => item.type).filter(Boolean)),
-    ].join(", ") || "—";
+    ].join(", ") || "--";
   return (
     <HistoryOverlay
       title="Challan Details"
@@ -137,7 +137,7 @@ export function ChallanHistoryDetails({ record, onClose }) {
       onClose={onClose}
     >
       <div className="history-detail-grid">
-        <Detail label="Party" value={record.party || "—"} />
+        <Detail label="Party" value={record.party || "--"} />
         <Detail label="Date" value={formatDate(record.date)} />
         <Detail label="Type / CVD / HP" value={type} />
         <Detail label="Current Stage" value={`Stage ${stage}`} />

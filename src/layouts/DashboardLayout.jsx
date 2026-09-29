@@ -137,27 +137,16 @@ const adminGroups = [
     title: "Monitoring / Reports",
     items: [
       {
-        label: "Activity Log",
-        to: "/dashboard/activity-log",
-        icon: "activity",
-      },
-      {
         label: "Weekly Report",
         to: "/dashboard/weekly-report",
         icon: "activity",
       },
     ],
   },
-  {
-    title: "Management",
-    items: [
-      {
-        label: "Settings",
-        to: "/dashboard/admin-settings",
-        icon: "settings",
-      },
-    ],
-  },
+];
+const adminPages = [
+  { label: "Activity Log", to: "/dashboard/activity-log", icon: "activity" },
+  { label: "Settings", to: "/dashboard/admin-settings", icon: "settings" },
 ];
 export default function DashboardLayout() {
   const { user, logout, hasPermission } = useAuth(),
@@ -261,6 +250,18 @@ export default function DashboardLayout() {
             </NavLink>
           ))}
           {isAdmin && <button type="button" className={`dashboard-nav-item dashboard-admin-trigger ${adminOpen ? "active" : ""}`} onClick={() => setAdminOpen((open) => !open)} aria-expanded={adminOpen} aria-controls="admin-management-flyout" aria-label="Admin / Management"><span className="dashboard-nav-icon"><Icon name="management" /></span><span className="dashboard-nav-label">Admin / Management</span><span className="dashboard-tooltip">Admin / Management</span></button>}
+          {isAdmin && adminPages.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={handleNavigation}
+              className={({ isActive }) => `dashboard-nav-item ${isActive ? "active" : ""}`}
+            >
+              <span className="dashboard-nav-icon"><Icon name={item.icon} /></span>
+              <span className="dashboard-nav-label">{item.label}</span>
+              <span className="dashboard-tooltip">{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
         {isAdmin && adminOpen && <section className="admin-management-flyout" id="admin-management-flyout" aria-label="Admin / Management navigation"><header><small>ADMIN</small><h2>Management</h2></header><div className="admin-management-groups">{adminGroups.map((group) => <section key={group.title}><h3>{group.title}</h3>{group.items.map((item) => <NavLink key={item.to} to={item.to} onClick={handleNavigation} className={({ isActive }) => `admin-management-item ${isActive ? "active" : ""}`}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}</div></section>}
         <div className="dashboard-sidebar-footer">

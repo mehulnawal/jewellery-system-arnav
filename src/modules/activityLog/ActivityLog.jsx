@@ -33,7 +33,7 @@ const formatTime = (value) =>
         minute: "2-digit",
         hour12: true,
       })
-    : "—";
+    : "--";
 const eventTime = (entry) => formatTime(eventTimestampMs(entry));
 const loginTime = (entry) => formatTime(loginTimestampMs(entry));
 const isStaffProfile = (profile) =>
@@ -44,10 +44,10 @@ const actorKey = (entry) => entry.actor?.uid || actorId(entry);
 const roleLabel = (entry, profile) =>
   profile?.role || entry.actor?.role || "employee";
 const value = (input) =>
-  input === undefined || input === null || input === "" ? "—" : input;
+  input === undefined || input === null || input === "" ? "--" : input;
 const numberValue = (input) =>
   input === undefined || input === null || input === ""
-    ? "—"
+    ? "--"
     : Number(input).toLocaleString(undefined, { maximumFractionDigits: 3 });
 const stageForEntry = (entry) => {
   const raw =
