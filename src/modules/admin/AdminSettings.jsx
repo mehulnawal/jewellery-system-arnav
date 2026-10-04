@@ -1,11 +1,12 @@
+import { Link, useSearchParams } from "react-router-dom";
+import { setDoc, updateDoc } from "../../firebase/businessWrites.js";
+import { exportMasterPrices } from "../../utils/masterPriceFiles.js";
 import { useEffect, useRef, useState } from "react";
 import {
   collection,
   doc,
   onSnapshot,
-  setDoc,
   serverTimestamp,
-  updateDoc,
 } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
@@ -52,8 +53,10 @@ const savedActiveStaffSort = () => {
 };
 
 export default function AdminSettings() {
-  const [tab, setTab] = useState("access"),
-    [accounts, setAccounts] = useState([]),
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("section") || "access";
+  const setTab = (section) => setParams({ section });
+  const [accounts, setAccounts] = useState([]),
     [credentialsByUid, setCredentialsByUid] = useState({}),
     [accessId, setAccessId] = useState(""),
     [password, setPassword] = useState(""),
@@ -71,25 +74,49 @@ export default function AdminSettings() {
     [lettersReady, setLettersReady] = useState(null),
     [registeringNumbers, setRegisteringNumbers] = useState(false),
     [numberSetupMessage, setNumberSetupMessage] = useState("");
-  useEffect(() => onSnapshot(doc(db, "numberingMigrations", "manual-v1"),
-    (snapshot) => setNumbersReady(snapshot.data()?.ready === true),
-    () => setNumberSetupMessage("Could not check number setup. Check your connection.")), []);
-  useEffect(() => onSnapshot(doc(db, "numberingMigrations", "letters-v1"),
-    (snapshot) => setLettersReady(snapshot.data()?.ready === true),
-    () => setNumberSetupMessage("Could not check letter-series setup. Check your connection.")), []);
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, "numberingMigrations", "manual-v1"),
+        (snapshot) => setNumbersReady(snapshot.data()?.ready === true),
+        () =>
+          setNumberSetupMessage(
+            "Could not check number setup. Check your connection.",
+          ),
+      ),
+    [],
+  );
+  useEffect(
+    () =>
+      onSnapshot(
+        doc(db, "numberingMigrations", "letters-v1"),
+        (snapshot) => setLettersReady(snapshot.data()?.ready === true),
+        () =>
+          setNumberSetupMessage(
+            "Could not check letter-series setup. Check your connection.",
+          ),
+      ),
+    [],
+  );
   const setupNumbers = async () => {
-    setRegisteringNumbers(true); setNumberSetupMessage("");
+    setRegisteringNumbers(true);
+    setNumberSetupMessage("");
     try {
       const result = await registerExistingNumbers(db);
-      setNumberSetupMessage(`Number setup complete. ${result.challans} Challan numbers and ${result.purchases} Purchase numbers registered.${result.conflicts ? ` ${result.conflicts} existing duplicate groups remain reserved.` : ""}`);
+      setNumberSetupMessage(
+        `Number setup complete. ${result.challans} Challan numbers and ${result.purchases} Purchase numbers registered.${result.conflicts ? ` ${result.conflicts} existing duplicate groups remain reserved.` : ""}`,
+      );
       setNumbersReady(true);
       setLettersReady(true);
     } catch (reason) {
-      setNumberSetupMessage(reason.code === "permission-denied"
-        ? "Number setup is blocked. Publish the updated Firestore rules, then try again."
-        : reason.message || "Could not register existing numbers. Try again.");
+      setNumberSetupMessage(
+        reason.code === "permission-denied"
+          ? "Number setup is blocked. Publish the updated Firestore rules, then try again."
+          : reason.message || "Could not register existing numbers. Try again.",
+      );
+    } finally {
+      setRegisteringNumbers(false);
     }
-    finally { setRegisteringNumbers(false); }
   };
   useEffect(
     () =>
@@ -120,16 +147,21 @@ export default function AdminSettings() {
   );
   const admins = accounts.filter(isAdminAccount),
     staff = accounts.filter((account) => !isAdminAccount(account)),
-    activeStaff = staff.filter((account) => account.active).sort((a, b) => {
-      const aIsJustCreated = createdCredentials?.accessId === a.accessId,
-        bIsJustCreated = createdCredentials?.accessId === b.accessId;
-      if (activeStaffSort === "newest" && aIsJustCreated !== bIsJustCreated)
-        return aIsJustCreated ? -1 : 1;
-      if (activeStaffSort === "oldest") return timestampMs(a.createdAt) - timestampMs(b.createdAt);
-      if (activeStaffSort === "id-asc") return (a.accessId || "").localeCompare(b.accessId || "");
-      if (activeStaffSort === "id-desc") return (b.accessId || "").localeCompare(a.accessId || "");
-      return timestampMs(b.createdAt) - timestampMs(a.createdAt);
-    }),
+    activeStaff = staff
+      .filter((account) => account.active)
+      .sort((a, b) => {
+        const aIsJustCreated = createdCredentials?.accessId === a.accessId,
+          bIsJustCreated = createdCredentials?.accessId === b.accessId;
+        if (activeStaffSort === "newest" && aIsJustCreated !== bIsJustCreated)
+          return aIsJustCreated ? -1 : 1;
+        if (activeStaffSort === "oldest")
+          return timestampMs(a.createdAt) - timestampMs(b.createdAt);
+        if (activeStaffSort === "id-asc")
+          return (a.accessId || "").localeCompare(b.accessId || "");
+        if (activeStaffSort === "id-desc")
+          return (b.accessId || "").localeCompare(a.accessId || "");
+        return timestampMs(b.createdAt) - timestampMs(a.createdAt);
+      }),
     inactiveStaff = staff
       .filter((account) => !account.active)
       .sort(
@@ -240,13 +272,39 @@ export default function AdminSettings() {
         <h2>Settings</h2>
         <p>Access control and Inventory format settings.</p>
       </header>
-      {numbersReady !== null && lettersReady !== null && (!numbersReady || !lettersReady) && <article className="number-setup-card">
-        <h3>Challan and Purchase numbers</h3>
-        <p>{numbersReady ? "Register existing B to Z letter-series numbers once before using the expanded format. Existing records will not be changed." : "Register existing numbers once before creating new Challans or Purchases. Existing records will not be changed."}</p>
-        <button type="button" className="settings-primary" disabled={registeringNumbers} onClick={setupNumbers}>{registeringNumbers ? "Registering numbers..." : "Register existing numbers"}</button>
-        {numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
-      </article>}
-      {numbersReady === true && lettersReady === true && numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
+      {numbersReady !== null &&
+        lettersReady !== null &&
+        (!numbersReady || !lettersReady) && (
+          <article className="number-setup-card">
+            <h3>Challan and Purchase numbers</h3>
+            <p>
+              {numbersReady
+                ? "Register existing B to Z letter-series numbers once before using the expanded format. Existing records will not be changed."
+                : "Register existing numbers once before creating new Challans or Purchases. Existing records will not be changed."}
+            </p>
+            <button
+              type="button"
+              className="settings-primary"
+              disabled={registeringNumbers}
+              onClick={setupNumbers}
+            >
+              {registeringNumbers
+                ? "Registering numbers..."
+                : "Register existing numbers"}
+            </button>
+            {numberSetupMessage && <p role="status">{numberSetupMessage}</p>}
+          </article>
+        )}
+      {numbersReady === true && lettersReady === true && numberSetupMessage && (
+        <p role="status">{numberSetupMessage}</p>
+      )}
+      <article className="settings-danger-entry">
+        <div>
+          <h3>Danger Zone</h3>
+          <p>Sensitive data reset and destructive actions.</p>
+        </div>
+        <Link to="/dashboard/admin-settings/danger-zone">Open Danger Zone</Link>
+      </article>
       <nav className="settings-tabs">
         <button
           className={tab === "access" ? "active" : ""}
@@ -370,7 +428,12 @@ export default function AdminSettings() {
           <AccountSection
             title="Active Staff Accounts"
             empty="No active staff accounts yet."
-            action={<AccountSort value={activeStaffSort} onChange={setActiveStaffSort} />}
+            action={
+              <AccountSort
+                value={activeStaffSort}
+                onChange={setActiveStaffSort}
+              />
+            }
           >
             {activeStaff.map((account) => (
               <EmployeeCard
@@ -479,14 +542,20 @@ function AccountSection({ title, children, empty, action }) {
   const hasAccounts = Boolean(children?.length);
   return (
     <article className="access-list account-section">
-      <header className="account-section-heading"><h3>{title}</h3>{action}</header>
+      <header className="account-section-heading">
+        <h3>{title}</h3>
+        {action}
+      </header>
       {hasAccounts ? children : <p>{empty}</p>}
     </article>
   );
 }
 function AccountSort({ value, onChange }) {
-  const [open, setOpen] = useState(false), ref = useRef(null);
-  const selectedLabel = ACTIVE_STAFF_SORT_OPTIONS.find(([key]) => key === value)?.[1];
+  const [open, setOpen] = useState(false),
+    ref = useRef(null);
+  const selectedLabel = ACTIVE_STAFF_SORT_OPTIONS.find(
+    ([key]) => key === value,
+  )?.[1];
   useEffect(() => {
     const closeOnOutsidePress = (event) => {
       if (!ref.current?.contains(event.target)) setOpen(false);
@@ -501,7 +570,49 @@ function AccountSort({ value, onChange }) {
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, []);
-  return <div className="account-sort" ref={ref}><span>Sort</span><button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} onKeyDown={(event) => { if (["ArrowDown", "Enter", " "].includes(event.key)) { event.preventDefault(); setOpen(true); } }}>{selectedLabel}<i aria-hidden="true" /></button>{open && <div className="account-sort-menu" role="listbox" aria-label="Sort active staff accounts">{ACTIVE_STAFF_SORT_OPTIONS.map(([key, label]) => <button type="button" role="option" aria-selected={key === value} className={key === value ? "selected" : ""} key={key} onClick={() => { onChange(key); setOpen(false); }}>{label}</button>)}</div>}</div>;
+  return (
+    <div className="account-sort" ref={ref}>
+      <span>Sort</span>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (["ArrowDown", "Enter", " "].includes(event.key)) {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        {selectedLabel}
+        <i aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          className="account-sort-menu"
+          role="listbox"
+          aria-label="Sort active staff accounts"
+        >
+          {ACTIVE_STAFF_SORT_OPTIONS.map(([key, label]) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={key === value}
+              className={key === value ? "selected" : ""}
+              key={key}
+              onClick={() => {
+                onChange(key);
+                setOpen(false);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 function EmployeeCard({
   account,
@@ -528,16 +639,18 @@ function EmployeeCard({
     >
       <div className="account-meta">
         <div className="account-dates">
-        <span>
-          Created <b>{formatAccountDate(account.createdAt)}</b>
-        </span>
-        {historical && (
           <span>
-            Deactivated <b>{formatAccountDate(deactivatedAt)}</b>
+            Created <b>{formatAccountDate(account.createdAt)}</b>
           </span>
-        )}
+          {historical && (
+            <span>
+              Deactivated <b>{formatAccountDate(deactivatedAt)}</b>
+            </span>
+          )}
         </div>
-        <span className="account-status">{historical ? "Inactive" : "Active"}</span>
+        <span className="account-status">
+          {historical ? "Inactive" : "Active"}
+        </span>
       </div>
       {
         <section className="staff-credentials">
@@ -569,7 +682,11 @@ function EmployeeCard({
               )
             }
           >
-            {copied === "credentials-" + account.uid ? "Copied" : password ? "Copy" : "Copy ID"}
+            {copied === "credentials-" + account.uid
+              ? "Copied"
+              : password
+                ? "Copy"
+                : "Copy ID"}
           </button>
         </section>
       }
@@ -649,6 +766,17 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
   return (
     <article className="import-templates">
       <h3>Import Templates</h3>
+      <section className="import-template-card">
+        <h4>Master Price List</h4>
+        <p>
+          Columns: Type, Shape, Height, Width, Price. Width is optional: leave
+          it blank for a Height-only price. Existing normalized combinations are
+          rejected, never overwritten.
+        </p>
+        <button onClick={() => exportMasterPrices([], true)}>
+          Download Master Price Template
+        </button>
+      </section>
       <p>
         Download the blank Excel template, fill it from row 2, then upload it
         using Inventory’s existing Import action.

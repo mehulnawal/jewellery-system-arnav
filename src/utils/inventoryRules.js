@@ -1,4 +1,6 @@
 ﻿// Keep Round last. New shapes deliberately sort just before it.
+import { canonicalSkuText, sizeMatchesSearch } from "./dimensions.js";
+export { normalizeSize, isValidSize } from "./dimensions.js";
 export const SHAPE_ORDER = [
   "Pan",
   "Marquise",
@@ -40,14 +42,6 @@ export const normalizeBox = (value) =>
     .trim()
     .toUpperCase();
 export const isValidBox = (value) => value === "" || /^[A-Z]+\d+$/.test(value);
-export const normalizeSize = (value) => String(value ?? "").trim();
-export const isValidSize = (value, allowDimensions = false) => {
-  const size = normalizeSize(value);
-  if (/^\d+(?:\.\d+)?$/.test(size)) return Number(size) > 0;
-  if (!allowDimensions || !/^\d+(?:\.\d+)?X\d+(?:\.\d+)?$/.test(size))
-    return false;
-  return size.split("X").every((part) => Number(part) > 0);
-};
 
 export const sizeSortValue = (value) =>
   Number(String(value ?? "").split("X")[0]) || 0;
@@ -96,17 +90,27 @@ export const numericMatches = (value, query) => {
   });
 };
 
-export const inventoryMatchesSearch = (item, query) => {
+const searchWords = (value) => String(value ?? "").toLowerCase().replace(/\b(emrald|emerlad)\b/g, "emerald");
+export const inventoryMatchesSearch = (item, query, { dimensionOnlyNumeric = false } = {}) => {
   const parsed = parseSizeQuery(query);
   if (!parsed.value) return true;
-  if (parsed.sizeOnly) return numericMatches(item.size, parsed.value);
+  if (parsed.sizeOnly) return sizeMatchesSearch(item.size, parsed.value);
+  const tokens = parsed.value.split(/[\s_]+/).filter(Boolean);
+  if (tokens.length > 1) return tokens.every((token) => inventoryMatchesSearch(item, token, { dimensionOnlyNumeric: true }));
+  if (dimensionOnlyNumeric && /^\d+(?:\.\d*)?(?:x\d+(?:\.\d*)?)?$/.test(parsed.value)) return sizeMatchesSearch(item.size, parsed.value.toUpperCase());
+  if ([item.shape, item.type, item.sku].some((value) => searchWords(value).includes(searchWords(parsed.value)))) return true;
   return (
+    // Challan has historically supported phrases spanning SKU/Shape/Size/Type.
+    // Retain that text search alongside canonical numeric identity matching.
+    [item.sku, item.shape, item.size, item.type, item.weight]
+      .map((value) => String(value ?? "")).join(" ").toLowerCase().includes(parsed.value) ||
     [item.shape, item.type, item.sku, item.group, item.box].some((value) =>
       String(value ?? "")
         .toLowerCase()
         .includes(parsed.value),
     ) ||
-    numericMatches(item.size, parsed.value) ||
+    canonicalSkuText(item.sku).toLowerCase().includes(canonicalSkuText(parsed.value).toLowerCase()) ||
+    sizeMatchesSearch(item.size, parsed.value) ||
     numericMatches(item.weight, parsed.value)
   );
 };

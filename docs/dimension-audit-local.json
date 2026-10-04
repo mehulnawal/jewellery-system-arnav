@@ -1,0 +1,62 @@
+{
+  "source": "tests/fixtures/dimension-audit.json",
+  "readOnly": true,
+  "inventoryCount": 3,
+  "canonicalIdentityCount": 2,
+  "invalid": [],
+  "collisions": [
+    {
+      "canonicalSku": "5_PR_CBD",
+      "records": [
+        {
+          "id": "a",
+          "currentSku": "5_PR_CBD",
+          "canonicalSku": "5_PR_CBD",
+          "type": "CBD",
+          "shape": "PR",
+          "rawSize": 5,
+          "canonicalSize": "5",
+          "weight": 2,
+          "pieces": 2,
+          "sourcePurchaseId": "p",
+          "purchaseReferences": [
+            "p"
+          ],
+          "challanReferences": [],
+          "possibleSkuOnlyChallanReferences": []
+        },
+        {
+          "id": "b",
+          "currentSku": "5.00_PR_CBD",
+          "canonicalSku": "5_PR_CBD",
+          "type": "CBD",
+          "shape": "PR",
+          "rawSize": "5.00",
+          "canonicalSize": "5",
+          "weight": 3,
+          "pieces": 3,
+          "sourcePurchaseId": null,
+          "purchaseReferences": [],
+          "challanReferences": [
+            "c"
+          ],
+          "possibleSkuOnlyChallanReferences": []
+        }
+      ]
+    }
+  ],
+  "indexPlan": [
+    {
+      "sku": "5_PR_CBD",
+      "recordId": null,
+      "legacyRecordIds": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "sku": "5.03_PR_CBD",
+      "recordId": "distinct"
+    }
+  ]
+}

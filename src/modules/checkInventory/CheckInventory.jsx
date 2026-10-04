@@ -1,3 +1,4 @@
+import { normalizeSize } from "../../utils/dimensions.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../firebase/config";
@@ -169,7 +170,7 @@ export default function CheckInventory() {
         Shape: item.shape,
         Type: item.type,
         "Weight (ct)": formatDecimal(item.weight),
-        "Size (mm)": item.size,
+        "Size (mm)": normalizeSize(item.size),
         SKU: item.sku,
         Group: item.group || "Uncategorized",
         Status: "In Stock",
@@ -302,7 +303,7 @@ export default function CheckInventory() {
               <td>{item.shape}</td>
               <td>{item.type}</td>
               <td>{formatDecimal(item.weight)}</td>
-              <td>{item.size}</td>
+              <td>{normalizeSize(item.size)}</td>
               <td>{item.sku}</td>
               <td>{item.group || "Uncategorized"}</td>
               <td>{getAgeingDays(item.createdAt, item.createdAtMs)}d</td>
@@ -345,7 +346,7 @@ function Card({ item }) {
   const days = getAgeingDays(item.createdAt, item.createdAtMs);
   return (
     <article className="check-card">
-      <strong className="check-card-size">{item.size} mm</strong>
+      <strong className="check-card-size">{normalizeSize(item.size)} mm</strong>
       <span className={`check-type ${normal(item.type)}`}>{item.type}</span>
       <span className="check-card-shape">{item.shape}</span>
       <span className={`check-age ${getAgeingColor(days)}`}>

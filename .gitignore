@@ -26,3 +26,6 @@ playwright-report/
 *.njsproj
 *.sln
 *.sw?
+
+# Isolated reset UI test artifacts
+test-results-reset/

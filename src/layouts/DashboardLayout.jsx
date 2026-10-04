@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { MasterPricesProvider } from "../hooks/useMasterPrices";
+import { createPortal } from "react-dom";
+import BusinessGate from "./BusinessGate";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import "./dashboardLayout.css";
@@ -20,6 +23,14 @@ const Icon = ({ name }) => (
       <>
         <path d="m12 3 7 4v10l-7 4-7-4V7l7-4Z" />
         <path d="m5 7 7 4 7-4M12 11v10" />
+      </>
+    )}
+    {name === "dashboard" && (
+      <>
+        <rect x="3" y="3" width="8" height="8" rx="1.5" />
+        <rect x="13" y="3" width="8" height="5" rx="1.5" />
+        <rect x="13" y="10" width="8" height="11" rx="1.5" />
+        <rect x="3" y="13" width="8" height="8" rx="1.5" />
       </>
     )}
     {name === "check" && (
@@ -86,238 +97,269 @@ const Icon = ({ name }) => (
     {name === "chevron" && <path d="m9 18 6-6-6-6" />}
   </svg>
 );
-const modules = [
+
+const operations = [
   {
     label: "Inventory",
     to: "/dashboard/inventory",
     icon: "inventory",
-    key: "inventory",
+    permission: "inventory",
   },
+  { label: "Check Inventory", to: "/dashboard/check-inventory", icon: "check" },
   {
     label: "Purchase",
     to: "/dashboard/purchase",
     icon: "purchase",
-    key: "purchase",
+    permission: "purchase",
   },
   {
     label: "Challan",
     to: "/dashboard/challan",
     icon: "challan",
-    key: [
+    permission: [
       "challan-stage-1",
       "challan-stage-2",
       "challan-stage-3",
       "challan-stage-4",
     ],
   },
-  {
-    label: "Check Inventory",
-    to: "/dashboard/check-inventory",
-    icon: "check",
-    always: true,
-  },
 ];
-const adminGroups = [
-  {
-    title: "History",
-    items: [
-      {
-        label: "Vendor Purchase History",
-        to: "/dashboard/vendor-purchase-history",
-        icon: "history",
-      },
-      {
-        label: "Party Challan History",
-        to: "/dashboard/party-challan-history",
-        icon: "history",
-      },
-    ],
-  },
-  {
-    title: "Monitoring / Reports",
-    items: [
-      {
-        label: "Weekly Report",
-        to: "/dashboard/weekly-report",
-        icon: "activity",
-      },
-    ],
-  },
-];
-const adminPages = [
+const reportLinks = [
   { label: "Activity Log", to: "/dashboard/activity-log", icon: "activity" },
+  { label: "Weekly Report", to: "/dashboard/weekly-report", icon: "activity" },
+  {
+    label: "Vendor Purchase History",
+    to: "/dashboard/vendor-purchase-history",
+    icon: "history",
+  },
+  {
+    label: "Party Challan History",
+    to: "/dashboard/party-challan-history",
+    icon: "history",
+  },
+];
+const adminLinks = [
+  {
+    label: "Master Price List",
+    to: "/dashboard/master-prices",
+    icon: "management",
+  },
   { label: "Settings", to: "/dashboard/admin-settings", icon: "settings" },
 ];
+const stored = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
 export default function DashboardLayout() {
   const { user, logout, hasPermission } = useAuth(),
-    location = useLocation(),
-    [expanded, setExpanded] = useState(false),
-    [pageLoading, setPageLoading] = useState(false),
-    [theme, setTheme] = useState(
-      () => localStorage.getItem("theme") || "light",
+    location = useLocation();
+  const [expanded, setExpanded] = useState(() =>
+    stored("sidebar-expanded", false),
+  );
+  const [groups, setGroups] = useState(() => stored("sidebar-groups", {}));
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("theme") || "light",
+  );
+  const [hint, setHint] = useState(null);
+  const hintEvents = (label) => ({
+    onMouseEnter: (event) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      setHint({ label, top: box.top + box.height / 2, left: box.right + 10 });
+    },
+    onMouseLeave: () => setHint(null),
+    onFocus: (event) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      setHint({ label, top: box.top + box.height / 2, left: box.right + 10 });
+    },
+    onBlur: () => setHint(null),
+    onKeyDown: (event) => {
+      if (event.key === "Escape") setHint(null);
+    },
+  });
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const isAdmin = user?.role === "superadmin";
+  const sections = [
+    {
+      name: "Operations",
+      icon: "inventory",
+      items: operations.filter(
+        (item) =>
+          !item.permission ||
+          isAdmin ||
+          (Array.isArray(item.permission)
+            ? item.permission.some(hasPermission)
+            : hasPermission(item.permission)),
+      ),
+    },
+    ...(isAdmin
+      ? [
+          { name: "Reports", icon: "activity", items: reportLinks },
+          { name: "Admin", icon: "management", items: adminLinks },
+        ]
+      : []),
+  ].filter((group) => group.items.length);
+  const pageTitle =
+    [...operations, ...reportLinks, ...adminLinks].find(
+      (item) => item.to === location.pathname,
+    )?.label ||
+    (location.pathname.endsWith("/danger-zone") ? "Danger Zone" : "Dashboard");
+  const activeGroup = sections.find((group) =>
+    group.items.some(
+      (item) =>
+        item.to === location.pathname ||
+        location.pathname.startsWith(item.to + "/"),
     ),
-    [logoutConfirm, setLogoutConfirm] = useState(false),
-    [adminOpen, setAdminOpen] = useState(false),
-    adminNavRef = useRef(null);
-  const isAdmin = user?.role === "superadmin",
-    inventoryPage = location.pathname.endsWith("/inventory"),
-    available = modules.filter((m) =>
-      m.superAdmin
-        ? user?.role === "superadmin"
-        : m.always ||
-          user?.role === "superadmin" ||
-          (Array.isArray(m.key)
-            ? m.key.some(hasPermission)
-            : hasPermission(m.key)),
-    );
+  )?.name;
+  useEffect(() => {
+    localStorage.setItem("sidebar-expanded", JSON.stringify(expanded));
+  }, [expanded]);
+  useEffect(() => {
+    localStorage.setItem("sidebar-groups", JSON.stringify(groups));
+  }, [groups]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
   }, [theme]);
   useEffect(() => {
-    if (!pageLoading) return;
-    const timer = window.setTimeout(() => setPageLoading(false), 350);
-    return () => window.clearTimeout(timer);
-  }, [location.pathname, pageLoading]);
-  useEffect(() => {
-    if (!adminOpen) return;
-    const closeAdminNavigation = (event) => {
-      if (event.key === "Escape") setAdminOpen(false);
-    };
-    const closeOnOutsidePress = (event) => {
-      if (!adminNavRef.current?.contains(event.target)) setAdminOpen(false);
-    };
-    window.addEventListener("keydown", closeAdminNavigation);
-    window.addEventListener("mousedown", closeOnOutsidePress);
-    return () => {
-      window.removeEventListener("keydown", closeAdminNavigation);
-      window.removeEventListener("mousedown", closeOnOutsidePress);
-    };
-  }, [adminOpen]);
+    if (expanded && activeGroup)
+      queueMicrotask(() =>
+        setGroups((old) =>
+          old[activeGroup] ? old : { ...old, [activeGroup]: true },
+        ),
+      );
+  }, [expanded, activeGroup]);
   useEffect(() => {
     if (!logoutConfirm) return;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setLogoutConfirm(false);
-      }
+    const close = (event) => {
+      if (event.key === "Escape") setLogoutConfirm(false);
       if (event.key === "Enter") {
         event.preventDefault();
-        void logout();
+        logout();
       }
     };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
   }, [logoutConfirm, logout]);
-  const handleNavigation = () => {
-    setAdminOpen(false);
-    setPageLoading(true);
-  };
-  return (
-    <div
-      className={`dashboard-shell ${inventoryPage ? "inventory-layout" : ""} ${expanded ? "sidebar-expanded" : ""} ${isAdmin ? "admin-flyout-mode" : ""}`}
+  // Keep the selected destination visible without expanding a collapsed sidebar.
+  const groupOpen = (name) =>
+    expanded && (activeGroup === name || Boolean(groups[name]));
+  const link = (item) => (
+    <NavLink
+      key={item.to}
+      to={item.to}
+      end={item.to === "/dashboard"}
+      aria-label={item.label}
+      title={expanded ? item.label : undefined}
+      {...(!expanded ? hintEvents(item.label) : {})}
+      className={({ isActive }) => "nav-row " + (isActive ? "active" : "")}
     >
-      <aside className={`dashboard-sidebar ${isAdmin ? "dashboard-admin-rail" : ""}`} ref={adminNavRef}>
-        <div className="dashboard-brand">
-          <div className="dashboard-logo">
+      <Icon name={item.icon} />
+      <span>{item.label}</span>
+    </NavLink>
+  );
+  return (
+    <div className={"dashboard-shell " + (expanded ? "sidebar-expanded" : "")}>
+      <aside className="dashboard-sidebar" aria-label="Main sidebar">
+        <div className="nav-brand">
+          <div className="nav-logo">
             <Icon name="diamond" />
           </div>
-          <span>
-            <b>Grantha</b>
-            <small>Exports</small>
-          </span>
+          {expanded && <b>Grantha Exports</b>}
+          <button
+            type="button"
+            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={expanded}
+            title={expanded ? "Collapse sidebar" : undefined}
+            {...(!expanded ? hintEvents("Expand sidebar") : {})}
+            onClick={() => {
+              setHint(null);
+              setExpanded((value) => !value);
+            }}
+          >
+            <Icon name="chevron" />
+          </button>
         </div>
-        <nav>
-          {available.map((m) => (
-            <NavLink
-              key={m.label}
-              to={m.to}
-              onClick={handleNavigation}
-              className={({ isActive }) =>
-                `dashboard-nav-item ${isActive ? "active" : ""}`
-              }
-            >
-              <span className="dashboard-nav-icon">
-                <Icon name={m.icon} />
-              </span>
-              <span className="dashboard-nav-label">{m.label}</span>
-              <span className="dashboard-tooltip">{m.label}</span>
-            </NavLink>
-          ))}
-          {isAdmin && <button type="button" className={`dashboard-nav-item dashboard-admin-trigger ${adminOpen ? "active" : ""}`} onClick={() => setAdminOpen((open) => !open)} aria-expanded={adminOpen} aria-controls="admin-management-flyout" aria-label="Admin / Management"><span className="dashboard-nav-icon"><Icon name="management" /></span><span className="dashboard-nav-label">Admin / Management</span><span className="dashboard-tooltip">Admin / Management</span></button>}
-          {isAdmin && adminPages.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={handleNavigation}
-              className={({ isActive }) => `dashboard-nav-item ${isActive ? "active" : ""}`}
-            >
-              <span className="dashboard-nav-icon"><Icon name={item.icon} /></span>
-              <span className="dashboard-nav-label">{item.label}</span>
-              <span className="dashboard-tooltip">{item.label}</span>
-            </NavLink>
+        <nav aria-label="Application navigation" onScroll={() => setHint(null)}>
+          {link({ label: "Dashboard", to: "/dashboard", icon: "dashboard" })}
+          {sections.map((group) => (
+            <section className="nav-group" key={group.name}>
+              <button
+                className={
+                  "nav-row nav-group-toggle " +
+                  (activeGroup === group.name ? "contains-active" : "")
+                }
+                {...(!expanded ? hintEvents(group.name) : {})}
+                aria-label={group.name}
+                aria-expanded={groupOpen(group.name)}
+                aria-controls={"nav-" + group.name}
+                onClick={() => {
+                  setHint(null);
+                  if (!expanded) {
+                    setExpanded(true);
+                    setGroups((old) => ({ ...old, [group.name]: true }));
+                  } else
+                    setGroups((old) => ({
+                      ...old,
+                      [group.name]:
+                        activeGroup === group.name || !old[group.name],
+                    }));
+                }}
+              >
+                <Icon name={group.icon} />
+                <span>{group.name}</span>
+                <i className={groupOpen(group.name) ? "is-open" : ""}>
+                  <Icon name="chevron" />
+                </i>
+              </button>
+              {groupOpen(group.name) && (
+                <div id={"nav-" + group.name} className="nav-children">
+                  {group.items.map(link)}
+                </div>
+              )}
+            </section>
           ))}
         </nav>
-        {isAdmin && adminOpen && <section className="admin-management-flyout" id="admin-management-flyout" aria-label="Admin / Management navigation"><header><small>ADMIN</small><h2>Management</h2></header><div className="admin-management-groups">{adminGroups.map((group) => <section key={group.title}><h3>{group.title}</h3>{group.items.map((item) => <NavLink key={item.to} to={item.to} onClick={handleNavigation} className={({ isActive }) => `admin-management-item ${isActive ? "active" : ""}`}><Icon name={item.icon} /><span>{item.label}</span></NavLink>)}</section>)}</div></section>}
-        <div className="dashboard-sidebar-footer">
-          <button
-            className="dashboard-theme-toggle"
-            onClick={() =>
-              setTheme((current) => (current === "light" ? "dark" : "light"))
-            }
-            aria-label="Toggle color theme"
-          >
-            <Icon name={theme === "light" ? "moon" : "sun"} />
-            <span>{theme === "light" ? "Dark mode" : "Light mode"}</span>
-          </button>
-          <button
-            className="dashboard-collapse"
-            onClick={() => {
-              if (isAdmin) {
-                setAdminOpen(false);
-                setExpanded((value) => !value);
-              } else {
-                setExpanded((value) => !value);
-              }
-            }}
-            aria-label={isAdmin ? expanded ? "Collapse sidebar" : "Expand sidebar" : "Toggle sidebar"}
-            title={isAdmin ? expanded ? "Collapse sidebar" : "Expand sidebar" : undefined}
-          >
-            <span className={expanded ? "collapse-reverse" : ""}>
-              <Icon name="chevron" />
-            </span>
-            <em>{isAdmin ? expanded ? "Collapse" : "Expand" : "Collapse"}</em>
-          </button>
-          <button
-            className="dashboard-logout"
-            onClick={() => setLogoutConfirm(true)}
-            aria-label="Logout"
-            title="Logout"
-          >
-            <span>
-              <Icon name="logout" />
-            </span>
-            <em>Logout</em>
-          </button>
-        </div>
       </aside>
+      {!expanded &&
+        hint &&
+        createPortal(
+          <div
+            className="sidebar-tooltip"
+            role="tooltip"
+            style={{ top: hint.top, left: hint.left }}
+          >
+            {hint.label}
+          </div>,
+          document.body,
+        )}
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <h1>Grantha Exports</h1>
+          <span className="app-page-context">{pageTitle}</span>
+          <div className="app-tools">
+            <button
+              onClick={() =>
+                setTheme((current) => (current === "light" ? "dark" : "light"))
+              }
+              aria-label="Toggle color theme"
+              title={theme === "light" ? "Dark mode" : "Light mode"}
+            >
+              <Icon name={theme === "light" ? "moon" : "sun"} />
+            </button>
+            <button onClick={() => setLogoutConfirm(true)} aria-label="Logout">
+              <Icon name="logout" />
+              <span>Logout</span>
+            </button>
+          </div>
         </header>
         <div className="dashboard-content">
-          {pageLoading && (
-            <div className="dashboard-page-loading" role="status">
-              <i />
-              Loading...
-            </div>
-          )}
-          <Outlet />
+          <BusinessGate>
+            <MasterPricesProvider>
+              <Outlet />
+            </MasterPricesProvider>
+          </BusinessGate>
         </div>
       </main>
       {logoutConfirm && (

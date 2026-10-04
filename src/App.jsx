@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedRoute, { PermissionRoute } from "./auth/ProtectedRoute";
 import DashboardLayout from "./layouts/DashboardLayout";
+import BusinessDashboard from "./modules/dashboard/BusinessDashboard";
 import Inventory from "./modules/inventory/Inventory";
 import CheckInventory from "./modules/checkInventory/CheckInventory";
 import Challan from "./modules/challan/Challan";
@@ -12,6 +13,8 @@ import VendorPurchaseHistory from "./modules/history/VendorPurchaseHistory";
 import PartyChallanHistory from "./modules/history/PartyChallanHistory";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
+import MasterPrices from "./modules/masterPrices/MasterPrices";
+import DangerZone from "./modules/admin/DangerZone";
 const CHALLAN_PERMISSIONS = [
   "challan-stage-1",
   "challan-stage-2",
@@ -23,7 +26,7 @@ export default function App() {
     <Routes>
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<Navigate to="check-inventory" replace />} />
+          <Route index element={<BusinessDashboard />} />
           <Route element={<PermissionRoute permission="inventory" />}>
             <Route path="inventory" element={<Inventory />} />
           </Route>
@@ -35,9 +38,11 @@ export default function App() {
             <Route path="challan" element={<Challan />} />
           </Route>
           <Route element={<PermissionRoute adminOnly />}>
+            <Route path="master-prices" element={<MasterPrices />} />
             <Route path="activity-log" element={<ActivityLog />} />
             <Route path="weekly-report" element={<WeeklyReport />} />
             <Route path="admin-settings" element={<AdminSettings />} />
+            <Route path="admin-settings/danger-zone" element={<DangerZone />} />
             <Route
               path="vendor-purchase-history"
               element={<VendorPurchaseHistory />}

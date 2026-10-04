@@ -852,6 +852,15 @@ html[data-theme="dark"] .challan-pricing span {
   font-weight: 800;
   white-space: nowrap;
 }
+.challan-width { min-width: 0; }
+.challan-width input { width: 100%; box-sizing: border-box; }
+.challan-width small { color: var(--age-red); display: block; font-size: 11px; }
+.challan-width [aria-invalid="true"] { border-color: var(--age-red); }
+@media (min-width: 801px) {
+  .item-head, .challan-item {
+    grid-template-columns: minmax(170px, 2fr) minmax(85px, 1fr) repeat(3, minmax(55px, .8fr)) minmax(75px, 1fr) minmax(55px, .8fr) minmax(95px, 1.1fr) minmax(75px, .9fr) minmax(110px, 1.25fr) 68px;
+  }
+}
 .challan-item-totals {
   grid-template-columns: 2fr 1fr 1fr 0.8fr 1.1fr 0.8fr 1.1fr 0.9fr 1.25fr 68px;
 }

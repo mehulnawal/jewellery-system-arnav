@@ -1,3 +1,4 @@
+import { setDoc } from "../firebase/businessWrites.js";
 import {
   createContext,
   useContext,
@@ -11,7 +12,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
-import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/config";
 import { accountEmail, employeeProfile } from "../utils/accessAccounts";
 import { captureFirstLogin } from "../utils/activityLog";

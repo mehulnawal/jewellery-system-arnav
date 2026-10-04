@@ -1,10 +1,5 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  runTransaction,
-  serverTimestamp,
-} from "firebase/firestore";
+import { addDoc, runTransaction } from "../firebase/businessWrites.js";
+import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 
 const dateKey = (value = new Date()) => {

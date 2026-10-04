@@ -1,0 +1,43 @@
+/* Body portal escapes item-grid overflow and its stacking context. Layer 60 is
+   above the app rail (20)/header, below actual blocking dialogs (1000+). */
+.sku-menu.inventory-picker-popover {
+  z-index: 60;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  box-sizing: border-box;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+  scrollbar-width: thin;
+}
+.inventory-picker-popover button {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  cursor: pointer;
+}
+.inventory-picker-popover button.keyboard-active {
+  background: var(--ui-hover);
+  box-shadow: inset 3px 0 var(--ui-emerald);
+}
+.inventory-picker-popover span,
+.inventory-picker-popover small {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.inventory-picker-popover .inventory-picker-record {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.inventory-picker-popover p {
+  padding: 12px;
+}

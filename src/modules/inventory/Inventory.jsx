@@ -1,16 +1,10 @@
+import { deleteDoc, updateDoc } from "../../firebase/businessWrites.js";
+import { canonicalSku, canonicalInventoryIdentity, sameSize } from "../../utils/dimensions.js";
+import { saveInventoryIdentity } from "../../utils/inventoryIdentity.js";
+import { auditDimensions } from "../../utils/dimensionAudit.js";
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocFromServer,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-} from "firebase/firestore";
+import { collection, doc, getDocFromServer, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../ui/ToastContext";
@@ -55,8 +49,7 @@ const group = (size) =>
     (item) =>
       sizeSortValue(size) >= item.min && sizeSortValue(size) <= item.max,
   )?.group ?? "Uncategorized";
-const sku = ({ size, shape, type }) =>
-  size && shape && type ? `${size}_${shape}_${type}` : "--";
+const sku = canonicalSku;
 const Icon = ({ n }) => (
   <svg
     className="inventory-svg"
@@ -140,7 +133,7 @@ async function excel(rows) {
       Shape: item.shape,
       Type: item.type,
       "Weight (ct)": formatDecimal(item.weight),
-      "Size (mm)": item.size,
+      "Size (mm)": normalizeSize(item.size),
       SKU: item.sku,
       Group: item.group,
       Ageing: `${age(item)}d`,
@@ -184,7 +177,7 @@ function AddModal({
     shape: item?.shape ?? "",
     type: item?.type ?? "",
     weight: item?.weight ?? "",
-    size: item?.size ?? "",
+    size: normalizeSize(item?.size),
   });
   const [errors, setErrors] = useState({}),
     [saving, setSaving] = useState(false);
@@ -209,8 +202,10 @@ function AddModal({
     return "";
   };
   const update = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
-    setErrors((current) => ({ ...current, [key]: validateField(key, value) }));
+    const next = { ...form, [key]: value };
+    setForm(next);
+    const duplicate = isValidSize(next.size, allowDimensions) && existingItems.some((entry) => entry.id !== item?.id && canonicalInventoryIdentity(entry) === canonicalSku(next)) && (!item || canonicalInventoryIdentity(item) !== canonicalSku(next));
+    setErrors((current) => ({ ...current, [key]: validateField(key, value), size: validateField("size", next.size) || (duplicate ? "This Type, Shape and Size already exists in Inventory." : "") }));
   };
   const numericInput = (key, value, dimensions = false) => {
     const allowed = dimensions
@@ -240,7 +235,7 @@ function AddModal({
           entry.id !== item?.id &&
           entry.shape === normalized.shape &&
           entry.type === normalized.type &&
-          String(entry.size) === normalized.size,
+          sameSize(entry.size, normalized.size) && (!item || canonicalInventoryIdentity(item) !== canonicalSku(normalized)),
       );
     if (duplicate) {
       setErrors((current) => ({
@@ -261,8 +256,9 @@ function AddModal({
         updatedAt: serverTimestamp(),
       };
       if (item) {
-        const updated = { ...item, ...payload };
-        await updateDoc(doc(db, INVENTORY, item.id), payload);
+        await saveInventoryIdentity(db, doc(db, INVENTORY, item.id), payload, true);
+        const saved = await getDocFromServer(doc(db, INVENTORY, item.id));
+        const updated = { id: item.id, ...saved.data() };
         await writeInventoryActivity("edited", updated, { before: item, user });
         onSaved(updated);
       } else {
@@ -272,7 +268,7 @@ function AddModal({
           createdBy: user?.uid ?? "pending-auth",
           createdAt: serverTimestamp(),
         };
-        const ref = await addDoc(collection(db, INVENTORY), created);
+        const ref = await saveInventoryIdentity(db, doc(collection(db, INVENTORY)), created);
         const saved = await getDocFromServer(ref);
         const createdItem = { id: ref.id, ...saved.data() };
         await writeInventoryActivity("created", createdItem, {
@@ -281,10 +277,10 @@ function AddModal({
         });
         onSaved(createdItem);
       }
-    } catch {
+    } catch (error) {
       setErrors((current) => ({
         ...current,
-        form: "Could not save this item. Please try again.",
+        form: error.message || "Could not save this item. Please try again.",
       }));
     } finally {
       setSaving(false);
@@ -324,8 +320,9 @@ function AddModal({
               type="text"
               inputMode="decimal"
               value={form.size}
+              onBlur={() => { if (isValidSize(form.size, allowDimensions)) update("size", normalizeSize(form.size)); }}
               onChange={(event) =>
-                numericInput("size", event.target.value, true)
+                update("size", event.target.value)
               }
               placeholder={allowDimensions ? "4.3 or 4.3X2.0" : "4.3"}
             />
@@ -465,7 +462,7 @@ function ImportPreview({ rows, onClose, onImport }) {
               <td>{row.shape}</td>
               <td>{row.type}</td>
               <td>{row.weight}</td>
-              <td>{row.size}</td>
+              <td>{normalizeSize(row.size)}</td>
               <td>{row.sku}</td>
               <td className={row.box ? undefined : "inventory-import-placeholder"}>{row.box || "--"}</td>
               <td className={row.errors.length ? "inventory-import-result-error" : "inventory-import-result-ready"}>{row.errors.join(" / ") || "Ready to import"}</td>
@@ -580,6 +577,8 @@ function DeleteModal({ items, onClose, onConfirm }) {
 export default function Inventory() {
   const { user } = useAuth(),
     toast = useToast(),
+    location = useLocation(),
+    navigate = useNavigate(),
     searchRef = useRef(),
     importRef = useRef();
   const [items, setItems] = useState([]),
@@ -588,6 +587,7 @@ export default function Inventory() {
     [input, setInput] = useState(""),
     [find, setFind] = useState(""),
     [filter, setFilter] = useState("All Groups"),
+    [dashboardAgeBucket, setDashboardAgeBucket] = useState(""),
     [open, setOpen] = useState({}),
     [selected, setSelected] = useState([]),
     [adding, setAdding] = useState(false),
@@ -640,6 +640,18 @@ export default function Inventory() {
     return () => clearTimeout(timer);
   }, [input]);
   useEffect(() => {
+    const action = location.state?.dashboardAction;
+    const sku = location.state?.dashboardSku;
+    const age = location.state?.dashboardAgeBucket;
+    if (!action && !sku && !age) return;
+    queueMicrotask(() => {
+      if (action === "add") setAdding(true);
+      if (sku) { setInput(sku); setDashboardAgeBucket(""); }
+      if (age) { setInput(""); setDashboardAgeBucket(age); }
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [location.pathname, location.state, navigate]);
+  useEffect(() => {
     const handler = (event) => {
       const typing =
         ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName) ||
@@ -675,9 +687,14 @@ export default function Inventory() {
         (item) =>
           (filter === "All Groups" ||
             (item.group || "Uncategorized") === filter) &&
+          (!dashboardAgeBucket || (() => {
+            if (!item.createdAt && !item.createdAtMs) return false;
+            const days = getAgeingDays(item.createdAt, item.createdAtMs);
+            return dashboardAgeBucket === "0-30 days" ? days <= 30 : dashboardAgeBucket === "31-60 days" ? days >= 31 && days <= 60 : dashboardAgeBucket === "61-90 days" ? days >= 61 && days <= 90 : days > 90;
+          })()) &&
           inventoryMatchesSearch(item, find),
       ),
-    [items, filter, find],
+    [items, filter, find, dashboardAgeBucket],
   );
   const parents = useMemo(
     () =>
@@ -719,6 +736,7 @@ export default function Inventory() {
     all =
       filtered.length > 0 &&
       filtered.every((item) => selected.includes(item.id));
+  const collisionAudit = useMemo(() => auditDimensions({ inventory: items }), [items]);
   const isAdmin = user?.role === "superadmin";
   const canEditItem = (item) =>
     isAdmin ||
@@ -754,7 +772,7 @@ export default function Inventory() {
     const XLSX = await import("xlsx"),
       book = XLSX.read(await file.arrayBuffer()),
       rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]),
-      seen = new Set(items.map((item) => item.sku));
+      seen = new Set(items.map(canonicalInventoryIdentity));
     setPreview(
       rows.map((row, index) => {
         const shape = title(row[INVENTORY_IMPORT_FIELD_HEADERS.shape]),
@@ -790,27 +808,19 @@ export default function Inventory() {
     );
     event.target.value = "";
   };
-  const importRows = (rows) => {
-    rows.forEach((row) => {
-      const item = {
-        ...row,
-        origin: "Import",
-        createdBy: user?.uid ?? "pending-auth",
-        createdAt: serverTimestamp(),
-      };
-      delete item.index;
-      delete item.errors;
-      void addDoc(collection(db, INVENTORY), item)
-        .then((ref) =>
-          writeInventoryActivity(
-            "created",
-            { id: ref.id, ...item },
-            { origin: "Import", user },
-          ),
-        )
-        .catch(() => toast(`Could not import ${row.sku}.`, "error"));
-    });
-    toast(`${rows.length} item${rows.length === 1 ? "" : "s"} imported`);
+  const importRows = async (rows) => {
+    let imported = 0;
+    for (const row of rows) {
+      const { index, errors, ...data } = row;
+      void index; void errors;
+      const item = { ...data, origin: "Import", createdBy: user?.uid ?? "pending-auth", createdAt: serverTimestamp() };
+      try {
+        const ref = await saveInventoryIdentity(db, doc(collection(db, INVENTORY)), item);
+        imported++;
+        await writeInventoryActivity("created", { id: ref.id, ...item }, { origin: "Import", user });
+      } catch (error) { toast(error.message || `Could not import ${row.sku}.`, "error"); }
+    }
+    toast(`${imported} of ${rows.length} items imported`, imported === rows.length ? "success" : "error");
   };
   return (
     <section className="inventory-module">
@@ -818,6 +828,7 @@ export default function Inventory() {
         <h2>Inventory</h2>
         <p>{formatDecimal(weight)} ct in stock</p>
       </header>
+      {collisionAudit.collisions.length > 0 && <details className="inventory-error"><summary>{collisionAudit.collisions.length} legacy canonical Size collision(s). Stock records remain separate.</summary>{collisionAudit.collisions.map((collision) => <p key={collision.canonicalSku}>{collision.canonicalSku}: {collision.records.map((record) => `${record.id} (${record.currentSku}, raw Size ${record.rawSize}, ${record.weight ?? "?"} ct)`).join("; ")}</p>)}</details>}
       <div className="inventory-metrics">
         {[
           ["TOTAL INVENTORY", items.length],
@@ -834,6 +845,7 @@ export default function Inventory() {
         ))}
       </div>
       <div className="inventory-toolbar">
+        {dashboardAgeBucket && <button type="button" className="inventory-button inventory-secondary" onClick={() => setDashboardAgeBucket("")}>Age: {dashboardAgeBucket} ×</button>}
         <label className="inventory-search">
           <Icon n="search" />
           <input
@@ -1037,7 +1049,7 @@ export default function Inventory() {
               <tr key={item.id}>
                 <td>{item.type}</td>
                 <td>{item.shape}</td>
-                <td>{item.size}</td>
+                <td>{normalizeSize(item.size)}</td>
                 <td>{formatDecimal(item.weight)}</td>
                 <td>{age(item)}d</td>
                 <td>{item.box || ""}</td>
@@ -1152,7 +1164,7 @@ function Group({
               <Type value={item.type} />
             </td>
             <td>{item.shape}</td>
-            <td>{item.size} mm</td>
+            <td>{normalizeSize(item.size)} mm</td>
             <td>
               <b>{formatDecimal(item.weight)} ct</b>
             </td>

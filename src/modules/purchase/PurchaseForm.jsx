@@ -1,5 +1,7 @@
+import { setDoc } from "../../firebase/businessWrites.js";
+import { isValidSize, normalizeSize } from "../../utils/dimensions.js";
 import { useEffect, useRef, useState } from "react";
-import { collection, doc, getDocsFromServer, limit, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { collection, doc, getDocsFromServer, limit, query, serverTimestamp, where } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../ui/ToastContext";
@@ -37,7 +39,7 @@ const signature = (form, key) => {
 
 export default function PurchaseForm({ record, purchases, onClose, vendors, brokers, shapes, allowDimensions, inventory, challans }) {
   const { user } = useAuth(), toast = useToast(), formRef = useRef(null), savingRef = useRef(false);
-  const [form, setForm] = useState(() => record ? { ...record, discountChoice: [0, 6, 7, 8].includes(Number(record.discount)) ? String(record.discount) : "custom", customDiscount: String(record.discount ?? ""), items: (record.items || []).map((item) => ({ ...item, id: item.id || crypto.randomUUID() })) } : {
+  const [form, setForm] = useState(() => record ? { ...record, discountChoice: [0, 6, 7, 8].includes(Number(record.discount)) ? String(record.discount) : "custom", customDiscount: String(record.discount ?? ""), items: (record.items || []).map((item) => ({ ...item, size: normalizeSize(item.size), id: item.id || crypto.randomUUID() })) } : {
     purchaseId: "PR-", date: today(), vendorName: "", brokerName: "", totalWeight: "", amount: "", discountChoice: "0", customDiscount: "", paymentDueDays: "0", items: [blankItem()],
   });
   const [touched, setTouched] = useState({}), [submitted, setSubmitted] = useState(false), [saving, setSaving] = useState(false), [globalError, setGlobalError] = useState("");
@@ -137,7 +139,7 @@ export default function PurchaseForm({ record, purchases, onClose, vendors, brok
     <div className="purchase-items"><div className="purchase-items-scroll"><table><thead><tr>{["Type", "Shape", "Size (mm)", "Weight (ct)", "Pieces", "BOX"].map((label) => <th key={label}>{label}</th>)}<th /></tr></thead>
       <tbody>{form.items.map((item, index) => <tr key={item.id}>{["type", "shape", "size", "weight", "pieces", "box"].map((key) => {
         const field = `items.${item.id}.${key}`, label = `Item ${index + 1} ${key === "box" ? "BOX" : key[0].toUpperCase() + key.slice(1)}`;
-        const props = { ...inputProps(field, label, key === "box"), value: item[key], onChange: (event) => updateItem(item.id, key, key === "box" ? event.target.value.toUpperCase() : event.target.value) };
+        const props = { ...inputProps(field, label, key === "box"), value: item[key], onBlur: () => { touch(field); if (key === "size" && isValidSize(item.size, allowDimensions)) updateItem(item.id, key, normalizeSize(item.size)); }, onChange: (event) => updateItem(item.id, key, key === "box" ? event.target.value.toUpperCase() : event.target.value) };
         return <td key={key}>{["type", "shape"].includes(key) ? <select {...props}><option value="">Select</option>{(key === "type" ? ["CVD", "HP"] : [...new Set([...shapes, item.shape].filter(Boolean))]).map((value) => <option key={value}>{value}</option>)}</select> : <input {...props} inputMode={key === "pieces" ? "numeric" : ["size", "weight"].includes(key) ? "decimal" : undefined} placeholder={key === "size" ? allowDimensions ? "4.3X2.0" : "4.3" : undefined} />}<FieldMessage field={field} error={visibleError(field)} /></td>;
       })}<td><button type="button" className="purchase-icon-button remove" disabled={form.items.length === 1 || saving} onClick={() => setForm((state) => ({ ...state, items: state.items.filter((row) => row.id !== item.id) }))} aria-label={`Remove item ${index + 1}`}>×</button></td></tr>)}</tbody>
       <tfoot><tr><td colSpan="3">Total Items: {form.items.length}</td><td className={validation.weightMismatch ? "purchase-total-mismatch" : ""}>{validation.itemWeightsValid ? formatDecimal(validation.itemTotalWeight) : "--"}</td><td>{form.items.every((item) => /^\d+$/.test(String(item.pieces))) ? form.items.reduce((sum, item) => sum + Number(item.pieces), 0) : "--"}</td><td colSpan="2" /></tr></tfoot>

@@ -1,0 +1,514 @@
+﻿/* Page-scoped presentation: pricing, subscriptions and shared theme stay intact. */
+.master-prices {
+  --master-danger: var(--age-red);
+  --master-primary-bg: var(--ui-emerald-dark);
+  --master-primary-text: var(--ui-surface-raised);
+  color: var(--ui-text);
+  font:
+    14px/1.5 Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  padding: 8px 4px 28px;
+  max-width: 1440px;
+  margin-inline: auto;
+}
+html[data-theme="dark"] .master-prices {
+  --ui-surface-raised: var(--ui-surface);
+  --ui-surface-subtle: var(--ui-bg);
+  --ui-border-strong: var(--ui-border);
+  --ui-hover: color-mix(in srgb, var(--ui-text) 7%, var(--ui-surface));
+  --master-danger: color-mix(in srgb, var(--age-red) 58%, white);
+  --master-primary-bg: var(--ui-emerald);
+  --master-primary-text: var(--ui-bg);
+}
+.master-prices * {
+  box-sizing: border-box;
+}
+.master-prices p {
+  margin: 0;
+  color: var(--ui-muted);
+}
+.master-prices .master-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 0 0 24px;
+  flex-wrap: wrap;
+}
+.master-heading {
+  flex: 1 1 400px;
+}
+.master-prices .master-heading h2 {
+  margin: 0 0 7px;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.6px;
+  line-height: 1.25;
+  color: var(--ui-text);
+}
+.master-heading p {
+  font-size: 14px;
+  max-width: 560px;
+}
+.master-prices button,
+.master-prices input,
+.master-prices select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ui-text);
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 7px;
+  min-height: 40px;
+  padding: 9px 12px;
+}
+.master-prices button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.master-prices button svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.master-prices button:hover:not(:disabled) {
+  background: var(--ui-hover);
+  border-color: var(--ui-muted);
+}
+.master-prices button.master-primary {
+  background: var(--master-primary-bg);
+  border-color: var(--master-primary-bg);
+  color: var(--master-primary-text);
+}
+.master-prices button.master-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--master-primary-bg) 90%, var(--ui-text));
+  border-color: transparent;
+}
+.master-prices button:disabled {
+  opacity: 1;
+  color: var(--ui-muted);
+  background: var(--ui-surface-subtle);
+  border-color: var(--ui-border);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.master-prices button.master-danger {
+  color: var(--master-danger);
+  border-color: color-mix(in srgb, var(--master-danger) 50%, var(--ui-border));
+}
+.master-prices :focus-visible {
+  outline: 2px solid var(--ui-emerald);
+  outline-offset: 3px;
+}
+.master-prices input::placeholder {
+  color: var(--ui-muted);
+  opacity: 1;
+}
+.master-prices label {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-muted);
+}
+.master-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.master-discovery {
+  display: grid;
+  grid-template-columns: minmax(240px, 2.5fr) repeat(4, minmax(100px, 1fr));
+  gap: 14px;
+  align-items: end;
+  padding: 18px;
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.master-discovery label > span {
+  text-transform: capitalize;
+}
+.master-discovery select {
+  width: 100%;
+}
+.master-search-control {
+  position: relative;
+}
+.master-search-control svg {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 17px;
+  height: 17px;
+  color: var(--ui-muted);
+  pointer-events: none;
+}
+.master-search-control input {
+  width: 100%;
+  padding-left: 37px;
+}
+.master-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--ui-border);
+  border-left: 3px solid var(--master-danger);
+  border-radius: 8px;
+  background: var(--ui-surface);
+}
+.master-notice > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--master-danger);
+  margin-top: 1px;
+}
+.master-notice strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.master-notice p {
+  font-size: 13px;
+}
+.master-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: var(--ui-surface);
+  box-shadow: var(--ui-shadow-sm);
+  scrollbar-width: thin;
+}
+.master-table-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.master-table-caption h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.master-table-caption span {
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.master-prices table {
+  width: 100%;
+  min-width: 790px;
+  border-collapse: collapse;
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  font-size: 13px;
+}
+.master-prices th,
+.master-prices td {
+  text-align: left;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--ui-border);
+  vertical-align: middle;
+}
+.master-prices th {
+  background: var(--ui-surface-subtle);
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 650;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.master-prices tbody tr:last-child td {
+  border-bottom: 0;
+}
+.master-prices tbody tr:hover {
+  background: var(--ui-hover);
+}
+.master-records td:first-child {
+  font-weight: 600;
+}
+.master-records td:nth-child(3),
+.master-records td:nth-child(4) {
+  font-variant-numeric: tabular-nums;
+}
+.master-records th:nth-child(5),
+.master-records td.master-money {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.master-records td.master-money {
+  font-weight: 600;
+}
+.master-records .master-updated {
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+.master-records th:last-child,
+.master-row-actions {
+  text-align: right;
+  white-space: nowrap;
+  width: 155px;
+}
+.master-row-actions button {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 12px;
+  background: transparent;
+}
+.master-row-actions .master-delete {
+  color: var(--master-danger);
+  margin-left: 5px;
+}
+.master-default {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-muted);
+  background: var(--ui-surface-subtle);
+}
+.master-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  text-align: center;
+  min-height: 180px;
+  padding: 26px 20px;
+}
+.master-state-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--ui-border);
+  border-radius: 11px;
+  color: var(--ui-muted);
+  background: var(--ui-surface-subtle);
+  margin-bottom: 4px;
+}
+.master-state-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.master-state h3 {
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ui-text);
+}
+.master-state p {
+  font-size: 13px;
+  max-width: 380px;
+}
+.master-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgb(0 0 0 / 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.master-dialog {
+  width: min(580px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  background: var(--ui-surface-raised);
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: var(--ui-shadow-sm);
+}
+.master-dialog > h3 {
+  margin: 0 0 6px;
+  font-size: 21px;
+  letter-spacing: -0.35px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.master-dialog .master-dialog-intro {
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.master-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 14px 16px;
+}
+.master-fields label {
+  color: var(--ui-text);
+  font-size: 13px;
+}
+.master-fields input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 400;
+}
+.master-price-field {
+  grid-column: 1 / -1;
+}
+.master-prices .master-error {
+  color: var(--master-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 400;
+  text-transform: none;
+}
+.master-prices p.master-error {
+  margin-top: 14px;
+}
+.master-prices [aria-invalid="true"] {
+  border-color: var(--master-danger);
+}
+.master-dialog .master-form-help {
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 16px;
+  padding: 9px 12px;
+  background: var(--ui-surface-subtle);
+  border: 1px solid var(--ui-border);
+  border-radius: 7px;
+}
+.master-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--ui-border);
+  padding-top: 14px;
+  margin-top: 18px;
+}
+.master-dialog-actions button {
+  min-width: 100px;
+}
+.master-dialog-actions .master-primary,
+.master-dialog-actions .master-danger {
+  order: 1;
+}
+.master-import {
+  width: min(1100px, 100%);
+}
+.master-import > section {
+  margin-top: 24px;
+}
+.master-import h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.master-import pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 12px;
+  color: var(--master-danger);
+}
+.master-import td:last-child {
+  min-width: 210px;
+}
+@media (max-width: 1100px) {
+  .master-heading {
+    flex-basis: 100%;
+  }
+  .master-page-header {
+    gap: 16px;
+  }
+  .master-discovery {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .master-search {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 600px) {
+  .master-prices {
+    padding: 4px 0 20px;
+  }
+  .master-prices .master-heading h2 {
+    font-size: 23px;
+  }
+  .master-heading p {
+    font-size: 13px;
+  }
+  .master-prices .master-page-header {
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .master-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .master-discovery {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+  .master-overlay {
+    padding: 14px;
+  }
+  .master-dialog {
+    padding: 20px;
+    max-height: calc(100dvh - 28px);
+  }
+  .master-fields {
+    grid-template-columns: 1fr;
+  }
+  .master-state {
+    min-height: 180px;
+  }
+  .master-table-caption {
+    padding: 14px;
+  }
+}
+
+.master-field-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.master-required {
+  color: var(--master-danger);
+}
+.master-optional {
+  margin-left: 3px;
+  color: var(--ui-muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+.master-fields input:disabled {
+  background: var(--ui-surface-subtle);
+  color: var(--ui-muted);
+}

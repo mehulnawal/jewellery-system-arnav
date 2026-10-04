@@ -3,7 +3,7 @@ import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import "./activityLog.css";
 
-const PANELS = ["Inventory", "Challan", "Purchase"];
+const PANELS = ["Inventory", "Challan", "Purchase", "Master Price List"];
 const STAGES = ["Stage 1", "Stage 2", "Stage 3", "Stage 4"];
 const localDateKey = (value) => {
   const date =
@@ -71,6 +71,7 @@ const sourceLabel = (entry) => {
 const actionLabel = (entry) =>
   ({
     created: "Created",
+    imported: "Imported",
     edited: "Edited",
     deleted: "Deleted",
     stage_moved: "Stage Move",
@@ -79,6 +80,7 @@ const actionLabel = (entry) =>
     final_settlement_completed: "Stage Move",
   })[entry.action] || "Activity";
 const columnsFor = (panel) => {
+  if (panel === "master price list") return [["Timestamp", eventTime], ["Action", actionLabel], ["Master Price / Changes", (entry) => entry.snapshot?.description || "--"], ["Import details", (entry) => (entry.snapshot?.rows || []).filter((row) => !row.added).map((row) => 'Row ' + row.rowNumber + ': ' + Object.entries(row.errors).map(([field, reason]) => field + ': ' + reason).join('; ')).join(' | ') || '--']];
   if (panel === "inventory")
     return [
       ["Timestamp", eventTime],
@@ -272,6 +274,7 @@ export default function ActivityLog() {
       );
     });
     exportSheet(XLSX, book, "Purchase", "purchase", panelEntries("purchase"));
+    exportSheet(XLSX, book, "Master Price List", "master price list", panelEntries("master price list"));
     XLSX.writeFile(book, "activity-log-" + selectedDate + ".xlsx");
   };
   const printTable = (panel, rows) => {
@@ -317,6 +320,7 @@ export default function ActivityLog() {
         challanSections +
         "<h2>Purchase</h2>" +
         printTable("purchase", purchase) +
+        "<h2>Master Price List</h2>" + printTable("master price list", panelEntries("master price list")) +
         "</body></html>",
     );
     popup.document.close();

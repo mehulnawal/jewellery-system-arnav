@@ -1,9 +1,10 @@
+import { setDoc } from "../firebase/businessWrites.js";
 ﻿import {
   createUserWithEmailAndPassword,
   getAuth,
   signOut,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db, secondaryApp } from "../firebase/config";
 export const PERMISSIONS = [
   ["inventory", "Inventory"],

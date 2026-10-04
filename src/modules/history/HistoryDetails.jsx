@@ -1,3 +1,4 @@
+import { normalizeSize } from "../../utils/dimensions.js";
 import { useEffect } from "react";
 import {
   StageFourView,
@@ -87,7 +88,7 @@ export function PurchaseHistoryDetails({ record, onClose }) {
                 <tr key={item.id || index}>
                   <td>{item.type || "--"}</td>
                   <td>{item.shape || "--"}</td>
-                  <td>{item.size || "--"}</td>
+                  <td>{normalizeSize(item.size) || "--"}</td>
                   <td>{formatWeight(item.weight)}</td>
                   <td>{item.pieces ?? "--"}</td>
                   <td>{item.box || "--"}</td>

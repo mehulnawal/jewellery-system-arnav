@@ -1,3 +1,4 @@
+import { canonicalSku, canonicalInventoryIdentity } from "./dimensions.js";
 import { isValidBox, isValidSize, normalizeBox } from "./inventoryRules.js";
 
 const missing = (value) => value === undefined || value === null || String(value).trim() === "";
@@ -63,7 +64,7 @@ export function validatePurchaseForm(form, { original = null, purchases = [], in
   if (!items.length) errors.items = "Add at least one Purchase item.";
   const owned = new Set((original?.items || []).map((item) => item.inventoryId));
   const skuCounts = new Map();
-  const skuFor = (item) => `${String(item.size || "").trim()}_${String(item.shape || "").trim()}_${item.type}`;
+  const skuFor = canonicalSku;
   for (const item of items) skuCounts.set(skuFor(item), (skuCounts.get(skuFor(item)) || 0) + 1);
   let itemTotalWeight = 0, itemWeightsValid = items.length > 0;
   for (const item of items) {
@@ -71,7 +72,7 @@ export function validatePurchaseForm(form, { original = null, purchases = [], in
     const sku = skuFor(item);
     if (!rowErrors.type && !rowErrors.shape && !rowErrors.size) {
       if (skuCounts.get(sku) > 1) rowErrors.size = "This Type, Shape and Size appears in another item row. Combine the quantities into one row.";
-      else if (inventory.some((entry) => entry.sku === sku && !owned.has(entry.id))) rowErrors.size = "This Type, Shape and Size already exists in Inventory. Choose a different item.";
+      else if (inventory.some((entry) => canonicalInventoryIdentity(entry) === sku && !owned.has(entry.id) && !(original?.items || []).some((old) => canonicalSku(old) === sku && old.id === item.id))) rowErrors.size = "This Type, Shape and Size already exists in Inventory. Choose a different item.";
     }
     for (const [key, message] of Object.entries(rowErrors)) errors[`items.${item.id}.${key}`] = message;
     if (rowErrors.weight) itemWeightsValid = false;

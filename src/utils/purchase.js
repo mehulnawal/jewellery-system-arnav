@@ -1,12 +1,7 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  runTransaction,
-  serverTimestamp,
-  where,
-} from "firebase/firestore";
+import { runTransaction } from "../firebase/businessWrites.js";
+import { canonicalSku, canonicalInventoryIdentity } from "./dimensions.js";
+import { prepareInventoryClaims, prepareInventoryRelease } from "./inventoryIdentity.js";
+import { collection, doc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { purchaseItemErrors, validatePurchaseForm } from "./purchaseValidation.js";
 import { prepareNumberClaim, prepareNumberRelease } from "./numberRegistry.js";
@@ -36,8 +31,7 @@ export const PURCHASE_ITEM_HEADERS = [
   "Pieces",
   "BOX",
 ];
-export const purchaseSku = ({ size, shape, type }) =>
-  size && shape && type ? `${size}_${shape}_${type}` : "--";
+export const purchaseSku = canonicalSku;
 export const inventoryGroup = (size) => {
   void sizeSortValue(size);
   return "Uncategorized";
@@ -165,7 +159,7 @@ export async function savePurchase({
     for (const item of normalized) {
       const duplicate = existingInventory.find(
         (entry) =>
-          entry.sku === purchaseSku(item) && !allowedExisting.has(entry.id),
+          canonicalInventoryIdentity(entry) === purchaseSku(item) && !allowedExisting.has(entry.id) && !(previous?.data()?.items || []).some((old) => old.id === item.id && canonicalSku(old) === purchaseSku(item)),
       );
       if (duplicate)
         throw new Error(
@@ -177,6 +171,9 @@ export async function savePurchase({
       sku: purchaseSku(item),
       inventoryId: inventoryRefs[index].id,
     }));
+    const unchangedIds = new Set((linkedInventory?.docs || []).filter((old) => recordItems.some((item) => item.inventoryId === old.id && canonicalSku(item) === canonicalSku(old.data()))).map((old) => old.id));
+    const releaseInventory = await Promise.all((linkedInventory?.docs || []).filter((old) => !unchangedIds.has(old.id)).map((old) => prepareInventoryRelease(tx, db, { ...old.data(), id: old.id })));
+    const claimInventory = await prepareInventoryClaims(tx, db, recordItems.filter((item) => !unchangedIds.has(item.inventoryId)).map((item) => ({ ...item, id: item.inventoryId })));
     const pricing = pricingFor(purchase.amount, check.discount);
     const payload = {
       id: purchaseRef.id,
@@ -201,6 +198,8 @@ export async function savePurchase({
         createdAt: serverTimestamp(),
         createdAtMs: now,
       });
+    releaseInventory.forEach((release) => release());
+    claimInventory();
     claimNumber();
     tx.set(purchaseRef, payload, { merge: edit });
     if (edit)
@@ -224,11 +223,11 @@ export async function savePurchase({
         {
           shape: item.shape,
           type: item.type,
-          size: item.size,
+          size: unchangedIds.has(item.inventoryId) ? existingInventoryByItemId.get(item.id).size : item.size,
           weight: item.weight,
           pieces: item.pieces,
           box: item.box,
-          sku: item.sku,
+          sku: unchangedIds.has(item.inventoryId) ? existingInventoryByItemId.get(item.id).sku : item.sku,
           group: inventoryGroup(item.size),
           origin: "Purchase",
           sourcePurchaseId: purchaseRef.id,

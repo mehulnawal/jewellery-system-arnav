@@ -1,0 +1,10 @@
+{
+  "description": "Synthetic local fixture only; no production data",
+  "inventory": [
+    { "id": "a", "size": 5, "shape": "PR", "type": "CBD", "sku": "5_PR_CBD", "weight": 2, "pieces": 2, "sourcePurchaseId": "p" },
+    { "id": "b", "size": "5.00", "shape": "PR", "type": "CBD", "sku": "5.00_PR_CBD", "weight": 3, "pieces": 3 },
+    { "id": "distinct", "size": "5.03", "shape": "PR", "type": "CBD", "sku": "5.03_PR_CBD", "weight": 1, "pieces": 1 }
+  ],
+  "purchases": [{ "id": "p", "items": [{ "inventoryId": "a" }] }],
+  "challans": [{ "id": "c", "items": [{ "sourceInventoryId": "b" }] }]
+}

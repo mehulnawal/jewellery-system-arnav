@@ -1,19 +1,14 @@
+import { setDoc } from "../../firebase/businessWrites.js";
+import { canonicalSku, canonicalInventoryIdentity } from "../../utils/dimensions.js";
+import { normalizeSize } from "../../utils/dimensions.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-} from "firebase/firestore";
+import { collection, doc, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../ui/ToastContext";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
-import { DEFAULT_SHAPES, formatDecimal } from "../../utils/inventoryRules";
+import { DEFAULT_SHAPES, formatDecimal, inventoryMatchesSearch } from "../../utils/inventoryRules";
 import {
   deletePurchase,
   datePlusDays,
@@ -54,7 +49,7 @@ function viewHtml(record) {
   const rows = (record.items || [])
     .map(
       (item) =>
-        `<tr><td>${escape(item.type)}</td><td>${escape(item.shape)}</td><td>${escape(item.size)}</td><td>${formatDecimal(item.weight)}</td><td>${item.pieces}</td><td>${escape(item.box)}</td><td>${escape(item.sku)}</td></tr>`,
+        `<tr><td>${escape(item.type)}</td><td>${escape(item.shape)}</td><td>${escape(normalizeSize(item.size))}</td><td>${formatDecimal(item.weight)}</td><td>${item.pieces}</td><td>${escape(item.box)}</td><td>${escape(item.sku)}</td></tr>`,
     )
     .join("");
   return `<section class="purchase-print"><h1>Purchase ${escape(record.purchaseId)}</h1><p><b>Date:</b> ${escape(labelDate(record.date))} &nbsp; <b>Vendor:</b> ${escape(record.vendorName)} &nbsp; <b>Broker:</b> ${escape(record.brokerName || "--")}</p><p><b>Total Weight:</b> ${formatDecimal(record.totalWeight)} ct &nbsp; <b>Gross:</b> ${currency(record.amount)} &nbsp; <b>Discount:</b> ${record.discount}% (${currency(record.discountAmount)}) &nbsp; <b>Net Payable:</b> ${currency(record.netPayable)}</p><p><b>Payment Due:</b> ${record.paymentDueDays} days -- ${escape(labelDate(record.paymentDueDate))}</p><table><thead><tr><th>Type</th><th>Shape</th><th>Size</th><th>Weight</th><th>Pieces</th><th>BOX</th><th>SKU</th></tr></thead><tbody>${rows}</tbody></table></section>`;
@@ -89,7 +84,7 @@ function exportPurchases(records, filename = "purchases.xlsx") {
             "Purchase ID": r.purchaseId,
             Type: item.type,
             Shape: item.shape,
-            "Size (mm)": item.size,
+            "Size (mm)": normalizeSize(item.size),
             "Weight (ct)": item.weight,
             Pieces: item.pieces,
             BOX: item.box,
@@ -129,6 +124,7 @@ function ImportPreview({ rows, onClose, onImport }) {
                 <div key={row.ref}>
                   <b>{row.ref}</b>
                   <span>{row.purchase.vendorName || "Unnamed Vendor"}</span>
+                  <p>{row.purchase.items.map(canonicalSku).join(", ")}</p>
                   {row.errors.map((error) => (
                     <p key={error}>- {error}</p>
                   ))}
@@ -183,6 +179,22 @@ export default function Purchase() {
     const timer = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const action = location.state?.dashboardAction;
+    const due = location.state?.dashboardDue;
+    if (!action && !due) return;
+    queueMicrotask(() => {
+      if (action === "create") setModal({ type: "form" });
+      if (due) {
+      const today = new Date();
+      const key = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const current = key(today);
+      const shift = (days) => { const date = new Date(today); date.setDate(date.getDate() + days); return key(date); };
+        setFilters((previous) => ({ ...previous, dueFrom: due === "overdue" ? "" : due === "today" ? current : shift(1), dueTo: due === "overdue" ? shift(-1) : due === "today" ? current : shift(7) }));
+      }
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [location.pathname, location.state, navigate]);
   useEffect(
     () =>
       onSnapshot(
@@ -286,7 +298,7 @@ export default function Purchase() {
               String(v || "")
                 .toLowerCase()
                 .includes(search),
-            );
+            ) || (r.items || []).some((item) => inventoryMatchesSearch(item, search));
         return (
           hit &&
           (!filters.vendor || r.vendorName === filters.vendor) &&
@@ -391,9 +403,15 @@ export default function Purchase() {
           group.errors.push(`Item Row ${index + 2}: ${check.errors.join(" ")}`);
         group.purchase.items.push(check.item);
       });
+      const seenIdentities = new Set(inventory.map(canonicalInventoryIdentity));
       const rows = [...refs.values()].map((group) => {
         const p = group.purchase,
           total = p.items.reduce((s, item) => s + item.weight, 0);
+        for (const item of p.items) {
+          const identity = canonicalSku(item);
+          if (seenIdentities.has(identity)) group.errors.push(`Duplicate Inventory identity: ${identity}.`);
+          else seenIdentities.add(identity);
+        }
         const numberError = documentNumberError("purchase", p.purchaseId, purchases);
         if (numberError) group.errors.push(numberError);
         if ([...refs.values()].filter((entry) => entry.purchase.purchaseId === p.purchaseId).length > 1)
@@ -545,7 +563,7 @@ export default function Purchase() {
       </div>
       <div className="purchase-filters">
         <input
-          placeholder="Search Purchase ID, Vendor or Broker"
+          placeholder="Search Purchase ID, Vendor, Broker, SKU or Size"
           value={filters.search}
           onChange={(e) =>
             setFilters((f) => ({ ...f, search: e.target.value }))
@@ -821,7 +839,7 @@ export default function Purchase() {
                       <tr key={i.id}>
                         <td>{i.type}</td>
                         <td>{i.shape}</td>
-                        <td>{i.size}</td>
+                        <td>{normalizeSize(i.size)}</td>
                         <td>{formatDecimal(i.weight)} ct</td>
                         <td>{i.pieces}</td>
                         <td>{i.box || "--"}</td>

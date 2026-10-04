@@ -1,14 +1,13 @@
+import { runTransaction, setDoc } from "../../firebase/businessWrites.js";
+import InventoryPicker from "./InventoryPicker";
+import { inventoryMatchesSearch } from "../../utils/inventoryRules.js";
+import { normalizeSize } from "../../utils/dimensions.js";
+import { useMasterPrices } from "../../hooks/useMasterPrices";
+import { refreshItemPrice, savedPriceItem, widthError, priceContext } from "../../utils/masterPrices.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./challan.css";
-import {
-  collection,
-  doc,
-  onSnapshot,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-} from "firebase/firestore";
+import { collection, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { writeActivity } from "../../utils/activityLog";
@@ -138,6 +137,7 @@ const challanSnapshot = (record) => ({
   stage: Number(record.stage || 1),
   inventoryItems: (record.items || []).map((item) => ({
     sku: item.sku || "",
+    width: normalizeSize(item.width),
     weight: Number(item.weight || 0),
     pieces: pieceValue(item.pieces),
     amount: Number(item.amount || 0),
@@ -182,6 +182,8 @@ const formatStageTime = (value) =>
       })
     : "";
 const blank = () => ({
+  width: "",
+  priceSource: "master-auto",
   id: crypto.randomUUID(),
   inventoryId: "",
   sku: "",
@@ -244,105 +246,6 @@ const Icon = ({ name }) => (
     {name === "search" && <circle cx="10.8" cy="10.8" r="6" />}{" "}
   </svg>
 );
-const SkuPicker = ({ value, inventory, onChange, onSelect, autoFocus }) => {
-  const [open, setOpen] = useState(false),
-    [highlighted, setHighlighted] = useState(0);
-  const selected = inventory.find((item) => item.sku === value);
-  const matches = inventory
-    .filter((item) =>
-      (
-        String(item.sku) +
-        " " +
-        String(item.shape) +
-        " " +
-        String(item.size) +
-        " " +
-        String(item.type) +
-        " " +
-        String(item.weight)
-      )
-        .toLowerCase()
-        .includes(value.toLowerCase()),
-    )
-    .slice(0, 8);
-  const choose = (item) => {
-    if (!item) return;
-    onSelect(item);
-    setOpen(false);
-  };
-  const keys = (event) => {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      setOpen(true);
-      setHighlighted((current) => {
-        const count = matches.length || 1;
-        return event.key === "ArrowDown"
-          ? (current + 1) % count
-          : (current - 1 + count) % count;
-      });
-    }
-    if (event.key === "Enter" && open) {
-      event.preventDefault();
-      choose(matches[highlighted]);
-    }
-    if (event.key === "Escape") setOpen(false);
-  };
-  return (
-    <div className="sku-picker">
-      {" "}
-      <input
-        value={value}
-        onFocus={() => {
-          setOpen(true);
-          setHighlighted(0);
-        }}
-        onBlur={() => window.setTimeout(() => setOpen(false), 140)}
-        onKeyDown={keys}
-        onChange={(event) => {
-          onChange(event.target.value);
-          setOpen(true);
-          setHighlighted(0);
-        }}
-        placeholder="Search SKU..."
-        autoFocus={autoFocus}
-        autoComplete="off"
-        aria-expanded={open}
-        aria-controls="challan-sku-options"
-      />{" "}
-      {selected && (
-        <small className="stock-availability">
-          {" "}
-          Avail: {Number(selected.weight || 0).toFixed(3)} ct /{" "}
-          {stockPieces(selected)} pcs{" "}
-        </small>
-      )}{" "}
-      {open && (
-        <div className="sku-menu" id="challan-sku-options" role="listbox">
-          {" "}
-          {matches.length ? (
-            matches.map((item, index) => (
-              <button
-                type="button"
-                key={item.id}
-                className={index === highlighted ? "keyboard-active" : ""}
-                role="option"
-                aria-selected={index === highlighted}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setHighlighted(index)}
-                onClick={() => choose(item)}
-              >
-                {" "}
-                <b>{item.sku}</b>{" "}
-              </button>
-            ))
-          ) : (
-            <p>No matching SKU found.</p>
-          )}{" "}
-        </div>
-      )}{" "}
-    </div>
-  );
-};
 const PartyPicker = ({ value, parties, onChange }) => {
   const [open, setOpen] = useState(false),
     [highlighted, setHighlighted] = useState(0);
@@ -797,7 +700,7 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
                   {item.sku}
                   <small>
                     {item.type || "--"} · {item.shape || "--"} ·{" "}
-                    {item.size || "--"}
+                    {normalizeSize(item.size) || "--"}
                   </small>
                 </b>
                 <span>
@@ -1087,7 +990,7 @@ export const StageOneView = ({ items }) => (
         <tr>
           <th>SKU / Item</th>
           <th>Shape</th>
-          <th>Size</th>
+          <th>Size</th><th>Width</th>
           <th>Pieces</th>
           <th>Weight</th>
           <th>Price</th>
@@ -1099,7 +1002,7 @@ export const StageOneView = ({ items }) => (
           <tr key={item.id || item.sku || index}>
             <td>{item.sku || "--"}</td>
             <td>{item.shape || "--"}</td>
-            <td>{item.size || "--"}</td>
+            <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
             <td>{viewPieces(item.pieces)}</td>
             <td>{viewWeight(item.weight)}</td>
             <td>{viewCurrency(item.amount)}</td>
@@ -1109,7 +1012,7 @@ export const StageOneView = ({ items }) => (
       </tbody>
       <tfoot>
         <tr>
-          <td colSpan="3">
+          <td colSpan="4">
             <strong>Total Items: {items.length}</strong>
           </td>
           <td>
@@ -1136,7 +1039,7 @@ export const StageTwoView = ({ items }) => (
           <tr>
             <th>SKU / Item</th>
             <th>Shape</th>
-            <th>Size</th>
+            <th>Size</th><th>Width</th>
             <th>Issued Pieces</th>
             <th>Issued Weight</th>
             <th>Return Pieces</th>
@@ -1152,7 +1055,7 @@ export const StageTwoView = ({ items }) => (
             <tr key={item.id || item.sku || index}>
               <td>{item.sku || "--"}</td>
               <td>{item.shape || "--"}</td>
-              <td>{item.size || "--"}</td>
+              <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
               <td>{viewWeight(item.issuedWeight)}</td>
               <td>{viewPieces(item.returnPieces)}</td>
@@ -1166,7 +1069,7 @@ export const StageTwoView = ({ items }) => (
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan="3">
+            <td colSpan="4">
               <strong>Total Items: {items.length}</strong>
             </td>
             <td>
@@ -1212,7 +1115,7 @@ export const StageThreeView = ({ invoice }) => {
             <tr>
               <th>SKU / Item</th>
               <th>Shape</th>
-              <th>Size</th>
+              <th>Size</th><th>Width</th>
               <th>Sold / Kept</th>
               <th>Price</th>
               <th>Stage 1 Discount</th>
@@ -1224,7 +1127,7 @@ export const StageThreeView = ({ invoice }) => {
               <tr key={item.id || item.sku || index}>
                 <td>{item.sku || "--"}</td>
                 <td>{item.shape || "--"}</td>
-                <td>{item.size || "--"}</td>
+                <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
                 <td>{soldKeptText(item)}</td>
                 <td>{viewCurrency(item.grossAmount ?? item.amount)}</td>
                 <td>{viewPercent(item.stage1DiscountPercent)}</td>
@@ -1257,7 +1160,7 @@ export const StageFourView = ({ items, invoice, settlement }) => (
           <tr>
             <th>SKU / Item</th>
             <th>Shape</th>
-            <th>Size</th>
+            <th>Size</th><th>Width</th>
             <th>Issued Pieces</th>
             <th>Issued Weight</th>
             <th>Return Pieces</th>
@@ -1274,7 +1177,7 @@ export const StageFourView = ({ items, invoice, settlement }) => (
             <tr key={item.id || item.sku || index}>
               <td>{item.sku || "--"}</td>
               <td>{item.shape || "--"}</td>
-              <td>{item.size || "--"}</td>
+              <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
               <td>{viewWeight(item.issuedWeight)}</td>
               <td>{viewPieces(item.returnPieces)}</td>
@@ -1291,7 +1194,7 @@ export const StageFourView = ({ items, invoice, settlement }) => (
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan="3">
+            <td colSpan="4">
               <strong>Total Items: {items.length}</strong>
             </td>
             <td>
@@ -1519,6 +1422,7 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
 
 export default function Challan() {
   const { user } = useAuth();
+  const { prices, error: masterPriceError, loading: masterPricesLoading } = useMasterPrices();
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1530,7 +1434,7 @@ export default function Challan() {
     () =>
       isAdmin
         ? [1, 2, 3, 4]
-        : [1, 2, 3, 4].filter((stage) => hasStagePermission(stage)),
+        : [1, 2, 3, 4].filter((stage) => user?.permissions?.includes(`challan-stage-${stage}`)),
     [isAdmin, user?.permissions],
   );
   const [records, setRecords] = useState([]);
@@ -1541,6 +1445,7 @@ export default function Challan() {
   const [dateFilter, setDateFilter] = useState(""),
     [partyFilter, setPartyFilter] = useState(""),
     [agingFilter, setAgingFilter] = useState("all"),
+    [dashboardAge, setDashboardAge] = useState(""),
     [sortMode, setSortMode] = useState("newest");
   const [form, setForm] = useState({
     number: "",
@@ -1556,6 +1461,24 @@ export default function Challan() {
   const [formError, setFormError] = useState("");
   const [challanFieldErrors, setChallanFieldErrors] = useState({});
   const [editingId, setEditingId] = useState(null);
+  // Reconcile incoming Firestore snapshots with the open draft, retaining
+  // manual/saved prices. Stable dependencies and unchanged-object returns make
+  // this a bounded update, never a write-back or subscription loop.
+  useEffect(() => {
+    if (page !== "create") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- External live snapshots must merge into editable draft state without overwriting user overrides.
+    setForm((state) => {
+      let changed = false;
+      const items = state.items.map((item) => {
+        const selected = !editingId && inventory.find((row) => row.id === item.inventoryId);
+        const sourceChanged = selected && (item.type !== selected.type || item.shape !== selected.shape || normalizeSize(item.size) !== normalizeSize(selected.size));
+        const next = refreshItemPrice(sourceChanged ? { ...item, type: selected.type, shape: selected.shape, size: normalizeSize(selected.size) } : item, prices);
+        if (next !== item) changed = true;
+        return next;
+      });
+      return changed ? { ...state, items } : state;
+    });
+  }, [inventory, editingId, page, prices]);
   const [saving, setSaving] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
   const [partyOptions, setPartyOptions] = useState([]);
@@ -1570,6 +1493,24 @@ export default function Challan() {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const action = location.state?.dashboardAction;
+    const stage = Number(location.state?.dashboardStage);
+    const age = location.state?.dashboardAge;
+    if (!action && !stage && !age) return;
+    queueMicrotask(() => {
+      if (action === "create" && permittedStages.includes(1)) {
+        setEditingId(null);
+        setFormError("");
+        setChallanFieldErrors({});
+        setForm({ number: "", date: today(), party: "", notes: "", items: [blank()] });
+        setPage("create");
+      }
+      if (stage && permittedStages.includes(stage)) { setTab(stage); setPage("list"); setDashboardAge(""); }
+      if (age) { setDashboardAge(age); setPage("list"); setTab(isAdmin ? "all" : permittedStages[0] ?? "all"); }
+      navigate(location.pathname, { replace: true, state: null });
+    });
+  }, [location.pathname, location.state, navigate, isAdmin, permittedStages]);
   useEffect(
     () =>
       onSnapshot(
@@ -1624,7 +1565,7 @@ export default function Challan() {
   );
   useEffect(() => {
     if (!isAdmin && !permittedStages.includes(Number(tab)))
-      setTab(permittedStages[0] ?? "all");
+      queueMicrotask(() => setTab(permittedStages[0] ?? "all"));
   }, [isAdmin, permittedStages, tab]);
   const accessibleRecords = useMemo(
     () =>
@@ -1676,12 +1617,16 @@ export default function Challan() {
           const matchAge =
             agingFilter === "all" ||
             challanAging(item, clock).status === agingFilter;
+          const created = timestampMs(item.createdAt) || Number(item.createdAtMs || 0);
+          const hours = created ? (clock - created) / 3600000 : 0;
+          const matchDashboardAge = !dashboardAge || ([1, 2].includes(Number(item.stage) || 1) && (dashboardAge === "5d" ? hours >= 120 : dashboardAge === "60h" ? hours >= 60 && hours < 120 : hours >= 24 && hours < 60));
           return (
             (tab === "all" || item.stage === Number(tab)) &&
             (!dateFilter || item.date === dateFilter) &&
             (!partyFilter || item.party === partyFilter) &&
             matchAge &&
-            (
+            matchDashboardAge &&
+            ((
               String(item.number || "") +
               " " +
               String(item.party || "") +
@@ -1689,7 +1634,7 @@ export default function Challan() {
               item.items.map((row) => row.sku).join(" ")
             )
               .toLowerCase()
-              .includes(search.toLowerCase())
+              .includes(search.toLowerCase()) || item.items.some((row) => inventoryMatchesSearch(row, search)))
           );
         })
         .sort((a, b) =>
@@ -1704,6 +1649,7 @@ export default function Challan() {
       dateFilter,
       partyFilter,
       agingFilter,
+      dashboardAge,
       sortMode,
       clock,
     ],
@@ -1711,7 +1657,10 @@ export default function Challan() {
   const itemChange = (id, key, value) => {
     setForm((state) => {
       const items = state.items.map((item) =>
-        item.id === id ? { ...item, [key]: value } : item,
+        item.id === id ? refreshItemPrice({ ...item, [key]: value,
+          ...(key === "amount" ? { priceSource: "manual", priceContext: priceContext(item) } : {}),
+          ...(key === "sku" ? { inventoryId: "", type: "", shape: "", size: "" } : {}),
+        }, prices) : item,
       );
       setFormError(stockError(items, inventory));
       return { ...state, items };
@@ -1721,16 +1670,16 @@ export default function Challan() {
     setForm((state) => {
       const items = state.items.map((item) =>
         item.id === id
-          ? {
+          ? refreshItemPrice({
               ...item,
               inventoryId: selected.id || "",
               sku: selected.sku || "",
               shape: selected.shape || "",
-              size: selected.size || "",
+              size: normalizeSize(selected.size),
               type: selected.type || "",
               weight: "",
               pieces: "",
-            }
+            }, prices)
           : item,
       );
       setFormError(stockError(items, inventory));
@@ -1762,6 +1711,11 @@ export default function Challan() {
       return;
     }
     const items = form.items.filter((item) => item.sku.trim());
+    const invalidWidth = items.find((item) => widthError(item.width));
+    if (invalidWidth) { setFormError(widthError(invalidWidth.width)); return; }
+    if (items.some((item) => item.amount === "" || item.amount == null || !Number.isFinite(Number(item.amount)) || Number(item.amount) < 0)) {
+      setFormError("Enter a valid Price for every item. Missing Master Prices may be entered manually."); return;
+    }
     const typedParty = form.party.trim();
     const existingParty = parties.find(
       (name) => name.toLocaleLowerCase() === typedParty.toLocaleLowerCase(),
@@ -1794,6 +1748,7 @@ export default function Challan() {
     setChallanFieldErrors({});
     const pricedItems = items.map((item) => ({
       ...item,
+      width: normalizeSize(item.width),
       pieces: pieceValue(item.pieces),
       ...pricingFor(item.amount, item.discount),
     }));
@@ -2007,7 +1962,8 @@ export default function Challan() {
         sku: item.sku || "",
         type: item.type || "",
         shape: item.shape || "",
-        size: item.size || "",
+        size: normalizeSize(item.size),
+        width: normalizeSize(item.width),
         issuedPieces: pieceValue(item.pieces),
         issuedWeight: Number(item.weight || 0),
         returnPieces: returnedPieces,
@@ -2234,7 +2190,7 @@ export default function Challan() {
       date: record.date,
       party: record.party,
       notes: record.notes || "",
-      items: record.items.map((item) => ({
+      items: record.items.map((item) => savedPriceItem({
         ...item,
         id: item.id || crypto.randomUUID(),
         amount: item.amount ?? "",
@@ -2320,7 +2276,8 @@ export default function Challan() {
         Stage: "Stage " + row.stage,
         SKU: item.sku || "",
         Shape: item.shape || "",
-        Size: item.size || "",
+        Size: normalizeSize(item.size),
+        Width: normalizeSize(item.width),
         Type: item.type || "",
         "Original Pieces": pieceValue(item.pieces ?? item.issuedPieces),
         "Original Weight": Number(item.weight ?? item.issuedWeight ?? 0),
@@ -2479,7 +2436,7 @@ export default function Challan() {
             items.length +
             " &nbsp; Original Amount: &#8377;" +
             totalAmount.toFixed(2);
-    const headers = ["SKU / Item", "Shape", "Size"];
+    const headers = ["SKU / Item", "Shape", "Size", "Width"];
     if (stage === 1) headers.push("Pieces", "Weight");
     if (isFlowStage)
       headers.push(
@@ -2494,7 +2451,7 @@ export default function Challan() {
     headers.push("Original Price", "Stage 1 Discount %");
     const itemRows = items
       .map((item) => {
-        const cells = [escape(item.sku), escape(item.shape), escape(item.size)];
+        const cells = [escape(item.sku), escape(item.shape), escape(normalizeSize(item.size)), escape(normalizeSize(item.width) || "--")];
         if (stage === 1)
           cells.push(
             pieceValue(item.pieces),
@@ -2908,7 +2865,7 @@ export default function Challan() {
                   <tr>
                     <th>SKU / Item</th>
                     <th>Shape</th>
-                    <th>Size</th>
+                    <th>Size</th><th>Width</th>
                     {stage === 1 && (
                       <>
                         <th>Pieces</th>
@@ -2937,7 +2894,7 @@ export default function Challan() {
                     <tr key={item.id || item.sku || index}>
                       <td>{item.sku || "-"}</td>
                       <td>{item.shape || "-"}</td>
-                      <td>{item.size || "-"}</td>
+                      <td>{normalizeSize(item.size) || "-"}</td><td>{normalizeSize(item.width) || "--"}</td>
                       {stage === 1 && (
                         <>
                           <td>{pieceValue(item.pieces)}</td>
@@ -2990,7 +2947,7 @@ export default function Challan() {
                 </tbody>{" "}
                 <tfoot>
                   <tr>
-                    <td colSpan="3">
+                    <td colSpan="4">
                       <strong>Total Items: {items.length}</strong>
                     </td>
                     {stage === 1 && (
@@ -3187,7 +3144,7 @@ export default function Challan() {
             {inventory.map((item) => (
               <option key={item.id} value={item.sku}>
                 {" "}
-                {item.shape} · {item.size} mm · {item.type}{" "}
+                {item.shape} · {normalizeSize(item.size)} mm · {item.type}{" "}
               </option>
             ))}{" "}
           </datalist>{" "}
@@ -3270,6 +3227,7 @@ export default function Challan() {
           <article>
             {" "}
             <h3>Inventory Items</h3>{" "}
+            {(masterPriceError || masterPricesLoading) && <p role="status">{masterPriceError || "Loading Master Prices… You can enter Price manually."}</p>}
             {challanFieldErrors.items && (
               <p className="challan-form-error" role="alert">
                 {" "}
@@ -3289,7 +3247,7 @@ export default function Challan() {
                 Inventory SKU *{" "}
                 <em className="live-weight-label">live weight</em>{" "}
               </span>{" "}
-              <span>Shape</span> <span>Size</span> <span>Type</span>{" "}
+              <span>Width</span><span>Shape</span> <span>Size</span> <span>Type</span>{" "}
               <span>Weight / Carat</span> <span>Pieces</span>{" "}
               <span>Price</span> <span>Discount %</span>{" "}
               <span>Discount / Net</span> <span />{" "}
@@ -3297,13 +3255,15 @@ export default function Challan() {
             {form.items.map((item) => (
               <div className="challan-item" key={item.id}>
                 {" "}
-                <SkuPicker
+                <InventoryPicker
                   value={item.sku}
+                  inventoryId={item.inventoryId}
                   inventory={inventory}
                   onChange={(value) => itemChange(item.id, "sku", value)}
                   onSelect={(selected) => selectSku(item.id, selected)}
                   autoFocus={focusSkuId === item.id}
                 />{" "}
+                <label className="challan-width"><input aria-label="Width" placeholder="Width (optional)" inputMode="decimal" value={item.width ?? ""} aria-invalid={Boolean(widthError(item.width))} onChange={(event) => itemChange(item.id, "width", event.target.value)} onBlur={() => { if (!widthError(item.width)) itemChange(item.id, "width", normalizeSize(item.width)); }} />{widthError(item.width) && <small role="alert">{widthError(item.width)}</small>}</label>
                 {["shape", "size", "type", "weight", "pieces"].map((key) => (
                   <input
                     key={key}
@@ -3313,7 +3273,7 @@ export default function Challan() {
                     min={key === "pieces" ? "0" : undefined}
                     step={key === "pieces" ? "1" : undefined}
                     inputMode={key === "pieces" ? "numeric" : undefined}
-                    value={item[key]}
+                    value={key === "size" ? normalizeSize(item[key]) : item[key]}
                     readOnly={["shape", "size", "type"].includes(key)}
                     aria-invalid={
                       key === "pieces" &&
@@ -3335,10 +3295,12 @@ export default function Challan() {
                     placeholder={key === "weight" ? "Weight (ct)" : key}
                   />
                 ))}{" "}
+
                 <input
                   type="number"
                   min="0"
                   step="0.01"
+                  required={Boolean(item.sku.trim())}
                   value={item.amount}
                   onChange={(event) =>
                     itemChange(item.id, "amount", event.target.value)
@@ -3523,6 +3485,7 @@ export default function Challan() {
           </button>
         ))}{" "}
       </nav>{" "}
+      {dashboardAge && <button type="button" className="business-text-link" onClick={() => setDashboardAge("")}>Age filter: {dashboardAge === "5d" ? "5+ days" : dashboardAge === "60h" ? "60h to 5d" : "24h to 60h"} ×</button>}
       <div className="metrics">
         {" "}
         {metrics.map(([label, value]) => (

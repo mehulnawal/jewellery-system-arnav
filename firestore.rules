@@ -2,6 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function businessUnlocked() { return !exists(/databases/$(database)/documents/systemState/business) || get(/databases/$(database)/documents/systemState/business).data.locked == false; }
+    function currentBusinessGeneration() { return !exists(/databases/$(database)/documents/systemState/business) || get(/databases/$(database)/documents/systemState/business).data.get('generation', 0) == 0 || request.resource.data.get('businessGeneration', -1) == get(/databases/$(database)/documents/systemState/business).data.generation; }
+    match /systemState/{id} { allow read: if request.auth != null; allow write: if false; }
+    match /businessResetAudits/{id} { allow read: if admin(); allow write: if false; }
+    match /resetAuthorizations/{id} { allow read, write: if false; }
     function signedIn() { return request.auth != null; }
     // The UI and database both identify administrators by their real employee profile role.
     function admin() { return signedIn() && (request.auth.uid == 'rK6ZhxFiauVodjzbssviy5sUyP03' || profile().role == 'superadmin'); }
@@ -64,14 +69,14 @@ service cloud.firestore {
     match /numberingMigrations/{entry} {
       allow read: if admin() || challanEmployee() || purchaseEmployee();
       // An Admin completes the one-time index from Settings on the free plan.
-      allow create, update: if entry in ['manual-v1', 'letters-v1'] && admin()
+      allow create, update: if businessUnlocked() && (entry in ['manual-v1', 'letters-v1'] && admin()
         && request.resource.data.keys().hasOnly(['ready', 'completedAt'])
-        && request.resource.data.ready == true;
-      allow delete: if false;
+        && request.resource.data.ready == true);
+      allow delete: if businessUnlocked() && (false);
     }
     match /challanNumbers/{key} {
       allow read: if admin() || challanEmployee();
-      allow create: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('A.*')))
+      allow create: if businessUnlocked() && (admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validChallanNumber(request.resource.data.number)
         && key == request.resource.data.number.replace('/', '-')
@@ -82,18 +87,18 @@ service cloud.firestore {
         && validChallanNumber(request.resource.data.number)
         && key == request.resource.data.number.replace('/', '-')
         && request.resource.data.recordId is string
-        && getAfter(/databases/$(database)/documents/challans/$(request.resource.data.recordId)).data.number == request.resource.data.number;
-      allow update: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('A.*')))
+        && getAfter(/databases/$(database)/documents/challans/$(request.resource.data.recordId)).data.number == request.resource.data.number);
+      allow update: if businessUnlocked() && (admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validChallanNumber(request.resource.data.number)
-        && key == request.resource.data.number.replace('/', '-');
-      allow delete: if admin() && resource.data.recordId is string
+        && key == request.resource.data.number.replace('/', '-'));
+      allow delete: if businessUnlocked() && (admin() && resource.data.recordId is string
         && (!existsAfter(/databases/$(database)/documents/challans/$(resource.data.recordId))
-          || getAfter(/databases/$(database)/documents/challans/$(resource.data.recordId)).data.number != resource.data.number);
+          || getAfter(/databases/$(database)/documents/challans/$(resource.data.recordId)).data.number != resource.data.number));
     }
     match /purchaseNumbers/{key} {
       allow read: if admin() || purchaseEmployee();
-      allow create: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('PR-A.*')))
+      allow create: if businessUnlocked() && (admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('PR-A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validPurchaseNumber(request.resource.data.number)
         && key == request.resource.data.number
@@ -104,13 +109,13 @@ service cloud.firestore {
         && validPurchaseNumber(request.resource.data.number)
         && key == request.resource.data.number
         && request.resource.data.recordId is string
-        && getAfter(/databases/$(database)/documents/purchases/$(request.resource.data.recordId)).data.purchaseId == request.resource.data.number;
-      allow update: if admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('PR-A.*')))
+        && getAfter(/databases/$(database)/documents/purchases/$(request.resource.data.recordId)).data.purchaseId == request.resource.data.number);
+      allow update: if businessUnlocked() && (admin() && (!numberingReady() || (!lettersReady() && !request.resource.data.number.matches('PR-A.*')))
         && request.resource.data.keys().hasOnly(['number', 'recordId', 'legacyRecordIds'])
         && validPurchaseNumber(request.resource.data.number)
-        && key == request.resource.data.number;
-      allow delete: if admin() && resource.data.recordId is string
-        && !existsAfter(/databases/$(database)/documents/purchases/$(resource.data.recordId));
+        && key == request.resource.data.number);
+      allow delete: if businessUnlocked() && (admin() && resource.data.recordId is string
+        && !existsAfter(/databases/$(database)/documents/purchases/$(resource.data.recordId)));
     }
     match /employeeProfiles/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || admin());
@@ -121,43 +126,121 @@ service cloud.firestore {
     match /staffCredentials/{uid} {
       allow read, create, update, delete: if admin();
     }
+    // Canonical decimal text: no leading zeros, no trailing fractional zeros,
+    // positive components only. This validates the shared JS utility's output.
+    function canonicalSize(value) {
+      return value is string
+        && value.matches('([1-9][0-9]*|([1-9][0-9]*|0)[.][0-9]*[1-9])(X([1-9][0-9]*|([1-9][0-9]*|0)[.][0-9]*[1-9]))?');
+    }
+    function identityReady() {
+      return exists(/databases/$(database)/documents/inventoryIdentityMigrations/v1)
+        && get(/databases/$(database)/documents/inventoryIdentityMigrations/v1).data.ready == true;
+    }
+    function identitySetupInProgress() {
+      return exists(/databases/$(database)/documents/inventoryIdentityMigrations/v1)
+        && get(/databases/$(database)/documents/inventoryIdentityMigrations/v1).data.get('status', '') == 'initializing';
+    }
+    function validIdentityPart(value) {
+      return value is string
+        && value.matches('[^/_[:space:][:cntrl:]]([^/_[:cntrl:]]*[^/_[:space:][:cntrl:]])?');
+    }
+    function inventoryIdentityChanged(entry) {
+      let path = /databases/$(database)/documents/inventory/$(entry);
+      return !exists(path)
+        || getAfter(path).data.diff(get(path).data).affectedKeys().hasAny(['size', 'shape', 'type', 'sku']);
+    }
+    function claimedInventoryIdentity(entry) {
+      let data = request.resource.data;
+      return identityReady() && canonicalSize(data.size) && validIdentityPart(data.shape) && validIdentityPart(data.type)
+        && data.sku == data.size + '_' + data.shape + '_' + data.type
+        && getAfter(/databases/$(database)/documents/inventoryIdentities/$(data.sku)).data.recordId == entry;
+    }
+    function validMasterPrice(key) {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['type', 'shape', 'height', 'width', 'price', 'active', 'revision', 'createdAt', 'updatedAt', 'updatedBy', 'businessGeneration'])
+        && validIdentityPart(data.type) && validIdentityPart(data.shape)
+        && canonicalSize(data.height)
+        && (data.width == '' || (canonicalSize(data.width) && !data.width.matches('.*X.*')))
+        && key == data.height + '_' + data.shape + '_' + data.type + '__' + (data.width == '' ? 'default' : data.width)
+        && data.price is number && data.price > 0 && data.price - data.price == 0
+        && data.active is bool && data.revision is int
+        && data.updatedAt == request.time && data.updatedBy == request.auth.uid;
+    }
+    match /masterPrices/{key} {
+      allow read: if admin() || (challanEmployee() && resource.data.active == true);
+      allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() && validMasterPrice(key) && request.resource.data.revision == 1 && request.resource.data.createdAt == request.time);
+      allow update: if businessUnlocked() && currentBusinessGeneration() && (admin() && validMasterPrice(key)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.revision == resource.data.revision + 1);
+      // Deactivation retains the record; Activity Log retains each mutation snapshot.
+      allow delete: if businessUnlocked() && (false);
+    }
+    match /inventoryIdentityMigrations/{entry} {
+      allow read: if admin() || activeOrGraceEmployee();
+      // Only a trusted Admin SDK rollout may initialize the audited index.
+      allow write: if businessUnlocked() && (false);
+    }
+    match /inventoryIdentities/{key} {
+      allow read: if admin() || activeOrGraceEmployee();
+      allow create, update: if businessUnlocked() && ((admin() || inventoryEmployee() || purchaseEmployee())
+        && identityReady()
+        && request.resource.data.keys().hasOnly(['sku', 'recordId'])
+        && request.resource.data.sku == key
+        && request.resource.data.recordId is string
+        // A reservation is only an accompaniment to an authorized stock identity
+        // transition. Staff cannot independently edit or initialize the registry.
+        && inventoryIdentityChanged(request.resource.data.recordId)
+        && canonicalSize(getAfter(/databases/$(database)/documents/inventory/$(request.resource.data.recordId)).data.size)
+        && getAfter(/databases/$(database)/documents/inventory/$(request.resource.data.recordId)).data.sku == key
+        && (!exists(/databases/$(database)/documents/inventoryIdentities/$(key))
+          || resource.data.recordId == request.resource.data.recordId
+          || (resource.data.recordId is string
+            && (!existsAfter(/databases/$(database)/documents/inventory/$(resource.data.recordId))
+              || (get(/databases/$(database)/documents/inventory/$(resource.data.recordId)).data.sku == key
+                && getAfter(/databases/$(database)/documents/inventory/$(resource.data.recordId)).data.sku != key)))));
+      allow delete: if businessUnlocked() && (identityReady() && (admin() || inventoryEmployee() || purchaseEmployee())
+        && resource.data.recordId is string
+        && exists(/databases/$(database)/documents/inventory/$(resource.data.recordId))
+        && (!existsAfter(/databases/$(database)/documents/inventory/$(resource.data.recordId))
+          || getAfter(/databases/$(database)/documents/inventory/$(resource.data.recordId)).data.diff(get(/databases/$(database)/documents/inventory/$(resource.data.recordId)).data).affectedKeys().hasAny(['size', 'shape', 'type'])));
+    }
     match /inventory/{entry} {
       // Check Inventory is a read-only stock lookup available to every active staff account.
       allow read: if admin() || activeOrGraceEmployee();
-      allow create: if admin() || (inventoryEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time) || (purchaseEmployee() && request.resource.data.sourcePurchaseId is string && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time);
+      allow create: if businessUnlocked() && currentBusinessGeneration() && (claimedInventoryIdentity(entry) && (admin() || (inventoryEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time) || (purchaseEmployee() && request.resource.data.sourcePurchaseId is string && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time)));
       // Preserve the deployed 60-minute Inventory and 10-minute Purchase windows.
       // Creation ownership/timing fields cannot be changed to extend that window.
-      allow update: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && (!resource.data.keys().hasAll(['pieces']) || request.resource.data.pieces <= resource.data.pieces));
-      allow delete: if admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m")) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m"));
+      allow update: if businessUnlocked() && currentBusinessGeneration() && ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(["size", "shape", "type", "sku"]) || claimedInventoryIdentity(entry)) && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && (!resource.data.keys().hasAll(['pieces']) || request.resource.data.pieces <= resource.data.pieces))));
+      allow delete: if businessUnlocked() && (!identitySetupInProgress() && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m")) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m"))));
     }
-    match /shapes/{entry} { allow read: if activeOrGraceEmployee() || admin(); allow write: if admin() || inventoryEmployee(); }
-    match /settings/{entry} { allow read: if activeEmployee() || admin(); allow write: if admin(); }
+    match /shapes/{entry} { allow read: if activeOrGraceEmployee() || admin(); allow write: if businessUnlocked() && (admin() || inventoryEmployee()); }
+    match /settings/{entry} { allow read: if activeEmployee() || admin(); allow write: if businessUnlocked() && (admin()); }
     match /parties/{party} {
       allow read: if activeOrGraceEmployee() || admin();
-      allow create: if admin() || activeOrGraceEmployee();
-      allow update, delete: if admin();
+      allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() || activeOrGraceEmployee());
+      allow update, delete: if businessUnlocked() && currentBusinessGeneration() && (admin());
     }
     match /challans/{entry} {
       allow read: if admin() || challanEmployee() || purchaseEmployee();
-      allow create: if (admin() || challanStageOneEmployee()) && claimedChallanNumber(entry);
+      allow create: if businessUnlocked() && currentBusinessGeneration() && ((admin() || challanStageOneEmployee()) && claimedChallanNumber(entry));
       // Staff may only edit their own Challan during its server-timestamped 60-minute window.
       // Stage-only updates remain available for the normal Challan workflow.
-      allow update: if (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
-        && (admin() || (activeOrGraceEmployee() && ((resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && ((resource.data.stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))) || (resource.data.stage == 1 && request.resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2']) && request.resource.data.stage2Return.items is list && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stage2Return", "stageHistory"])) || (resource.data.stage == 2 && request.resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalInvoice", "stageHistory"])) || (resource.data.stage == 3 && request.resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalSettlement", "stageHistory"])) )));
-      allow delete: if admin();
+      allow update: if businessUnlocked() && currentBusinessGeneration() && ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
+        && (admin() || (activeOrGraceEmployee() && ((resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && ((resource.data.stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))) || (resource.data.stage == 1 && request.resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2']) && request.resource.data.stage2Return.items is list && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stage2Return", "stageHistory"])) || (resource.data.stage == 2 && request.resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalInvoice", "stageHistory"])) || (resource.data.stage == 3 && request.resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalSettlement", "stageHistory"])) ))));
+      allow delete: if businessUnlocked() && (admin());
     }
     match /purchases/{entry} {
       allow read: if admin() || purchaseEmployee();
-      allow create: if claimedPurchaseNumber(entry) && validPurchaseFields(entry) && (admin() || (purchaseEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time));
-      allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['purchaseId'])
+      allow create: if businessUnlocked() && currentBusinessGeneration() && (claimedPurchaseNumber(entry) && validPurchaseFields(entry) && (admin() || (purchaseEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time)));
+      allow update: if businessUnlocked() && currentBusinessGeneration() && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['purchaseId'])
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notes', 'updatedAt', 'updatedAtMs']) || validPurchaseFields(entry))
-        && (admin() || (purchaseEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt));
-      allow delete: if admin();
+        && (admin() || (purchaseEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt)));
+      allow delete: if businessUnlocked() && (admin());
     }
-    match /vendors/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if admin() || purchaseEmployee(); allow delete: if admin(); }
-    match /brokers/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if admin() || purchaseEmployee(); allow delete: if admin(); }
-    match /counters/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if !(entry in ['challan', 'purchase']) && (admin() || purchaseEmployee()); allow delete: if false; }
-    match /activityLog/{entry} { allow read: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
-    match /activityLogFirstLogins/{entry} { allow get: if admin() || activeOrGraceEmployee(); allow list: if admin(); allow create: if admin() || (activeOrGraceEmployee() && authenticActor()); allow update, delete: if false; }
+    match /vendors/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if businessUnlocked() && currentBusinessGeneration() && (admin() || purchaseEmployee()); allow delete: if businessUnlocked() && (admin()); }
+    match /brokers/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if businessUnlocked() && currentBusinessGeneration() && (admin() || purchaseEmployee()); allow delete: if businessUnlocked() && (admin()); }
+    match /counters/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if businessUnlocked() && currentBusinessGeneration() && (!(entry in ['challan', 'purchase']) && (admin() || purchaseEmployee())); allow delete: if businessUnlocked() && (false); }
+    match /activityLog/{entry} { allow read: if admin(); allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() || (activeOrGraceEmployee() && authenticActor() && request.resource.data.panel != 'master price list')); allow update, delete: if businessUnlocked() && currentBusinessGeneration() && (false); }
+    match /activityLogFirstLogins/{entry} { allow get: if admin() || activeOrGraceEmployee(); allow list: if admin(); allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() || (activeOrGraceEmployee() && authenticActor())); allow update, delete: if businessUnlocked() && currentBusinessGeneration() && (false); }
   }
 }

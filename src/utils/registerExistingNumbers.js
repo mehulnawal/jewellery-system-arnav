@@ -1,4 +1,5 @@
-import { collection, doc, getDocFromServer, getDocsFromServer, serverTimestamp, writeBatch } from "firebase/firestore";
+import { writeBatch } from "../firebase/businessWrites.js";
+import { collection, doc, getDocFromServer, getDocsFromServer, serverTimestamp } from "firebase/firestore";
 import { isValidDocumentNumber, numberRegistryCollection, numberRegistryKey } from "./documentNumbers.js";
 
 const markerPath = ["numberingMigrations", "manual-v1"];

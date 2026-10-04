@@ -36,6 +36,11 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+  --ui-surface-raised: #1c2939;
+  --ui-surface-subtle: #141e2c;
+  --ui-border-strong: #4a5c72;
+  --ui-hover: #223142;
   --ui-bg: #111827;
   --ui-surface: #182231;
   --ui-border: #334155;
@@ -653,4 +658,171 @@ html:not([data-theme="dark"]) textarea[aria-invalid="true"] {
 }
 html:not([data-theme="dark"]) .has-error small {
   color: #b93e3e !important;
+}
+
+/* Shared interaction states: selected navigation, pointer hover and keyboard
+   focus are separate. These tokens also cover portals inside the page root. */
+:root {
+  --ui-danger: #b91c1c;
+  --ui-primary-fill: #047857;
+  --ui-on-primary: #fff;
+}
+:root[data-theme="dark"] {
+  --ui-danger: #fca5a5;
+  --ui-primary-fill: #36ad7e;
+  --ui-on-primary: #10251c;
+}
+:is(.admin-settings, .business-danger-zone) button {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+:is(.admin-settings, .business-danger-zone) button:hover:not(:disabled),
+.availability-banner button:hover:not(:disabled),
+.logout-cancel:hover {
+  background: var(--ui-hover);
+  border-color: var(--ui-border-strong);
+}
+.admin-settings button.settings-primary {
+  background: var(--ui-primary-fill);
+  color: var(--ui-on-primary);
+  border-color: var(--ui-primary-fill);
+}
+.admin-settings button.settings-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-primary-fill) 88%, var(--ui-text));
+}
+:is(.admin-settings .settings-delete, .business-danger-zone .danger-button) {
+  background: #b91c1c;
+  color: white;
+  border-color: #b91c1c;
+}
+:is(
+    .admin-settings .settings-delete,
+    .business-danger-zone .danger-button
+  ):hover:not(:disabled) {
+  background: #991b1b;
+  border-color: #991b1b;
+}
+:is(.admin-settings, .business-danger-zone) button:disabled {
+  background: var(--ui-surface-subtle);
+  color: var(--ui-muted);
+  border-color: var(--ui-border);
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+:is(
+    .master-prices,
+    .admin-settings,
+    .business-danger-zone,
+    .dashboard-sidebar,
+    .app-tools,
+    .availability-banner,
+    .logout-modal
+  )
+  :is(button, a):focus-visible {
+  outline: 2px solid var(--ui-emerald);
+  outline-offset: 3px;
+}
+:is(
+    .master-prices,
+    .admin-settings,
+    .business-danger-zone,
+    .app-tools,
+    .availability-banner,
+    .logout-modal
+  )
+  button:active:not(:disabled) {
+  box-shadow: inset 0 0 0 2px
+    color-mix(in srgb, var(--ui-text) 25%, transparent);
+}
+:is(.master-prices, .admin-settings, .business-danger-zone) :is(input, select) {
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  accent-color: var(--ui-emerald);
+}
+:is(.master-prices, .admin-settings, .business-danger-zone)
+  :is(input, select):hover:not(:disabled) {
+  border-color: var(--ui-muted);
+}
+:is(.master-prices, .admin-settings, .business-danger-zone)
+  :is(input, select):focus-visible {
+  outline: 2px solid var(--ui-emerald);
+  outline-offset: 2px;
+  border-color: var(--ui-emerald);
+}
+:is(.master-prices, .admin-settings, .business-danger-zone)
+  [aria-invalid="true"],
+:is(.master-prices, .admin-settings, .business-danger-zone)
+  [aria-invalid="true"]:is(:hover, :focus-visible) {
+  border-color: var(--ui-danger);
+}
+.admin-settings .settings-tabs {
+  flex-wrap: wrap;
+}
+.admin-settings .settings-tabs button.active {
+  background: var(--ui-emerald-soft) !important;
+  color: var(--ui-emerald-dark) !important;
+  border-color: var(--ui-emerald);
+}
+.settings-danger-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+:is(.settings-danger-entry a, .settings-back) {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  color: var(--ui-text);
+  font-size: 13px;
+  text-decoration: none;
+}
+:is(.settings-danger-entry a, .settings-back):hover {
+  background: var(--ui-hover);
+}
+.settings-back {
+  margin-bottom: 18px;
+}
+.availability-banner {
+  padding: 10px 12px;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.availability-banner > div {
+  flex: 1;
+}
+.availability-icon {
+  color: var(--age-yellow);
+  font-size: 18px;
+}
+.master-prices button.master-primary:disabled {
+  background: var(--ui-surface-subtle);
+  color: var(--ui-muted);
+  border-color: var(--ui-border);
+}
+.master-prices .master-notice {
+  padding: 10px 12px;
+}
+.master-notice button {
+  margin-top: 8px;
+}
+.business-danger-zone h4 {
+  font-size: 20px;
+  margin: 8px 0;
+}
+.business-danger-zone p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+@media (max-width: 700px) {
+  .settings-danger-entry {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
