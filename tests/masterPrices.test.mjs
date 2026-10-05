@@ -56,3 +56,11 @@ test('search canonical values, print clean dimensions, escape content, deactivat
   const html=masterPricePrintHtml([{...base,height:'5.00',shape:'<script>'}]);assert.ok(html.includes('<td>5</td>'));assert.ok(html.includes('Default'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));
   assert.equal(masterPriceMap([{...exact,active:false}]).size,0);
 });
+test('Pear auto price matches Inventory casing and refuses ambiguous case variants', () => {
+  const lower = { id: 'lower', type: 'cvd', shape: 'pear', height: '5.00', width: '7.00', price: 7200, active: true };
+  const stock = { inventoryId: 'physical-pear', sku: '5_Pear_CVD', type: 'CVD', shape: 'Pear', size: '5', width: '7', amount: '' };
+  assert.equal(refreshItemPrice(stock, masterPriceMap([lower])).amount, '7200');
+  assert.equal(refreshItemPrice(stock, masterPriceMap([
+    lower, { ...lower, id: 'upper', type: 'CVD', shape: 'Pear', price: 7300 },
+  ])).amount, '');
+});

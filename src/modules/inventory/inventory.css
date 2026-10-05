@@ -1,4 +1,4 @@
-﻿.inventory-module {
+.inventory-module {
   color: #172033;
   font-family:
     Inter,
@@ -1147,4 +1147,64 @@ html[data-theme="dark"] .inventory-import-card .inventory-import-table td.invent
 html[data-theme="dark"] .inventory-import-card .inventory-secondary,
 html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
   color: var(--import-text-body);
+}
+
+/* Inventory Add/Edit form states */
+.inventory-required-star { color: #c73535; font-size: 16px; margin-left: 2px; }
+.inventory-optional-label { color: #697789; font-size: 12px; font-weight: 500; margin-left: 5px; }
+.inventory-modal-card .inventory-field select {
+  appearance: auto;
+  background: #fff;
+  border: 1px solid #dce1e7;
+  border-radius: 6px;
+  box-sizing: border-box;
+  color: #354152;
+  font: 500 16px inherit;
+  height: 38px;
+  outline: 0;
+  padding: 0 11px;
+  width: 100%;
+}
+.inventory-modal-card .inventory-field select:focus-visible,
+.inventory-modal-card .inventory-field input:focus-visible {
+  border-color: #168459;
+  box-shadow: 0 0 0 3px #dff4e9;
+}
+.inventory-modal-card .inventory-button:focus-visible,
+.inventory-modal-close:focus-visible {
+  outline: 3px solid #59ad83;
+  outline-offset: 2px;
+}
+.inventory-modal-card .inventory-button:active { transform: translateY(1px); }
+.inventory-modal-card .inventory-button:disabled { cursor: not-allowed; opacity: .65; transform: none; }
+.inventory-modal-card footer .inventory-secondary {
+  background: #eef2f6;
+  border-color: #cbd4df;
+  color: #26384a;
+}
+.inventory-modal-card footer .inventory-secondary:hover:not(:disabled) {
+  background: #e3eaf1;
+  border-color: #aabaca;
+}
+.inventory-system-error {
+  background: #fff0ed;
+  border: 1px solid #edb9b0;
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+html[data-theme="dark"] .inventory-modal-card .inventory-field > span,
+html[data-theme="dark"] .inventory-modal-card .inventory-sku-field > span { color: #c9d6e5; }
+html[data-theme="dark"] .inventory-optional-label { color: #aebdd0; }
+html[data-theme="dark"] .inventory-modal-card footer .inventory-secondary {
+  background: #273548 !important;
+  border-color: #52647a !important;
+  color: #ecf2f9 !important;
+}
+html[data-theme="dark"] .inventory-modal-card footer .inventory-secondary:hover:not(:disabled) {
+  background: #34475e !important;
+}
+html[data-theme="dark"] .inventory-system-error {
+  background: #4b2528;
+  border-color: #8d4848;
+  color: #ffcdca;
 }

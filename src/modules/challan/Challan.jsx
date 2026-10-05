@@ -1,3 +1,4 @@
+import { useInventoryDiscovery } from '../../hooks/useInventoryDiscovery.js';
 import { runTransaction, setDoc } from "../../firebase/businessWrites.js";
 import InventoryPicker from "./InventoryPicker";
 import { inventoryMatchesSearch } from "../../utils/inventoryRules.js";
@@ -1456,7 +1457,7 @@ export default function Challan() {
     notes: "",
     items: [blank()],
   });
-  const [inventory, setInventory] = useState([]);
+  const { rows: inventory, error: inventoryError } = useInventoryDiscovery();
   const [focusSkuId, setFocusSkuId] = useState(null);
   const [formError, setFormError] = useState("");
   const [challanFieldErrors, setChallanFieldErrors] = useState({});
@@ -1535,18 +1536,6 @@ export default function Challan() {
           console.warn("Challans could not be loaded from Firestore.", error),
       ),
     [location.pathname, location.state?.viewChallanId, navigate],
-  );
-  useEffect(
-    () =>
-      onSnapshot(
-        collection(db, "inventory"),
-        (snapshot) =>
-          setInventory(
-            snapshot.docs.map((item) => ({ id: item.id, ...item.data() })),
-          ),
-        () => setInventory([]),
-      ),
-    [],
   );
   useEffect(
     () =>
@@ -3259,6 +3248,7 @@ export default function Challan() {
                   value={item.sku}
                   inventoryId={item.inventoryId}
                   inventory={inventory}
+                  error={inventoryError}
                   onChange={(value) => itemChange(item.id, "sku", value)}
                   onSelect={(selected) => selectSku(item.id, selected)}
                   autoFocus={focusSkuId === item.id}

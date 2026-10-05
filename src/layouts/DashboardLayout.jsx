@@ -1,7 +1,7 @@
 import { MasterPricesProvider } from "../hooks/useMasterPrices";
 import { createPortal } from "react-dom";
 import BusinessGate from "./BusinessGate";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import "./dashboardLayout.css";
@@ -164,6 +164,18 @@ export default function DashboardLayout() {
     () => localStorage.getItem("theme") || "light",
   );
   const [hint, setHint] = useState(null);
+  const [collapsedMenu, setCollapsedMenu] = useState(null);
+  const groupButtons = useRef({});
+  const menuRef = useRef(null);
+  const menuWidth = 224;
+  const positionMenu = (button, itemCount) => {
+    const box = button.getBoundingClientRect();
+    const height = 44 + itemCount * 40 + 12;
+    return {
+      left: Math.min(box.right + 10, Math.max(8, window.innerWidth - menuWidth - 8)),
+      top: Math.max(8, Math.min(box.top, window.innerHeight - height - 8)),
+    };
+  };
   const hintEvents = (label) => ({
     onMouseEnter: (event) => {
       const box = event.currentTarget.getBoundingClientRect();
@@ -243,6 +255,58 @@ export default function DashboardLayout() {
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [logoutConfirm, logout]);
+  useEffect(() => {
+    if (expanded) queueMicrotask(() => setCollapsedMenu(null));
+  }, [expanded]);
+  useEffect(() => {
+    queueMicrotask(() => setCollapsedMenu(null));
+  }, [location.pathname]);
+  const menuName = collapsedMenu?.name;
+  const menuItemCount = sections.find((group) => group.name === menuName)?.items.length;
+  useEffect(() => {
+    if (!menuName) return;
+    const closeOnOutside = (event) => {
+      if (menuRef.current?.contains(event.target)) return;
+      if (groupButtons.current[menuName]?.contains(event.target)) return;
+      setCollapsedMenu(null);
+    };
+    const onKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setCollapsedMenu(null);
+      groupButtons.current[menuName]?.focus();
+    };
+    const reposition = () => {
+      const button = groupButtons.current[menuName];
+      if (!button || !menuItemCount) return setCollapsedMenu(null);
+      const next = positionMenu(button, menuItemCount);
+      setCollapsedMenu((old) => old?.name === menuName ? { ...old, ...next } : old);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    const first = menuRef.current?.querySelector('[role="menuitem"]');
+    first?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [menuName, menuItemCount]);
+  const onMenuKeyDown = (event) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const items = [...menuRef.current.querySelectorAll('[role="menuitem"]')];
+    if (!items.length) return;
+    event.preventDefault();
+    const current = items.indexOf(document.activeElement);
+    const next = event.key === "Home" ? 0
+      : event.key === "End" ? items.length - 1
+      : event.key === "ArrowDown" ? (current + 1) % items.length
+      : (current - 1 + items.length) % items.length;
+    items[next].focus();
+  };
   // Keep the selected destination visible without expanding a collapsed sidebar.
   const groupOpen = (name) =>
     expanded && (activeGroup === name || Boolean(groups[name]));
@@ -292,20 +356,22 @@ export default function DashboardLayout() {
                   (activeGroup === group.name ? "contains-active" : "")
                 }
                 {...(!expanded ? hintEvents(group.name) : {})}
+                ref={(button) => { groupButtons.current[group.name] = button; }}
                 aria-label={group.name}
-                aria-expanded={groupOpen(group.name)}
-                aria-controls={"nav-" + group.name}
-                onClick={() => {
+                aria-haspopup={!expanded ? "menu" : undefined}
+                aria-expanded={expanded ? groupOpen(group.name) : collapsedMenu?.name === group.name}
+                aria-controls={expanded ? "nav-" + group.name : "collapsed-nav-" + group.name}
+                onClick={(event) => {
                   setHint(null);
                   if (!expanded) {
-                    setExpanded(true);
-                    setGroups((old) => ({ ...old, [group.name]: true }));
-                  } else
+                    const position = positionMenu(event.currentTarget, group.items.length);
+                    setCollapsedMenu((old) => old?.name === group.name ? null : { name: group.name, ...position });
+                  } else {
                     setGroups((old) => ({
                       ...old,
-                      [group.name]:
-                        activeGroup === group.name || !old[group.name],
+                      [group.name]: activeGroup === group.name || !old[group.name],
                     }));
+                  }
                 }}
               >
                 <Icon name={group.icon} />
@@ -324,6 +390,7 @@ export default function DashboardLayout() {
         </nav>
       </aside>
       {!expanded &&
+        !collapsedMenu &&
         hint &&
         createPortal(
           <div
@@ -335,6 +402,32 @@ export default function DashboardLayout() {
           </div>,
           document.body,
         )}
+      {!expanded && collapsedMenu && createPortal(
+        <div
+          ref={menuRef}
+          id={"collapsed-nav-" + collapsedMenu.name}
+          className="sidebar-menu"
+          role="menu"
+          aria-label={collapsedMenu.name}
+          style={{ top: collapsedMenu.top, left: collapsedMenu.left }}
+          onKeyDown={onMenuKeyDown}
+        >
+          <div className="sidebar-menu-heading">{collapsedMenu.name}</div>
+          {sections.find((group) => group.name === collapsedMenu.name)?.items.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              role="menuitem"
+              className={({ isActive }) => "sidebar-menu-item" + (isActive ? " active" : "")}
+              onClick={() => setCollapsedMenu(null)}
+            >
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </div>,
+        document.body,
+      )}
       <main className="dashboard-main">
         <header className="dashboard-header">
           <span className="app-page-context">{pageTitle}</span>

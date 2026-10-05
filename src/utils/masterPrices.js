@@ -77,11 +77,18 @@ export function masterPriceMap(rows) {
   const map = new Map();
   for (const row of rows) {
     if (row.active === false) continue;
-    const key = masterPriceKey(row);
+    const key = masterPriceLookupKey(row);
     if (key) map.set(key, map.has(key) ? null : row); // Never choose a legacy collision arbitrarily.
   }
   return map;
 }
+// Keep Firestore document IDs unchanged, while matching Inventory and Master
+// Price Type/Shape regardless of how an older entry was capitalized.
+export const masterPriceLookupKey = (row) => masterPriceKey({
+  ...row,
+  type: String(row.type ?? "").trim().toLowerCase(),
+  shape: String(row.shape ?? "").trim().toLowerCase(),
+});
 export const priceContext = (item) =>
   `${item.inventoryId || ""}|${item.sku || ""}|${masterPriceKey(item) || `invalid:${item.width}`}`;
 export function refreshItemPrice(item, prices) {
@@ -92,7 +99,7 @@ export function refreshItemPrice(item, prices) {
   )
     return item;
   const master =
-    item.inventoryId && item.sku ? prices.get(masterPriceKey(item)) : null;
+    item.inventoryId && item.sku ? prices.get(masterPriceLookupKey(item)) : null;
   const amount = master ? String(master.price) : "";
   if (
     item.priceContext === context &&

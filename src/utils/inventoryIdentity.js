@@ -6,7 +6,16 @@ import { canonicalSku, normalizeSize } from "./dimensions.js";
 // rules require the claim and the Inventory write to agree atomically.
 export async function prepareInventoryClaims(tx, db, rows) {
   if (!rows.length) return () => {};
-  const ready = await tx.get(doc(db, "inventoryIdentityMigrations", "v1"));
+
+  const markerRef = doc(db, "inventoryIdentityMigrations", "v1");
+  let ready;
+  try { ready = await tx.get(markerRef); }
+  catch (error) {
+    if (import.meta.env?.DEV) console.info("[Inventory identity read denied]", {
+      operation: "get", path: markerRef.path, code: error?.code, message: error?.message,
+    });
+    throw error;
+  }
   if (!ready.exists() || ready.data().ready !== true)
     throw new Error("Inventory identity index is not ready. An administrator must review the legacy Size audit and initialize the index before saving Inventory identities.");
   const keys = rows.map(canonicalSku);
@@ -15,7 +24,15 @@ export async function prepareInventoryClaims(tx, db, rows) {
   for (let i = 0; i < rows.length; i++) {
     const key = keys[i], row = rows[i];
     if (key === "--" || key.includes("/")) throw new Error("Invalid Inventory Size identity.");
-    const ref = doc(db, "inventoryIdentities", key), claim = await tx.get(ref);
+    const ref = doc(db, "inventoryIdentities", key);
+    let claim;
+    try { claim = await tx.get(ref); }
+    catch (error) {
+      if (import.meta.env?.DEV) console.info("[Inventory identity read denied]", {
+        operation: "get", path: ref.path, code: error?.code, message: error?.message,
+      });
+      throw error;
+    }
     if (claim.exists()) {
       const owner = claim.data().recordId;
       if (!owner) throw new Error(`Legacy canonical collision for ${key}. Review the audit; records have not been merged.`);
@@ -32,6 +49,12 @@ export async function prepareInventoryClaims(tx, db, rows) {
 
 export async function saveInventoryIdentity(db, ref, payload, edit = false) {
   const canonical = { ...payload, size: normalizeSize(payload.size), sku: canonicalSku(payload) };
+  if (import.meta.env?.DEV) console.info("[Inventory identity save attempt]", {
+    inventoryPath: ref.path,
+    identityPath: `inventoryIdentities/${canonical.sku}`,
+    markerPath: "inventoryIdentityMigrations/v1",
+    operation: edit ? "update" : "create",
+  });
   await runTransaction(db, async (tx) => {
     const previous = await tx.get(ref);
     if (edit && !previous.exists()) throw new Error("This Inventory item is no longer available.");

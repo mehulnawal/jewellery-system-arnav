@@ -3,6 +3,7 @@ export default defineConfig({
   testDir: ".",
   testMatch: [
     "ui.spec.mjs",
+    "inventoryDiscovery.ui.spec.mjs",
     "masterPrices.ui.spec.mjs",
     "statusSettings.ui.spec.mjs",
     "sidebarPolish.ui.spec.mjs",

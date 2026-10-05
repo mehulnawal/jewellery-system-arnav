@@ -1,4 +1,4 @@
-﻿import { readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import {
   formatDecimal,
   inventoryMatchesSearch,
@@ -68,7 +68,7 @@ requireText(
   "inventory-field-error",
   "inline form validation errors",
 );
-requireText(inventory, "numericInput", "input character filtering");
+requireText(inventory, "inventoryFieldError", "field-specific form validation");
 requireText(
   styles,
   ".inventory-row-actions .inventory-row-delete",

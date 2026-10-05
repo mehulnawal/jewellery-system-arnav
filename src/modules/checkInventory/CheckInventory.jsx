@@ -1,6 +1,7 @@
+import { useInventoryDiscovery } from '../../hooks/useInventoryDiscovery.js';
 import { normalizeSize } from "../../utils/dimensions.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { getAgeingColor, getAgeingDays } from "../../config/ageingConfig";
 import {
@@ -59,8 +60,6 @@ const ActionIcon = ({ name }) => (
 );
 export default function CheckInventory() {
   const searchRef = useRef(null),
-    [items, setItems] = useState([]),
-    [loading, setLoading] = useState(true),
     [shapes, setShapes] = useState(LEGACY_SHAPES),
     [input, setInput] = useState(""),
     [search, setSearch] = useState(""),
@@ -69,17 +68,7 @@ export default function CheckInventory() {
     [group, setGroup] = useState("All groups"),
     [ageing, setAgeing] = useState("Any ageing"),
     [sort, setSort] = useState("Newest first");
-  useEffect(() => {
-    const off = onSnapshot(
-      query(collection(db, "inventory"), orderBy("createdAt", "desc")),
-      (snap) => {
-        setItems(snap.docs.map((entry) => ({ id: entry.id, ...entry.data() })));
-        setLoading(false);
-      },
-      () => setLoading(false),
-    );
-    return off;
-  }, []);
+  const { rows: items, loading, error: inventoryError } = useInventoryDiscovery();
   useEffect(() => {
     const off = onSnapshot(collection(db, "shapes"), (snap) =>
       setShapes(
@@ -188,6 +177,7 @@ export default function CheckInventory() {
   };
   return (
     <section className="check-inventory-module">
+      {inventoryError && <p role="alert">{inventoryError}</p>}
       <header>
         <div>
           <h2>Check Inventory</h2>

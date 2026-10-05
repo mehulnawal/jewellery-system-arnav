@@ -1,7 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { inventoryMatchesSearch } from "../../utils/inventoryRules.js";
-import { normalizeSize } from "../../utils/dimensions.js";
+import { auditInventorySize, discoverInventory } from "../../utils/inventoryDiscovery.js";
+import { isValidSize, normalizeSize } from "../../utils/dimensions.js";
 import { pieceValue } from "../../utils/pieces";
 import "./inventoryPicker.css";
 
@@ -9,6 +9,7 @@ export default function InventoryPicker({
   value,
   inventoryId,
   inventory,
+  error,
   onChange,
   onSelect,
   autoFocus,
@@ -21,12 +22,13 @@ export default function InventoryPicker({
     list = useRef(),
     id = useId();
   const selected = inventory.find((row) => row.id === inventoryId);
-  const matches = inventory.filter(
-    (row) =>
-      (Number(row.weight || 0) > 0 ||
-        pieceValue(row.pieces ?? row.quantity ?? row.qty) > 0) &&
-      inventoryMatchesSearch(row, query, { dimensionOnlyNumeric: true }),
-  );
+  const { matches, counts } = useMemo(() => discoverInventory(inventory, query), [inventory, query]);
+  useEffect(() => {
+    if (import.meta.env.DEV && open) {
+      console.info('[Inventory picker]', { query, source: counts.source, eligible: counts.eligible, matched: counts.filtered, matchedPhysicalIds: query ? matches.map(row => row.id) : [] });
+      if (isValidSize(query, true)) console.info('[Inventory size audit]', auditInventorySize(inventory, query));
+    }
+  }, [open, query, inventory, matches, counts.source, counts.eligible, counts.filtered]);
   const active = Math.min(highlighted, Math.max(0, matches.length - 1));
   useLayoutEffect(() => {
     if (!open) return;
@@ -90,6 +92,7 @@ export default function InventoryPicker({
   }, [active, open]);
   const choose = (row) => {
     if (!row) return;
+    if (import.meta.env.DEV) console.info('[Inventory selection]', { physicalRecordId: row.id, sku: row.sku, rawSize: row.size });
     onSelect(row);
     setOpen(false);
   };
@@ -148,6 +151,7 @@ export default function InventoryPicker({
           }
         }}
       />
+      {error && <small role="alert">{error}</small>}
       {selected && (
         <small className="stock-availability">
           Avail: {Number(selected.weight || 0).toFixed(3)} ct /{" "}
@@ -193,7 +197,7 @@ export default function InventoryPicker({
                 </button>
               ))
             ) : (
-              <p>No available Inventory matches this search.</p>
+              <p>{error || "No available Inventory matches this search."}</p>
             )}
           </div>,
           document.body,

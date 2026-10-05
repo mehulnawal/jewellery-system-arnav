@@ -1,18 +1,21 @@
+import { useInventoryDiscovery } from '../../hooks/useInventoryDiscovery.js';
 import { deleteDoc, updateDoc } from "../../firebase/businessWrites.js";
-import { canonicalSku, canonicalInventoryIdentity, sameSize } from "../../utils/dimensions.js";
+import { canonicalSku, canonicalInventoryIdentity } from "../../utils/dimensions.js";
 import { saveInventoryIdentity } from "../../utils/inventoryIdentity.js";
 import { auditDimensions } from "../../utils/dimensionAudit.js";
-﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, doc, getDocFromServer, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { collection, doc, getDocFromServer, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../ui/ToastContext";
 import { getAgeingColor, getAgeingDays } from "../../config/ageingConfig";
 import { writeInventoryActivity } from "../../utils/activityLog";
+import { inventoryFieldError, inventorySaveErrorMessage } from "../../utils/inventoryForm.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import {
   DEFAULT_SHAPES,
+  INVENTORY_SHAPES,
   INVENTORY_IMPORT_FIELD_HEADERS,
   formatDecimal,
   inventoryMatchesSearch,
@@ -27,7 +30,7 @@ import "./inventory.css";
 
 const INVENTORY = "inventory",
   SHAPES = "shapes",
-  LEGACY_SHAPES = orderShapes([...DEFAULT_SHAPES, "Pear", "Heart"]),
+  LEGACY_SHAPES = INVENTORY_SHAPES,
   SETTINGS = doc(db, "settings", "inventory");
 export const SIZE_TO_GROUP_MAP = [];
 const STAFF_EDIT_WINDOW_MS = 2 * 60 * 1000;
@@ -149,11 +152,11 @@ async function excel(rows) {
   XLSX.utils.book_append_sheet(book, sheet, `Inventory_${stamp}`);
   XLSX.writeFile(book, `inventory_${stamp}.xlsx`);
 }
-function Picker({ label, value, options, onChange, error }) {
+function Picker({ label, value, options, onChange, onBlur, error, required = false }) {
   return (
-    <label className={`inventory-field wide ${error ? "has-error" : ""}`}>
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+    <label className={`inventory-field ${error ? "has-error" : ""}`}>
+      <span>{label} {required && <b className="inventory-required-star">*</b>}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} onBlur={onBlur}>
         <option value="">Select {label.toLowerCase()}</option>
         {options.map((option) => (
           <option key={option}>{option}</option>
@@ -163,7 +166,7 @@ function Picker({ label, value, options, onChange, error }) {
     </label>
   );
 }
-function AddModal({
+export function AddModal({
   item,
   shapes,
   existingItems,
@@ -172,197 +175,155 @@ function AddModal({
   onSaved,
 }) {
   usePageFreeze();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [form, setForm] = useState({
-    shape: item?.shape ?? "",
     type: item?.type ?? "",
-    weight: item?.weight ?? "",
+    shape: item?.shape ?? "",
     size: normalizeSize(item?.size),
+    weight: item?.weight ?? "",
+    box: item?.box ?? "",
   });
-  const [errors, setErrors] = useState({}),
-    [saving, setSaving] = useState(false);
-  const validateField = (key, value) => {
-    if (key === "shape") return value ? "" : "Select a shape.";
-    if (key === "type")
-      return ["CVD", "HP"].includes(value) ? "" : "Select CVD or HP.";
-    if (key === "weight")
-      return value === ""
-        ? "Weight is required."
-        : Number(value) > 0
-          ? ""
-          : "Weight must be greater than 0.";
-    if (key === "size")
-      return value === ""
-        ? "Size is required."
-        : isValidSize(value, allowDimensions)
-          ? ""
-          : allowDimensions
-            ? "Use a positive size or uppercase X format, e.g. 4.3X2.0."
-            : "Enter a positive numeric size.";
-    return "";
+  const [touched, setTouched] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [systemError, setSystemError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedWithoutActivity, setSavedWithoutActivity] = useState(false);
+  const savingRef = useRef(false);
+  const normalized = {
+    ...form,
+    type: norm(form.type).toUpperCase(),
+    shape: title(form.shape),
+    size: normalizeSize(form.size),
+    box: normalizeBox(form.box),
   };
+  const candidateSku = canonicalSku(normalized);
+  const duplicate = candidateSku !== "--" &&
+    existingItems.some((entry) =>
+      entry.id !== item?.id &&
+      canonicalInventoryIdentity(entry) === candidateSku &&
+      (!item || canonicalInventoryIdentity(item) !== candidateSku));
+  const fieldErrors = Object.fromEntries(
+    ["type", "shape", "size", "weight", "box"].map((key) =>
+      [key, inventoryFieldError(key, normalized[key], allowDimensions)]),
+  );
+  if (!fieldErrors.size && duplicate)
+    fieldErrors.size = "This Type, Shape and Size already exists in Inventory.";
+  const visibleError = (key) => (submitted || touched[key] ? fieldErrors[key] : "");
+  const touch = (key) => setTouched((current) => ({ ...current, [key]: true }));
   const update = (key, value) => {
-    const next = { ...form, [key]: value };
-    setForm(next);
-    const duplicate = isValidSize(next.size, allowDimensions) && existingItems.some((entry) => entry.id !== item?.id && canonicalInventoryIdentity(entry) === canonicalSku(next)) && (!item || canonicalInventoryIdentity(item) !== canonicalSku(next));
-    setErrors((current) => ({ ...current, [key]: validateField(key, value), size: validateField("size", next.size) || (duplicate ? "This Type, Shape and Size already exists in Inventory." : "") }));
-  };
-  const numericInput = (key, value, dimensions = false) => {
-    const allowed = dimensions
-      ? allowDimensions
-        ? /^\d*(?:\.\d*)?(?:X\d*(?:\.\d*)?)?$/
-        : /^\d*(?:\.\d*)?$/
-      : /^\d*(?:\.\d*)?$/;
-    if (allowed.test(value)) update(key, value);
+    setForm((current) => ({ ...current, [key]: value }));
+    setSystemError("");
   };
   const save = async () => {
-    const normalized = {
-      ...form,
-      shape: title(form.shape),
-      type: norm(form.type).toUpperCase(),
-      size: normalizeSize(form.size),
-    };
-    const nextErrors = Object.fromEntries(
-      Object.keys(normalized)
-        .map((key) => [key, validateField(key, normalized[key])])
-        .filter(([, message]) => message),
-    );
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
-    const weight = Number(normalized.weight),
-      duplicate = existingItems.some(
-        (entry) =>
-          entry.id !== item?.id &&
-          entry.shape === normalized.shape &&
-          entry.type === normalized.type &&
-          sameSize(entry.size, normalized.size) && (!item || canonicalInventoryIdentity(item) !== canonicalSku(normalized)),
-      );
-    if (duplicate) {
-      setErrors((current) => ({
-        ...current,
-        size: `This Size already exists for ${normalized.shape} ${normalized.type}.`,
-      }));
+    if (savingRef.current || savedWithoutActivity) return;
+    setSubmitted(true);
+    if (Object.values(fieldErrors).some(Boolean)) return;
+    const allowed = hasPermission("inventory");
+    if (!allowed) {
+      setSystemError(inventorySaveErrorMessage(null, false));
       return;
     }
+    savingRef.current = true;
     setSaving(true);
+    const ref = item ? doc(db, INVENTORY, item.id) : doc(collection(db, INVENTORY));
+    let operation = "Inventory and identity transaction", stockSaved = false;
     try {
       const payload = {
         shape: normalized.shape,
         type: normalized.type,
         size: normalized.size,
-        weight,
+        weight: Number(normalized.weight),
+        box: normalized.box,
         group: group(normalized.size),
-        sku: sku(normalized),
+        sku: candidateSku,
         updatedAt: serverTimestamp(),
       };
-      if (item) {
-        await saveInventoryIdentity(db, doc(db, INVENTORY, item.id), payload, true);
-        const saved = await getDocFromServer(doc(db, INVENTORY, item.id));
-        const updated = { id: item.id, ...saved.data() };
-        await writeInventoryActivity("edited", updated, { before: item, user });
-        onSaved(updated);
-      } else {
-        const created = {
-          ...payload,
-          origin: "Manual",
-          createdBy: user?.uid ?? "pending-auth",
-          createdAt: serverTimestamp(),
-        };
-        const ref = await saveInventoryIdentity(db, doc(collection(db, INVENTORY)), created);
-        const saved = await getDocFromServer(ref);
-        const createdItem = { id: ref.id, ...saved.data() };
-        await writeInventoryActivity("created", createdItem, {
-          origin: "Manual",
-          user,
-        });
-        onSaved(createdItem);
-      }
+      const created = item ? payload : {
+        ...payload,
+        origin: "Manual",
+        createdBy: user.uid,
+        createdAt: serverTimestamp(),
+      };
+      await saveInventoryIdentity(db, ref, created, Boolean(item));
+      stockSaved = true;
+      operation = "Inventory server read";
+      const saved = await getDocFromServer(ref);
+      const savedItem = { ...saved.data(), id: ref.id };
+      operation = "Activity Log create";
+      await writeInventoryActivity(item ? "edited" : "created", savedItem,
+        { before: item, origin: "Manual", user });
+      if (import.meta.env.DEV) console.info("[Inventory save success]", {
+        uid: user?.uid, role: user?.role, inventoryPermission: allowed,
+        operation: item ? "update" : "create", inventoryPath: ref.path,
+        identityPath: `inventoryIdentities/${candidateSku}`,
+      });
+      onSaved(savedItem);
     } catch (error) {
-      setErrors((current) => ({
-        ...current,
-        form: error.message || "Could not save this item. Please try again.",
-      }));
+      if (import.meta.env.DEV) console.info("[Inventory save failure]", {
+        uid: user?.uid, role: user?.role, inventoryPermission: allowed,
+        operation, inventoryPath: ref.path, identityPath: candidateSku === "--"
+          ? null : `inventoryIdentities/${candidateSku}`,
+        code: error?.code, message: error?.message,
+      });
+      if (stockSaved) {
+        setSavedWithoutActivity(true);
+        setSystemError("Inventory was saved, but a follow-up read or Activity Log write failed. Do not save it again; contact an administrator.");
+      } else {
+        setSystemError(inventorySaveErrorMessage(error, allowed));
+      }
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
   return (
     <div className="inventory-modal">
-      <div className="inventory-modal-card">
-        <button className="inventory-modal-close" onClick={onClose}>
+      <div className="inventory-modal-card" role="dialog" aria-modal="true" aria-label={item ? "Edit Inventory" : "Add Inventory"}>
+        <button type="button" className="inventory-modal-close" aria-label="Close Inventory form" onClick={onClose}>
           <Icon n="close" />
         </button>
         <h3>{item ? "Edit item" : "Add item"}</h3>
-        <p>
-          SKU is generated automatically. Box can be added after the item is
-          created.
-        </p>
+        <p>Enter the stock details. SKU is generated automatically.</p>
         <div className="inventory-form">
-          <Picker
-            label="Type"
-            value={form.type}
-            options={["CVD", "HP"]}
-            onChange={(value) => update("type", value)}
-            error={errors.type}
-          />
-          <Picker
-            label="Shape"
-            value={form.shape}
-            options={shapes}
-            onChange={(value) => update("shape", value)}
-            error={errors.shape}
-          />
-          <label
-            className={`inventory-field ${errors.size ? "has-error" : ""}`}
-          >
-            <span>Size (mm)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={form.size}
-              onBlur={() => { if (isValidSize(form.size, allowDimensions)) update("size", normalizeSize(form.size)); }}
-              onChange={(event) =>
-                update("size", event.target.value)
-              }
-              placeholder={allowDimensions ? "4.3 or 4.3X2.0" : "4.3"}
-            />
-            {errors.size && (
-              <small className="inventory-field-error">{errors.size}</small>
-            )}
+          <Picker label="Type" required value={form.type} options={["CVD", "HP"]}
+            onChange={(value) => update("type", value)} onBlur={() => touch("type")}
+            error={visibleError("type")} />
+          <Picker label="Shape" required value={form.shape} options={shapes}
+            onChange={(value) => update("shape", value)} onBlur={() => touch("shape")}
+            error={visibleError("shape")} />
+          <label className={`inventory-field ${visibleError("size") ? "has-error" : ""}`}>
+            <span>Size (mm) <b className="inventory-required-star">*</b></span>
+            <input type="text" inputMode="decimal" value={form.size}
+              onBlur={() => { touch("size"); if (isValidSize(form.size, allowDimensions)) update("size", normalizeSize(form.size)); }}
+              onChange={(event) => update("size", event.target.value)}
+              placeholder={allowDimensions ? "4.3 or 4.3X2.0" : "4.3"} />
+            {visibleError("size") && <small className="inventory-field-error">{visibleError("size")}</small>}
           </label>
-          <label
-            className={`inventory-field ${errors.weight ? "has-error" : ""}`}
-          >
-            <span>Weight (ct)</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={form.weight}
-              onChange={(event) => numericInput("weight", event.target.value)}
-            />
-            {errors.weight && (
-              <small className="inventory-field-error">{errors.weight}</small>
-            )}
+          <label className={`inventory-field ${visibleError("weight") ? "has-error" : ""}`}>
+            <span>Weight (ct) <b className="inventory-required-star">*</b></span>
+            <input type="text" inputMode="decimal" value={form.weight}
+              onBlur={() => touch("weight")}
+              onChange={(event) => update("weight", event.target.value)} />
+            {visibleError("weight") && <small className="inventory-field-error">{visibleError("weight")}</small>}
           </label>
-          <div className="inventory-sku-field">
-            <span>SKU</span>
-            <b>{sku({ ...form, size: normalizeSize(form.size) })}</b>
+          <label className={`inventory-field ${visibleError("box") ? "has-error" : ""}`}>
+            <span>Box <small className="inventory-optional-label">Optional</small></span>
+            <input type="text" value={form.box} placeholder="B29"
+              onBlur={() => touch("box")}
+              onChange={(event) => update("box", normalizeBox(event.target.value))} />
+            {visibleError("box") && <small className="inventory-field-error">{visibleError("box")}</small>}
+          </label>
+          <div className="inventory-sku-field" aria-live="polite">
+            <span>SKU · Generated automatically</span>
+            <b>{candidateSku}</b>
           </div>
         </div>
-        {errors.form && <p className="inventory-error">{errors.form}</p>}
+        {systemError && <p className="inventory-error inventory-system-error" role="alert">{systemError}</p>}
         <footer>
-          <button
-            className="inventory-button inventory-primary"
-            disabled={saving}
-            onClick={save}
-          >
+          <button type="button" className="inventory-button inventory-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="inventory-button inventory-primary"
+            disabled={saving || savedWithoutActivity} aria-busy={saving} onClick={save}>
             {saving ? "Saving..." : item ? "Save changes" : "Add item"}
-          </button>
-          <button
-            className="inventory-button inventory-secondary"
-            onClick={onClose}
-          >
-            Cancel
           </button>
         </footer>
       </div>
@@ -581,8 +542,7 @@ export default function Inventory() {
     navigate = useNavigate(),
     searchRef = useRef(),
     importRef = useRef();
-  const [items, setItems] = useState([]),
-    [shapes, setShapes] = useState(LEGACY_SHAPES),
+  const [shapes, setShapes] = useState(LEGACY_SHAPES),
     [allowDimensions, setAllowDimensions] = useState(false),
     [input, setInput] = useState(""),
     [find, setFind] = useState(""),
@@ -596,26 +556,12 @@ export default function Inventory() {
     [deleteItems, setDeleteItems] = useState(null),
     [printMode, setPrintMode] = useState("all"),
     [menu, setMenu] = useState(false),
-    [loading, setLoading] = useState(true),
     [clock, setClock] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  useEffect(
-    () =>
-      onSnapshot(
-        query(collection(db, INVENTORY), orderBy("createdAt", "desc")),
-        (snap) => {
-          setItems(
-            snap.docs.map((entry) => ({ id: entry.id, ...entry.data() })),
-          );
-          setLoading(false);
-        },
-        () => setLoading(false),
-      ),
-    [],
-  );
+  const { rows: items, loading, error: inventoryError } = useInventoryDiscovery();
   useEffect(
     () =>
       onSnapshot(collection(db, SHAPES), (snap) =>
@@ -824,6 +770,7 @@ export default function Inventory() {
   };
   return (
     <section className="inventory-module">
+      {inventoryError && <p role="alert">{inventoryError}</p>}
       <header className="inventory-heading">
         <h2>Inventory</h2>
         <p>{formatDecimal(weight)} ct in stock</p>

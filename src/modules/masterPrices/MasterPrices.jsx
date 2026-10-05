@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { useMasterPrices } from "../../hooks/useMasterPrices";
 import { useBusinessAvailability } from "../../hooks/useBusinessAvailability.js";
-import { DEFAULT_SHAPES } from "../../utils/inventoryRules.js";
+import { INVENTORY_SHAPES, orderShapes } from "../../utils/inventoryRules.js";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../../firebase/config";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import { normalizeSize } from "../../utils/dimensions.js";
 import {
@@ -76,6 +78,14 @@ const PageIcon = ({ name }) => (
 export default function MasterPrices() {
   const { user } = useAuth(),
     { rows, loading, error, stale, retry } = useMasterPrices();
+  const [storedShapes, setStoredShapes] = useState([]);
+  useEffect(() => onSnapshot(collection(db, "shapes"), (snapshot) =>
+    setStoredShapes(snapshot.docs.map((entry) => entry.data().value)),
+  ), []);
+  const shapeOptions = useMemo(
+    () => orderShapes([...INVENTORY_SHAPES, ...storedShapes, ...rows.map((row) => row.shape)]),
+    [storedShapes, rows],
+  );
   const [form, setForm] = useState(null),
     [previous, setPrevious] = useState(null),
     [candidate, setCandidate] = useState(null);
@@ -308,7 +318,10 @@ export default function MasterPrices() {
                   ),
                 ),
               ]
-                .sort()
+                .filter(Boolean)
+                .sort(key === "shape"
+                  ? (a, b) => orderShapes([a, b]).indexOf(a) - orderShapes([a, b]).indexOf(b)
+                  : undefined)
                 .map((value) => (
                   <option key={value} value={value}>
                     {value === "default" ? "Default" : value}
@@ -521,12 +534,10 @@ export default function MasterPrices() {
             </div>
             {["type", "shape"].map((key) => (
               <datalist id={`master-${key}`} key={key}>
-                {[
-                  ...new Set([
-                    ...rows.map((row) => row[key]),
-                    ...(key === "type" ? ["CVD", "HP"] : DEFAULT_SHAPES),
-                  ]),
-                ].map((value) => (
+                {(key === "type"
+                  ? [...new Set(["CVD", "HP", ...rows.map((row) => row.type)])]
+                  : shapeOptions
+                ).map((value) => (
                   <option key={value} value={value} />
                 ))}
               </datalist>

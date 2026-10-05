@@ -3,7 +3,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -79,7 +78,7 @@ export function AuthProvider({ children }) {
       await signOut(auth);
       throw new Error("This Access ID is inactive or unavailable.");
     }
-    await activateProfile(profile.data());
+    await activateProfile({ ...profile.data(), uid: credential.user.uid });
   };
   useEffect(
     () =>
@@ -90,7 +89,7 @@ export function AuthProvider({ children }) {
           return;
         }
         const profile = await resolveProfile(current);
-        const data = profile.data();
+        const data = { ...profile.data(), uid: current.uid };
         const deadline =
           timestampMs(data?.accessRevokedAt) + REVOCATION_GRACE_MS;
         if (
@@ -115,7 +114,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!user?.uid || user.role === "superadmin") return;
     return onSnapshot(doc(db, "employeeProfiles", user.uid), (snapshot) => {
-      const latest = snapshot.data();
+      const latest = snapshot.exists() ? { ...snapshot.data(), uid: snapshot.id } : null;
       const revokedAt = timestampMs(latest?.accessRevokedAt);
       const deadline = revokedAt + REVOCATION_GRACE_MS;
       if (!latest) {
@@ -137,6 +136,7 @@ export function AuthProvider({ children }) {
       setRemaining(Math.max(0, deadline - Date.now()));
     });
   }, [user?.uid, user?.role]);
+  const sessionActive = remaining > 0;
   useEffect(() => {
     if (!expiryAt.current) return;
     const timer = window.setInterval(() => {
@@ -145,9 +145,8 @@ export function AuthProvider({ children }) {
       if (!next) void logout();
     }, 1000);
     return () => clearInterval(timer);
-  }, [Boolean(expiryAt.current)]);
-  const value = useMemo(
-    () => ({
+  }, [sessionActive]);
+  const value = {
       user,
       isLoading: loading,
       loginEmployee,
@@ -160,9 +159,7 @@ export function AuthProvider({ children }) {
         ),
       sessionRemaining: remaining,
       sessionExpiring: remaining > 0,
-    }),
-    [user, loading, remaining],
-  );
+    };
   return (
     <AuthContext.Provider value={value}>
       {children}
