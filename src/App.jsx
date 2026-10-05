@@ -26,7 +26,9 @@ export default function App() {
     <Routes>
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardLayout />}>
-          <Route index element={<BusinessDashboard />} />
+          <Route element={<PermissionRoute adminOnly />}>
+            <Route index element={<BusinessDashboard />} />
+          </Route>
           <Route element={<PermissionRoute permission="inventory" />}>
             <Route path="inventory" element={<Inventory />} />
           </Route>

@@ -2,13 +2,14 @@ import { readFile, writeFile } from "node:fs/promises";
 import { initializeApp, applicationDefault, deleteApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { auditDimensions } from "../src/utils/dimensionAudit.js";
+import { firebaseCliFirestore } from "./lib/firebaseCliCredential.mjs";
 import { identityFingerprint, initializeInventoryIdentities } from "./lib/initializeInventoryIdentities.mjs";
 
 const args = process.argv.slice(2);
 const option = (name) => args.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
-const input = option("input"), project = option("project"), output = option("output"), apply = args.includes("--apply");
+const input = option("input"), project = option("project"), output = option("output"), apply = args.includes("--apply"), cliAuth = args.includes("--firebase-cli-auth");
 if (args.includes("--help")) {
-  console.log("Dry run: node scripts/initializeInventoryIdentities.mjs --input=export.json --output=plan.json\nEmulator dry run: --project=demo-inventory-rollout --output=plan.json (set FIRESTORE_EMULATOR_HOST)\nApply: --project=PROJECT --apply --expected-fingerprint=SHA256 --ack-guard-rules-deployed\nNon-emulator access additionally requires --allow-live --confirm-project=PROJECT. No business records are written. JSON exports can never be applied directly.");
+  console.log("Dry run: node scripts/initializeInventoryIdentities.mjs --input=export.json --output=plan.json\nEmulator dry run: --project=demo-inventory-rollout --output=plan.json (set FIRESTORE_EMULATOR_HOST)\nApply: --project=PROJECT --apply --expected-fingerprint=SHA256 --ack-guard-rules-deployed\nNon-emulator access additionally requires --allow-live --confirm-project=PROJECT. Add --firebase-cli-auth to use the signed-in Firebase CLI account when ADC is unavailable. No business records are written. JSON exports can never be applied directly.");
   process.exit(0);
 }
 if (input && apply) throw new Error("JSON exports are read-only audit inputs, never an initialization source.");
@@ -20,13 +21,16 @@ if (!input && emulator && (!project.startsWith("demo-") || !/^(127\.0\.0\.1|loca
   throw new Error("Local initialization requires a demo- project and a loopback emulator host.");
 if (!input && !emulator && (!args.includes("--allow-live") || option("confirm-project") !== project))
   throw new Error("Live access disabled. Use a JSON export or local emulator. A future approved live run requires --allow-live --confirm-project=PROJECT.");
-let app;
+let app, db;
 try {
-  let data, db;
+  let data;
   if (input) data = JSON.parse(await readFile(input, "utf8"));
   else {
-    app = initializeApp({ projectId: project, ...(emulator ? {} : { credential: applicationDefault() }) });
-    db = getFirestore(app);
+    if (cliAuth && !emulator) db = await firebaseCliFirestore(project);
+    else {
+      app = initializeApp({ projectId: project, ...(emulator ? {} : { credential: applicationDefault() }) });
+      db = getFirestore(app);
+    }
     data = Object.fromEntries(await Promise.all(["inventory", "purchases", "challans"].map(async (name) => {
       const snapshot = await db.collection(name).get();
       return [name, snapshot.docs.map((entry) => ({ ...entry.data(), id: entry.id }))];
@@ -43,4 +47,4 @@ try {
     const result = await initializeInventoryIdentities(db, { expectedFingerprint: option("expected-fingerprint"), guardRulesAcknowledged: true });
     console.log(JSON.stringify({ initialization: result }, null, 2));
   }
-} finally { if (app) await deleteApp(app); }
+} finally { if (app) await deleteApp(app); else if (db) await db.terminate(); }

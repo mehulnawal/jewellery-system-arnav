@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import "./dashboardLayout.css";
+import { isAdminAccount } from "../auth/accessPolicy.js";
 const Icon = ({ name }) => (
   <svg
     className="dashboard-icon"
@@ -192,7 +193,7 @@ export default function DashboardLayout() {
     },
   });
   const [logoutConfirm, setLogoutConfirm] = useState(false);
-  const isAdmin = user?.role === "superadmin";
+  const isAdmin = isAdminAccount(user);
   const sections = [
     {
       name: "Operations",
@@ -347,7 +348,7 @@ export default function DashboardLayout() {
           </button>
         </div>
         <nav aria-label="Application navigation" onScroll={() => setHint(null)}>
-          {link({ label: "Dashboard", to: "/dashboard", icon: "dashboard" })}
+          {isAdmin && link({ label: "Dashboard", to: "/dashboard", icon: "dashboard" })}
           {sections.map((group) => (
             <section className="nav-group" key={group.name}>
               <button

@@ -15,6 +15,7 @@ import { doc, onSnapshot, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase/config";
 import { accountEmail, employeeProfile } from "../utils/accessAccounts";
 import { captureFirstLogin } from "../utils/activityLog";
+import { hasModulePermission } from "./accessPolicy.js";
 import "./authContext.css";
 
 const AuthContext = createContext(null);
@@ -78,7 +79,9 @@ export function AuthProvider({ children }) {
       await signOut(auth);
       throw new Error("This Access ID is inactive or unavailable.");
     }
-    await activateProfile({ ...profile.data(), uid: credential.user.uid });
+    const resolved = { ...profile.data(), uid: credential.user.uid };
+    await activateProfile(resolved);
+    return resolved;
   };
   useEffect(
     () =>
@@ -151,12 +154,7 @@ export function AuthProvider({ children }) {
       isLoading: loading,
       loginEmployee,
       logout,
-      hasPermission: (key) =>
-        user?.role === "superadmin" ||
-        Boolean(
-          user?.permissions?.includes(key) ||
-          user?.allowedModules?.includes(key),
-        ),
+      hasPermission: (key) => hasModulePermission(user, key),
       sessionRemaining: remaining,
       sessionExpiring: remaining > 0,
     };

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { landingPath } from "../auth/accessPolicy.js";
 const ThemeIcon = ({ theme }) =>
   theme === "light" ? (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -32,8 +33,8 @@ export default function Login() {
     setError("");
     setSaving(true);
     try {
-      await loginEmployee(accessId, password);
-      navigate("/dashboard", { replace: true });
+      const account = await loginEmployee(accessId, password);
+      navigate(landingPath(account), { replace: true });
     } catch (reason) {
       setError(reason.message || "Unable to sign in.");
     } finally {

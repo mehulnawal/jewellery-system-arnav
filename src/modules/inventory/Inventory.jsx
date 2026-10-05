@@ -536,7 +536,7 @@ function DeleteModal({ items, onClose, onConfirm }) {
   );
 }
 export default function Inventory() {
-  const { user } = useAuth(),
+  const { user, hasPermission } = useAuth(),
     toast = useToast(),
     location = useLocation(),
     navigate = useNavigate(),
@@ -764,7 +764,7 @@ export default function Inventory() {
         const ref = await saveInventoryIdentity(db, doc(collection(db, INVENTORY)), item);
         imported++;
         await writeInventoryActivity("created", { id: ref.id, ...item }, { origin: "Import", user });
-      } catch (error) { toast(error.message || `Could not import ${row.sku}.`, "error"); }
+      } catch (error) { toast(inventorySaveErrorMessage(error, hasPermission("inventory")), "error"); }
     }
     toast(`${imported} of ${rows.length} items imported`, imported === rows.length ? "success" : "error");
   };

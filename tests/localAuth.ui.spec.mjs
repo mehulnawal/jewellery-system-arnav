@@ -11,11 +11,11 @@ test.beforeAll(async()=>{
  env=await initializeTestEnvironment({projectId,firestore:{rules:await readFile('firestore.rules','utf8')}});
  await env.clearFirestore();
  await fetch('http://127.0.0.1:9298/emulator/v1/projects/demo-jewellery-local/accounts',{method:'DELETE'});
- for(const uid of ['real-admin','real-staff']) {
+ for(const uid of ['real-admin','real-staff','real-zero','real-inventory']) {
   const response=await fetch('http://127.0.0.1:9298/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-local-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:uid+'@access-id.local',password:'LocalOnly123!',returnSecureToken:true})});
   const body=await response.json();if(!response.ok)throw Error(JSON.stringify(body));identities[uid]=body.localId;
   // Missing/stale uid fields must not replace authenticated physical identity.
-  await db.doc('employeeProfiles/'+identities[uid]).set({...(uid==='real-staff'?{uid:'stale-profile-id'}:{}),role:uid==='real-admin'?'superadmin':'employee',active:true,accessId:uid,permissions:uid==='real-admin'?[]:['challan-stage-1']});
+  await db.doc('employeeProfiles/'+identities[uid]).set({...(uid==='real-staff'?{uid:'stale-profile-id'}:{}),role:uid==='real-admin'?'superadmin':'employee',active:true,accessId:uid,permissions:uid==='real-staff'?['challan-stage-1']:uid==='real-inventory'?['inventory']:[]});
  }
 });
 test.afterAll(async()=>{await env.cleanup();await deleteApp(app);});
@@ -46,3 +46,83 @@ test('real Auth + resolved profiles: Admin management and Staff lookup without m
  await context.close();
 });
 
+
+test('zero-permission active Staff lands on Check Inventory, reads stock, and cannot reach Dashboard or optional modules',async({page})=>{
+ await db.doc('inventory/check-visible').set({size:'8.125',shape:'Pear',type:'CVD',sku:'8.125_Pear_CVD',weight:2,pieces:1,createdAt:new Date()});
+ await page.addInitScript(()=>localStorage.setItem('sidebar-expanded','true'));
+ await login(page,'real-zero');
+ await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ const sidebar=page.getByLabel('Main sidebar');
+ await expect(sidebar.getByRole('link',{name:'Dashboard'})).toHaveCount(0);
+ await expect(sidebar.getByRole('link',{name:'Check Inventory',exact:true})).toBeVisible();
+ await expect(sidebar.getByRole('link',{name:'Inventory',exact:true})).toHaveCount(0);
+ await expect(sidebar.getByRole('link',{name:'Purchase'})).toHaveCount(0);
+ await expect(sidebar.getByRole('link',{name:'Challan'})).toHaveCount(0);
+ await page.getByPlaceholder('Search shape, type, weight (ct) or SKU...').fill('8.125_Pear_CVD');
+ await expect(page.getByText('8.125_Pear_CVD').first()).toBeVisible();
+ await page.goto('/dashboard');await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ await page.goto('/dashboard/inventory');await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ await page.goto('/dashboard/purchase');await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ await page.goto('/dashboard/admin-settings');await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ await page.reload();await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ await expect(page.getByRole('heading',{name:'Check Inventory'})).toBeVisible();
+ await page.goBack();await expect(page).toHaveURL(/\/dashboard\/check-inventory$/);
+ await db.doc('employeeProfiles/'+identities['real-zero']).update({active:false,accessRevokedAt:new Date(Date.now()-180000)});
+ await expect(page).toHaveURL(/\/login$/);
+});
+test('Admin keeps Dashboard and Check Inventory while Inventory Staff creates with an automatic identity and Activity Log',async({page,browser})=>{
+ await db.doc('inventoryIdentityMigrations/v1').set({ready:true});
+ await db.doc('inventory/existing-five').set({size:'5.00',shape:'Pear',type:'CVD',sku:'5.00_Pear_CVD',weight:2,pieces:1,createdAt:new Date(),createdBy:identities['real-admin']});
+ await db.doc('inventoryIdentities/5_Pear_CVD').set({sku:'5_Pear_CVD',recordId:'existing-five'});
+ await login(page,'real-admin');
+ await expect(page).toHaveURL(/\/dashboard$/);
+ await expect(page.getByLabel('Main sidebar').getByRole('link',{name:'Dashboard'})).toBeVisible();
+ await page.goto('/dashboard/check-inventory');
+ await expect(page.getByRole('heading',{name:'Check Inventory'})).toBeVisible();
+ await page.goto('/dashboard/inventory');
+ await page.getByRole('button',{name:'Add Item'}).click();
+ const adminModal=page.getByRole('dialog',{name:'Add Inventory'});
+ await adminModal.locator('.inventory-field select').nth(0).selectOption('CVD');
+ await adminModal.locator('.inventory-field select').nth(1).selectOption('Pear');
+ await adminModal.getByLabel(/Size \(mm\)/).fill('9.25');
+ await adminModal.getByLabel(/Weight \(ct\)/).fill('1.2');
+ await adminModal.getByRole('button',{name:'Add item',exact:true}).click();
+ await expect(adminModal).toHaveCount(0);
+ const adminStock=await db.collection('inventory').where('sku','==','9.25_Pear_CVD').get();
+ expect(adminStock.size).toBe(1);
+ expect((await db.doc('inventoryIdentities/9.25_Pear_CVD').get()).data().recordId).toBe(adminStock.docs[0].id);
+ await page.locator('tr.inventory-group').filter({hasText:'Pear'}).locator('button.inventory-chevron').click();
+ await page.getByRole('button',{name:'Edit 9.25_Pear_CVD'}).click();
+ const editModal=page.getByRole('dialog',{name:'Edit Inventory'});
+ await editModal.getByLabel(/Weight \(ct\)/).fill('1.5');
+ await editModal.getByRole('button',{name:'Save changes'}).click();
+ await expect(editModal).toHaveCount(0);
+ expect((await db.doc('inventory/'+adminStock.docs[0].id).get()).data().weight).toBe(1.5);
+ const adminEvents=await db.collection('activityLog').where('recordId','==',adminStock.docs[0].id).get();
+ expect(adminEvents.docs.some(entry=>entry.data().action==='created')).toBe(true);
+ expect(adminEvents.docs.some(entry=>entry.data().action==='edited')).toBe(true);
+ const context=await browser.newContext(),staff=await context.newPage();
+ await staff.addInitScript(()=>localStorage.setItem('sidebar-expanded','true'));
+ await login(staff,'real-inventory');
+ await expect(staff).toHaveURL(/\/dashboard\/check-inventory$/);
+ await expect(staff.getByLabel('Main sidebar').getByRole('link',{name:'Dashboard'})).toHaveCount(0);
+ await staff.goto('/dashboard/inventory');
+ await expect(staff.getByRole('heading',{name:'Inventory',exact:true})).toBeVisible();
+ await staff.getByRole('button',{name:'Add Item'}).click();
+ const modal=staff.getByRole('dialog',{name:'Add Inventory'});
+ await modal.locator('.inventory-field select').nth(0).selectOption('CVD');
+ await modal.locator('.inventory-field select').nth(1).selectOption('Pear');
+ await modal.getByLabel(/Size \(mm\)/).fill('5.0');
+ await modal.getByLabel(/Weight \(ct\)/).fill('1');
+ await modal.getByRole('button',{name:'Add item',exact:true}).click();
+ await expect(modal.getByText(/already exists in Inventory/)).toBeVisible();
+ await modal.getByLabel(/Size \(mm\)/).fill('8.75');
+ await modal.getByRole('button',{name:'Add item',exact:true}).click();
+ await expect(modal).toHaveCount(0);
+ const stock=await db.collection('inventory').where('sku','==','8.75_Pear_CVD').get();
+ expect(stock.size).toBe(1);
+ expect((await db.doc('inventoryIdentities/8.75_Pear_CVD').get()).data().recordId).toBe(stock.docs[0].id);
+ const events=await db.collection('activityLog').where('recordId','==',stock.docs[0].id).get();
+ expect(events.docs.some(entry=>entry.data().panel==='inventory'&&entry.data().action==='created')).toBe(true);
+ await context.close();
+});
