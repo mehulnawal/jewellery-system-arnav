@@ -3587,3 +3587,16 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .challan-fields #challan-number-error {
   color: #b42318;
 }
+
+.challan-image-empty,
+.challan-image-status {
+  color: var(--ui-muted);
+  font-size: 13px;
+  margin: 0;
+}
+.challan-image-empty {
+  align-self: center;
+}
+.challan-image-status {
+  overflow-wrap: anywhere;
+}

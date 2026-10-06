@@ -967,3 +967,48 @@ html[data-theme="dark"] .import-header-chips span {
     align-items: flex-start;
   }
 }
+
+/* Import Templates accordion layout, scoped to Settings. */
+.import-templates {
+  min-width: 0;
+}
+.import-templates-intro {
+  color: var(--ui-muted);
+  margin: 6px 0 18px;
+}
+.import-templates .import-template-card {
+  background: var(--ui-surface);
+  gap: 0;
+  margin-top: 12px;
+  min-width: 0;
+  padding: 18px;
+}
+.import-templates .import-template-toggle > span:first-child,
+.import-templates .import-template-content,
+.import-templates .import-template-rules {
+  min-width: 0;
+}
+.import-templates .import-template-content {
+  border-top: 1px solid var(--ui-border);
+  padding-top: 18px;
+}
+.import-templates .import-template-rules {
+  border-top: 0;
+  padding-top: 0;
+}
+.import-templates .import-template-guidance {
+  color: var(--ui-muted);
+  margin: 0;
+}
+.import-templates .import-header-chips span {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .import-templates .import-template-card {
+    padding: 14px;
+  }
+  .import-templates .import-template-content > .settings-primary {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

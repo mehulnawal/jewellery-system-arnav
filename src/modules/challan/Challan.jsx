@@ -16,7 +16,6 @@ import { isWholePieces, pieceValue } from "../../utils/pieces";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import { challanAging, timestampMs } from "../../utils/challanAging";
 import { uploadChallanImage } from "../../utils/cloudinary";
-import { useToast } from "../../ui/ToastContext";
 import { CHALLAN_NUMBER_HELP, CHALLAN_NUMBER_PATTERN, documentNumberError } from "../../utils/documentNumbers.js";
 import { prepareNumberClaim, prepareNumberRelease } from "../../utils/numberRegistry.js";
 const STAGES = {
@@ -769,7 +768,6 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
     discountValue = Number(discount);
   const validNumbers =
     paid !== "" &&
-    discount !== "" &&
     Number.isFinite(paidValue) &&
     Number.isFinite(discountValue) &&
     paidValue >= 0 &&
@@ -831,7 +829,10 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
               min="0"
               step="0.01"
               value={paid}
-              onChange={(event) => setPaid(event.target.value)}
+              onChange={(event) => {
+                setPaid(event.target.value);
+                setError("");
+              }}
             />
           </label>
           <label className="stage-two-notes">
@@ -841,7 +842,10 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
               min="0"
               step="0.01"
               value={discount}
-              onChange={(event) => setDiscount(event.target.value)}
+              onChange={(event) => {
+                setDiscount(event.target.value);
+                setError("");
+              }}
             />
           </label>
         </div>
@@ -1332,6 +1336,7 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
 const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) => {
   const fileInput = useRef(null);
   const [preview, setPreview] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState("");
   const title = `Stage ${stage} Images`;
   useEffect(() => {
     if (!preview) return undefined;
@@ -1347,11 +1352,12 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
         <div className="challan-image-section-heading">
           <div>
             <h2>{title}</h2>
-            <p>Up to 2 images for this stage.</p>
+            <p>JPG, PNG or WEBP, up to 10 MB each.</p>
           </div>
-          <small>{images.length} / 2</small>
+          <small>{images.length} uploaded</small>
         </div>
         <div className="challan-image-gallery">
+          {!images.length && <p className="challan-image-empty">No images uploaded for this stage.</p>}
           {images.map((image) => (
             <button
               className="challan-image-thumbnail"
@@ -1366,15 +1372,15 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
               />
             </button>
           ))}
-          {images.length < 2 && canUpload && (
+          {canUpload && (
             <button
               className="challan-image-upload"
               type="button"
               disabled={uploading}
               onClick={() => fileInput.current?.click()}
             >
-              <b>{uploading ? "Uploading..." : "Upload Challan Image"}</b>
-              <span>JPG, PNG, WEBP and other images</span>
+              <b>{uploading ? "Uploading images..." : "Upload Images"}</b>
+              <span>Select multiple JPG, PNG or WEBP images</span>
             </button>
           )}
         </div>
@@ -1382,14 +1388,26 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
           ref={fileInput}
           className="challan-image-input"
           type="file"
-          accept="image/*"
-          disabled={uploading || images.length >= 2 || !canUpload}
-          onChange={(event) => {
-            const [file] = event.target.files || [];
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          disabled={uploading || !canUpload}
+          onChange={async (event) => {
+            const files = Array.from(event.target.files || []);
             event.target.value = "";
-            if (file) onUpload(file, stage);
+            if (!files.length) return;
+            setUploadStatus("Uploading " + files.length + " image" + (files.length === 1 ? "" : "s") + "...");
+            try {
+              const result = await onUpload(files, stage);
+              setUploadStatus([
+                result.uploaded ? result.uploaded + " image" + (result.uploaded === 1 ? "" : "s") + " uploaded." : "",
+                ...result.failed,
+              ].filter(Boolean).join(" "));
+            } catch {
+              setUploadStatus("Images could not be uploaded. Please try again.");
+            }
           }}
         />
+        {uploadStatus && <p className="challan-image-status" role="status">{uploadStatus}</p>}
       </article>
       {preview && (
         <div
@@ -1424,7 +1442,6 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
 export default function Challan() {
   const { user } = useAuth();
   const { prices, error: masterPriceError, loading: masterPricesLoading } = useMasterPrices();
-  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const hasStagePermission = (stage) =>
@@ -1490,6 +1507,7 @@ export default function Challan() {
     useState(null);
   const [legacyInvoiceCandidate, setLegacyInvoiceCandidate] = useState(null);
   const [uploadingStage, setUploadingStage] = useState(null);
+  const uploadInProgress = useRef(false);
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
@@ -2560,103 +2578,138 @@ export default function Challan() {
     popup.focus();
     window.setTimeout(() => popup.print(), 250);
   };
+  const exportChallan = async (record) => {
+    const XLSX = await import("xlsx");
+    const stage = Number(record.stage || 1);
+    const invoice = record.finalInvoice;
+    const settlement = record.finalSettlement;
+    const items = historicalItemsFor(record).map((item) => {
+      if (stage !== 4) return item;
+      const returnItem = (record.stage2Return?.items || []).find((candidate) =>
+        (candidate.sourceInventoryId || candidate.inventoryId || candidate.sku) ===
+        (item.sourceInventoryId || item.inventoryId || item.sku));
+      return returnItem ? { ...returnItem, ...item } : item;
+    });
+    const details = [
+      ["Field", "Value"],
+      ["Challan No.", record.number || ""],
+      ["Party", record.party || ""],
+      ["Date", record.date || ""],
+      ["Stage", "Stage " + stage + " - " + STAGES[stage]],
+      ["Notes", record.notes || ""],
+      ["Original Amount", record.amount ?? ""],
+      ["Stage 1 Discount Amount", record.discountAmount ?? ""],
+      ["Stage 1 Net Amount", record.netAmount ?? ""],
+    ];
+    if (stage >= 3 && invoice) details.push(
+      ["Gross Amount", invoice.grossAmount ?? ""],
+      ["Final Invoice Stage 1 Discount", invoice.stage1DiscountAmount ?? ""],
+      ["Final Invoice Amount", invoice.finalInvoiceAmount ?? ""],
+      ["Final Invoice Confirmed", invoice.confirmedAtMs ? formatStageDate(invoice.confirmedAtMs) + ", " + formatStageTime(invoice.confirmedAtMs) : ""],
+    );
+    if (stage === 4 && settlement) details.push(
+      ["Amount Paid", settlement.amountPaid ?? ""],
+      ["Settlement Discount", settlement.settlementDiscountAmount ?? ""],
+      ["Actual Received", settlement.actualReceivedAmount ?? ""],
+      ["Remaining", settlement.remaining ?? ""],
+      ["Completed", settlement.completedAtMs ? formatStageDate(settlement.completedAtMs) + ", " + formatStageTime(settlement.completedAtMs) : ""],
+    );
+    const itemRows = items.map((item) => ({
+      SKU: item.sku || "",
+      Type: item.type || "",
+      Shape: item.shape || "",
+      Size: normalizeSize(item.size),
+      Width: normalizeSize(item.width),
+      "Original Pieces": item.pieces ?? item.issuedPieces ?? "",
+      "Original Weight": item.weight ?? item.issuedWeight ?? "",
+      "Issued Pieces": stage >= 2 ? item.issuedPieces ?? item.pieces ?? "" : "",
+      "Issued Weight": stage >= 2 ? item.issuedWeight ?? item.weight ?? "" : "",
+      "Return Pieces": stage >= 2 ? item.returnPieces ?? "" : "",
+      "Return Weight": stage >= 2 ? item.returnWeight ?? "" : "",
+      "Sold / Kept Pieces": stage >= 2 ? item.soldPieces ?? "" : "",
+      "Sold / Kept Weight": stage >= 2 ? item.soldWeight ?? "" : "",
+      "Original Price": item.amount ?? "",
+      "Stage 1 Discount %": item.stage1DiscountPercent ?? item.discount ?? "",
+      "Stage 1 Discount Amount": item.stage1DiscountAmount ?? item.discountAmount ?? "",
+      "Final Item Amount": item.finalAmount ?? item.netAmount ?? "",
+    }));
+    const images = [1, 2].flatMap((imageStage) =>
+      (Array.isArray(record["stage" + imageStage + "Images"]) ? record["stage" + imageStage + "Images"] : [])
+        .map((image) => ({
+          Stage: "Stage " + imageStage,
+          Filename: image.originalFilename || "",
+          URL: image.secureUrl || "",
+        })),
+    );
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(details), "Challan");
+    XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(itemRows), "Items");
+    if (images.length) XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(images), "Images");
+    XLSX.writeFile(book, "challan-" + String(record.number || record.id || "record").replace(/[\\/:*?"<>|]/g, "-") + ".xlsx");
+  };
   const viewRecord = viewId
     ? accessibleRecords.find((record) => record.id === viewId)
     : null;
-  const uploadImage = async (file, stage) => {
+  const uploadImage = async (files, stage) => {
+    const result = { uploaded: 0, failed: [] };
+    if (uploadInProgress.current) return result;
+    if (
+      ![1, 2].includes(stage) ||
+      !viewRecord ||
+      Number(viewRecord.stage) !== stage ||
+      !hasStagePermission(stage) ||
+      !canEditChallan(viewRecord)
+    ) {
+      return { uploaded: 0, failed: ["You are not permitted to upload images for this Challan."] };
+    }
     const imageField = stage === 1 ? "stage1Images" : "stage2Images";
-    if (!file.type?.startsWith("image/")) {
-      toast("Please select an image file.", "error");
-      return;
-    }
-    if (!viewRecord || Number(viewRecord.stage) !== stage || !canEditChallan(viewRecord)) {
-      toast("You are not permitted to upload an image for this Challan.", "error");
-      return;
-    }
-    if ((viewRecord[imageField] || []).length >= 2) {
-      toast(`Maximum 2 images can be uploaded for Stage ${stage}.`, "error");
-      return;
-    }
+    uploadInProgress.current = true;
     setUploadingStage(stage);
-    let image;
     try {
-      image = await uploadChallanImage(file);
-    } catch (error) {
-      toast(`Image upload failed. ${error.message || "Please try again."}`, "error");
-      setUploadingStage(null);
-      return;
-    }
-    try {
-      await runTransaction(db, async (tx) => {
-        const challanRef = doc(db, "challans", viewRecord.id);
-        const snapshot = await tx.get(challanRef);
-        if (!snapshot.exists() || Number(snapshot.data().stage) !== stage)
-          throw new Error("This Challan is no longer in the selected stage.");
-        const currentImages = Array.isArray(snapshot.data()[imageField])
-          ? snapshot.data()[imageField]
-          : [];
-        if (currentImages.length >= 2)
-          throw new Error(`Maximum 2 images can be uploaded for Stage ${stage}.`);
-        tx.update(challanRef, {
-          [imageField]: [
-            ...currentImages,
-            { ...image, uploadedAtMs: Date.now(), uploadedBy: user?.uid || "" },
-          ],
-          updatedAt: serverTimestamp(),
-        });
-      });
-      toast("Image uploaded successfully.");
-    } catch (error) {
-      const limitError = error.message?.startsWith("Maximum 2 images");
-      toast(
-        limitError
-          ? error.message
-          : "Image uploaded but could not be linked to the Challan. Please try again or contact Admin.",
-        "error",
-      );
+      for (const file of files) {
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+          result.failed.push(file.name + ": select a JPG, PNG or WEBP image.");
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          result.failed.push(file.name + ": image must be 10 MB or smaller.");
+          continue;
+        }
+        try {
+          const image = await uploadChallanImage(file);
+          await runTransaction(db, async (tx) => {
+            const challanRef = doc(db, "challans", viewRecord.id);
+            const snapshot = await tx.get(challanRef);
+            if (!snapshot.exists() || Number(snapshot.data().stage) !== stage)
+              throw new Error("stage-changed");
+            const currentImages = Array.isArray(snapshot.data()[imageField])
+              ? snapshot.data()[imageField]
+              : [];
+            tx.update(challanRef, {
+              [imageField]: [
+                ...currentImages,
+                { ...image, uploadedAtMs: Date.now(), uploadedBy: user?.uid || "" },
+              ],
+              updatedAt: serverTimestamp(),
+            });
+          });
+          result.uploaded += 1;
+        } catch (error) {
+          result.failed.push(
+            file.name + (error.message === "stage-changed"
+              ? ": this Challan has moved to another stage."
+              : error.message === "Image uploads are not configured. Please contact Admin."
+                ? ": image uploads are not configured. Please contact Admin."
+                : ": upload or attachment failed. Please try again or contact Admin."),
+          );
+        }
+      }
     } finally {
+      uploadInProgress.current = false;
       setUploadingStage(null);
     }
+    return result;
   };
-  const exportDraft = () => {
-    const rows = [
-      [
-        "SKU",
-        "Shape",
-        "Weight (ct)",
-        "Pieces",
-        "Price",
-        "Discount (%)",
-        "Discount Amount",
-        "Net Amount",
-      ],
-      ...form.items
-        .filter((item) => item.sku)
-        .map((item) => {
-          const value = pricingFor(item.amount, item.discount);
-          return [
-            item.sku,
-            item.shape,
-            Number(item.weight || 0),
-            pieceValue(item.pieces),
-            value.amount,
-            value.discount,
-            value.discountAmount,
-            value.netAmount,
-          ];
-        }),
-    ];
-    const csv = rows
-      .map((row) => row.map((value) => JSON.stringify(value ?? "")).join(","))
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "challan-" + (editingId || "draft") + ".csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-  const printDraft = () => window.print();
   if (page === "view") {
     if (!viewRecord)
       return (
@@ -2743,6 +2796,7 @@ export default function Challan() {
             {" "}
             Print{" "}
           </button>{" "}
+          <button type="button" className="challan-view-print" onClick={() => exportChallan(viewRecord)}>Export</button>{" "}
         </div>{" "}
         <article className="challan-view-card">
           {" "}
@@ -3055,7 +3109,7 @@ export default function Challan() {
               "No notes added for this Challan."}{" "}
           </p>{" "}
         </article>{" "}
-        {stage === 1 && (
+        {stage >= 1 && (
           <ChallanImageSection
             stage={1}
             images={
@@ -3063,12 +3117,12 @@ export default function Challan() {
                 ? viewRecord.stage1Images
                 : []
             }
-            canUpload={canEditChallan(viewRecord)}
+            canUpload={stage === 1 && hasStagePermission(1) && canEditChallan(viewRecord)}
             uploading={uploadingStage === 1}
             onUpload={uploadImage}
           />
         )}
-        {stage === 2 && (
+        {stage >= 2 && (
           <ChallanImageSection
             stage={2}
             images={
@@ -3076,7 +3130,7 @@ export default function Challan() {
                 ? viewRecord.stage2Images
                 : []
             }
-            canUpload={canEditChallan(viewRecord)}
+            canUpload={stage === 2 && hasStagePermission(2) && canEditChallan(viewRecord)}
             uploading={uploadingStage === 2}
             onUpload={uploadImage}
           />
@@ -3108,14 +3162,6 @@ export default function Challan() {
                 ? "Update challan details"
                 : "Stage 1 - Goods Out"}{" "}
             </span>{" "}
-            <button type="button" onClick={exportDraft}>
-              {" "}
-              Export{" "}
-            </button>{" "}
-            <button type="button" onClick={printDraft}>
-              {" "}
-              Print{" "}
-            </button>{" "}
           </div>{" "}
         </header>{" "}
         <form

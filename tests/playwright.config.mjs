@@ -6,6 +6,7 @@ export default defineConfig({
     "inventoryDiscovery.ui.spec.mjs",
     "masterPrices.ui.spec.mjs",
     "statusSettings.ui.spec.mjs",
+    "challanChanges.ui.spec.mjs",
     "sidebarPolish.ui.spec.mjs",
   ],
   fullyParallel: false,
@@ -21,6 +22,10 @@ export default defineConfig({
   },
   webServer: {
     command: "npx vite --config tests/vite.config.mjs",
+    env: {
+      VITE_CLOUDINARY_CLOUD_NAME: "test-cloud",
+      VITE_CLOUDINARY_UPLOAD_PRESET: "test-unsigned-preset",
+    },
     url: "http://127.0.0.1:4175",
     reuseExistingServer: process.env.TEST_REUSE_SERVER === "true",
     cwd: "..",
