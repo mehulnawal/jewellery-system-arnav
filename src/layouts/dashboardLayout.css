@@ -498,12 +498,17 @@ html[data-theme="dark"] .logout-shortcuts kbd {
   border-radius: 10px;
   background: var(--ui-surface-raised);
   color: var(--ui-text);
-  box-shadow: var(--ui-shadow-sm), 0 14px 30px rgb(0 0 0 / 0.16);
+  box-shadow:
+    var(--ui-shadow-sm),
+    0 14px 30px rgb(0 0 0 / 0.16);
 }
 .sidebar-menu-heading {
   padding: 8px 10px 7px;
   color: var(--ui-muted);
-  font: 600 11px/15px Inter, system-ui, sans-serif;
+  font:
+    600 11px/15px Inter,
+    system-ui,
+    sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -516,7 +521,10 @@ html[data-theme="dark"] .logout-shortcuts kbd {
   padding: 8px 10px;
   border-radius: 7px;
   color: var(--ui-text);
-  font: 500 13px/18px Inter, system-ui, sans-serif;
+  font:
+    500 13px/18px Inter,
+    system-ui,
+    sans-serif;
   text-decoration: none;
 }
 .sidebar-menu-item svg {

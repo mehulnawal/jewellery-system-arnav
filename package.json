@@ -32,7 +32,6 @@
     "@firebase/rules-unit-testing": "^5.0.2",
     "@google-cloud/firestore": "^9.2.0",
     "@playwright/test": "^1.63.0",
-    "@types/prettier": "^2.7.3",
     "@vitejs/plugin-react": "^6.1.0",
     "autoprefixer": "^10.5.4",
     "eslint": "^10.9.0",
@@ -42,13 +41,13 @@
     "globals": "^17.11.0",
     "google-auth-library": "^11.1.0",
     "postcss": "^8.5.26",
+    "prettier": "^3.9.10",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
   },
   "dependencies": {
     "firebase": "^12.18.0",
-    "prettier": "^3.9.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",

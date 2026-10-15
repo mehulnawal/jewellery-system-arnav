@@ -80,7 +80,31 @@ const actionLabel = (entry) =>
     final_settlement_completed: "Stage Move",
   })[entry.action] || "Activity";
 const columnsFor = (panel) => {
-  if (panel === "master price list") return [["Timestamp", eventTime], ["Action", actionLabel], ["Master Price / Changes", (entry) => entry.snapshot?.description || "--"], ["Import details", (entry) => (entry.snapshot?.rows || []).filter((row) => !row.added).map((row) => 'Row ' + row.rowNumber + ': ' + Object.entries(row.errors).map(([field, reason]) => field + ': ' + reason).join('; ')).join(' | ') || '--']];
+  if (panel === "master price list")
+    return [
+      ["Timestamp", eventTime],
+      ["Action", actionLabel],
+      [
+        "Master Price / Changes",
+        (entry) => entry.snapshot?.description || "--",
+      ],
+      [
+        "Import details",
+        (entry) =>
+          (entry.snapshot?.rows || [])
+            .filter((row) => !row.added)
+            .map(
+              (row) =>
+                "Row " +
+                row.rowNumber +
+                ": " +
+                Object.entries(row.errors)
+                  .map(([field, reason]) => field + ": " + reason)
+                  .join("; "),
+            )
+            .join(" | ") || "--",
+      ],
+    ];
   if (panel === "inventory")
     return [
       ["Timestamp", eventTime],
@@ -274,7 +298,13 @@ export default function ActivityLog() {
       );
     });
     exportSheet(XLSX, book, "Purchase", "purchase", panelEntries("purchase"));
-    exportSheet(XLSX, book, "Master Price List", "master price list", panelEntries("master price list"));
+    exportSheet(
+      XLSX,
+      book,
+      "Master Price List",
+      "master price list",
+      panelEntries("master price list"),
+    );
     XLSX.writeFile(book, "activity-log-" + selectedDate + ".xlsx");
   };
   const printTable = (panel, rows) => {
@@ -320,7 +350,8 @@ export default function ActivityLog() {
         challanSections +
         "<h2>Purchase</h2>" +
         printTable("purchase", purchase) +
-        "<h2>Master Price List</h2>" + printTable("master price list", panelEntries("master price list")) +
+        "<h2>Master Price List</h2>" +
+        printTable("master price list", panelEntries("master price list")) +
         "</body></html>",
     );
     popup.document.close();

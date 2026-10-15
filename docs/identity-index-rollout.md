@@ -121,39 +121,39 @@ The last command assumes the operator has the Netlify CLI and approved site acce
 
 ## Verification results — 2026-10-03
 
-| Test/check | Result |
-|---|---|
-| `node --test tests/dimensions.test.mjs` | 21 passed; shared normalization and grouping retained |
-| `tests/purchaseValidation.test.mjs`, `tests/documentNumbers.test.mjs`, `tests/dashboardAnalytics.test.mjs` | 17 passed |
-| Emulator: `tests/identityRollout.test.mjs` | 10 passed |
-| Emulator: `tests/dimensionRules.test.mjs` and `tests/numberingRules.test.mjs` | 24 passed |
-| `node --test tests/identityRolloutCli.test.mjs` | 6 passed |
-| `npx playwright test --config=tests/playwright.config.mjs --max-failures=0` with local emulator | All 21 passed in one run |
-| `npm run build` / Inventory contract check | Passed; bundle-size warning remains |
-| Targeted ESLint on Phase 1.5 utilities, scripts and Node tests | Passed |
-| `git diff --check` | Passed |
-| Read-only CLI against `tests/fixtures/dimension-audit.json` | Passed; saved `docs/identity-rollout-local-plan.json` |
+| Test/check                                                                                                 | Result                                                |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `node --test tests/dimensions.test.mjs`                                                                    | 21 passed; shared normalization and grouping retained |
+| `tests/purchaseValidation.test.mjs`, `tests/documentNumbers.test.mjs`, `tests/dashboardAnalytics.test.mjs` | 17 passed                                             |
+| Emulator: `tests/identityRollout.test.mjs`                                                                 | 10 passed                                             |
+| Emulator: `tests/dimensionRules.test.mjs` and `tests/numberingRules.test.mjs`                              | 24 passed                                             |
+| `node --test tests/identityRolloutCli.test.mjs`                                                            | 6 passed                                              |
+| `npx playwright test --config=tests/playwright.config.mjs --max-failures=0` with local emulator            | All 21 passed in one run                              |
+| `npm run build` / Inventory contract check                                                                 | Passed; bundle-size warning remains                   |
+| Targeted ESLint on Phase 1.5 utilities, scripts and Node tests                                             | Passed                                                |
+| `git diff --check`                                                                                         | Passed                                                |
+| Read-only CLI against `tests/fixtures/dimension-audit.json`                                                | Passed; saved `docs/identity-rollout-local-plan.json` |
 
 Coverage of the requested cases:
 
-| Requested case | Evidence |
-|---|---|
-| A: one legacy record | Single-owner stock-update/setup test |
-| B: several distinct records | Three reservations, unchanged business/history snapshot |
-| C: 5 vs 5.00 | Null-owner collision with both IDs |
-| D: 5.3 vs 5.30 | Independent null-owner collision |
-| E: 5.3 vs 5.03 | Separate reservations |
-| F: mixed string/number Size | Numeric and string fixtures group equivalently |
-| G: invalid Size/Type/Shape | Reasons/references reported, zero registry writes, readiness not enabled |
-| H: interruption/retry | Fault after first batch, deletion/identity edits denied, remaining batch resumed |
-| I: repeat initialization | Verified no-op; unchanged readiness marker and business snapshot |
-| J: new Inventory after readiness | New Admin/Staff records reserve automatically |
-| K: concurrent equivalent creation | Three simultaneous attempts, exactly one successful physical record |
-| L: Purchase completion | Admin and purchase-only Staff: unused identity succeeds, occupied/collision fail without orphan number claims or stock changes |
-| M: normal Challan | Staff deduction then return on exact normal record |
-| N: each collision member | Separate Admin browser tests deduct/return on `collision-a` and `collision-b`; all other stock unchanged |
-| O: Staff workflows | Normal saves/returns within existing permission window work; direct setup/claim tampering denied |
-| P: Admin workflows | Backfill, creation, collision-safe selection and returns verified |
+| Requested case                    | Evidence                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| A: one legacy record              | Single-owner stock-update/setup test                                                                                           |
+| B: several distinct records       | Three reservations, unchanged business/history snapshot                                                                        |
+| C: 5 vs 5.00                      | Null-owner collision with both IDs                                                                                             |
+| D: 5.3 vs 5.30                    | Independent null-owner collision                                                                                               |
+| E: 5.3 vs 5.03                    | Separate reservations                                                                                                          |
+| F: mixed string/number Size       | Numeric and string fixtures group equivalently                                                                                 |
+| G: invalid Size/Type/Shape        | Reasons/references reported, zero registry writes, readiness not enabled                                                       |
+| H: interruption/retry             | Fault after first batch, deletion/identity edits denied, remaining batch resumed                                               |
+| I: repeat initialization          | Verified no-op; unchanged readiness marker and business snapshot                                                               |
+| J: new Inventory after readiness  | New Admin/Staff records reserve automatically                                                                                  |
+| K: concurrent equivalent creation | Three simultaneous attempts, exactly one successful physical record                                                            |
+| L: Purchase completion            | Admin and purchase-only Staff: unused identity succeeds, occupied/collision fail without orphan number claims or stock changes |
+| M: normal Challan                 | Staff deduction then return on exact normal record                                                                             |
+| N: each collision member          | Separate Admin browser tests deduct/return on `collision-a` and `collision-b`; all other stock unchanged                       |
+| O: Staff workflows                | Normal saves/returns within existing permission window work; direct setup/claim tampering denied                               |
+| P: Admin workflows                | Backfill, creation, collision-safe selection and returns verified                                                              |
 
 Additional tests cover concurrent initializers, reviewed-source drift, stock-only changes during setup, conflicting registry owners, preserving historical collision metadata, refusing export apply, refusing accidental live access before credential discovery, and requiring loopback/demo emulator targets.
 
@@ -161,19 +161,19 @@ The local plan contains synthetic records only: canonical `5_PR_CBD` is a collis
 
 ## Phase 1.5 files
 
-| File | Purpose |
-|---|---|
-| `src/utils/dimensions.js` | Reuse canonical decimals; validate unambiguous/path-safe Type/Shape identity components |
-| `src/utils/dimensionAudit.js` | Detailed invalid-record reasons, stock/references and deterministic reservation plan |
-| `scripts/lib/initializeInventoryIdentities.mjs` | Fingerprint, reconciliation, batch transactions, retry and final-ready verification |
-| `scripts/initializeInventoryIdentities.mjs` | Read-only default CLI, export support and explicit apply/live safety gates |
-| `firestore.rules` | Setup deletion guard, component validation and atomic-only client reservation changes |
-| `tests/identityRollout.test.mjs` | Emulator recovery, collision, invalid-data, concurrency, stock/history and permission tests |
-| `tests/identityRolloutCli.test.mjs` | Offline/export plan, command safety gates and metadata-preserving reconciliation tests |
-| `tests/ui.spec.mjs` | Real Purchase completion and per-physical-record Challan deduction/return after setup |
-| `package.json` | Setup and rollout-test commands |
-| `docs/identity-rollout-local-plan.json` | Generated synthetic audit/reservation plan and fingerprint |
-| `docs/identity-index-rollout.md` | This operational runbook and rollout constraints |
-| `docs/dimension-normalization.md` | Link the Phase 1 prerequisite to this prepared rollout procedure |
+| File                                            | Purpose                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/utils/dimensions.js`                       | Reuse canonical decimals; validate unambiguous/path-safe Type/Shape identity components     |
+| `src/utils/dimensionAudit.js`                   | Detailed invalid-record reasons, stock/references and deterministic reservation plan        |
+| `scripts/lib/initializeInventoryIdentities.mjs` | Fingerprint, reconciliation, batch transactions, retry and final-ready verification         |
+| `scripts/initializeInventoryIdentities.mjs`     | Read-only default CLI, export support and explicit apply/live safety gates                  |
+| `firestore.rules`                               | Setup deletion guard, component validation and atomic-only client reservation changes       |
+| `tests/identityRollout.test.mjs`                | Emulator recovery, collision, invalid-data, concurrency, stock/history and permission tests |
+| `tests/identityRolloutCli.test.mjs`             | Offline/export plan, command safety gates and metadata-preserving reconciliation tests      |
+| `tests/ui.spec.mjs`                             | Real Purchase completion and per-physical-record Challan deduction/return after setup       |
+| `package.json`                                  | Setup and rollout-test commands                                                             |
+| `docs/identity-rollout-local-plan.json`         | Generated synthetic audit/reservation plan and fingerprint                                  |
+| `docs/identity-index-rollout.md`                | This operational runbook and rollout constraints                                            |
+| `docs/dimension-normalization.md`               | Link the Phase 1 prerequisite to this prepared rollout procedure                            |
 
 Pre-existing unrelated working-tree changes were preserved. This phase did not alter Purchase completion or Challan pricing/stock-selection business logic.

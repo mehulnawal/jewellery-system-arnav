@@ -79,11 +79,20 @@ export default function MasterPrices() {
   const { user } = useAuth(),
     { rows, loading, error, stale, retry } = useMasterPrices();
   const [storedShapes, setStoredShapes] = useState([]);
-  useEffect(() => onSnapshot(collection(db, "shapes"), (snapshot) =>
-    setStoredShapes(snapshot.docs.map((entry) => entry.data().value)),
-  ), []);
+  useEffect(
+    () =>
+      onSnapshot(collection(db, "shapes"), (snapshot) =>
+        setStoredShapes(snapshot.docs.map((entry) => entry.data().value)),
+      ),
+    [],
+  );
   const shapeOptions = useMemo(
-    () => orderShapes([...INVENTORY_SHAPES, ...storedShapes, ...rows.map((row) => row.shape)]),
+    () =>
+      orderShapes([
+        ...INVENTORY_SHAPES,
+        ...storedShapes,
+        ...rows.map((row) => row.shape),
+      ]),
     [storedShapes, rows],
   );
   const [form, setForm] = useState(null),
@@ -319,9 +328,13 @@ export default function MasterPrices() {
                 ),
               ]
                 .filter(Boolean)
-                .sort(key === "shape"
-                  ? (a, b) => orderShapes([a, b]).indexOf(a) - orderShapes([a, b]).indexOf(b)
-                  : undefined)
+                .sort(
+                  key === "shape"
+                    ? (a, b) =>
+                        orderShapes([a, b]).indexOf(a) -
+                        orderShapes([a, b]).indexOf(b)
+                    : undefined,
+                )
                 .map((value) => (
                   <option key={value} value={value}>
                     {value === "default" ? "Default" : value}

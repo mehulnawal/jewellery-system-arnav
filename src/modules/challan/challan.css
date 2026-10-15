@@ -852,13 +852,31 @@ html[data-theme="dark"] .challan-pricing span {
   font-weight: 800;
   white-space: nowrap;
 }
-.challan-width { min-width: 0; }
-.challan-width input { width: 100%; box-sizing: border-box; }
-.challan-width small { color: var(--age-red); display: block; font-size: 11px; }
-.challan-width [aria-invalid="true"] { border-color: var(--age-red); }
+.challan-width {
+  min-width: 0;
+}
+.challan-width input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.challan-width small {
+  color: var(--age-red);
+  display: block;
+  font-size: 11px;
+}
+.challan-width [aria-invalid="true"] {
+  border-color: var(--age-red);
+}
 @media (min-width: 801px) {
-  .item-head, .challan-item {
-    grid-template-columns: minmax(170px, 2fr) minmax(85px, 1fr) repeat(3, minmax(55px, .8fr)) minmax(75px, 1fr) minmax(55px, .8fr) minmax(95px, 1.1fr) minmax(75px, .9fr) minmax(110px, 1.25fr) 68px;
+  .item-head,
+  .challan-item {
+    grid-template-columns: minmax(170px, 2fr) minmax(85px, 1fr) repeat(
+        3,
+        minmax(55px, 0.8fr)
+      ) minmax(75px, 1fr) minmax(55px, 0.8fr) minmax(95px, 1.1fr) minmax(
+        75px,
+        0.9fr
+      ) minmax(110px, 1.25fr) 68px;
   }
 }
 .challan-item-totals {
@@ -1237,7 +1255,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .final-invoice-modal .stage-two-head,
 .final-invoice-modal .stage-two-row {
-  grid-template-columns: minmax(180px, 1.35fr) repeat(5, minmax(125px, 0.85fr));
+  grid-template-columns: minmax(180px, 1.35fr) repeat(6, minmax(125px, 0.85fr));
 }
 .final-invoice-modal .stage-two-totals {
   background: var(--ui-surface-subtle, #f8fafc);
@@ -2275,10 +2293,9 @@ html[data-theme="dark"] .challan-view-summary {
 .list-head,
 .challan-row {
   column-gap: 16px;
-  grid-template-columns: minmax(180px, 1.15fr) minmax(
-      190px,
-      1.4fr
-    ) 112px 82px minmax(190px, 1.1fr) 145px minmax(190px, 1.2fr);
+  grid-template-columns:
+    minmax(180px, 1.15fr) minmax(190px, 1.4fr)
+    112px 82px minmax(190px, 1.1fr) 145px minmax(190px, 1.2fr);
   min-width: 1110px;
   padding-left: 20px;
   padding-right: 20px;
@@ -2363,13 +2380,13 @@ html[data-theme="dark"] .challan-view-summary {
 .challan-item,
 .challan-item-totals {
   column-gap: 12px;
-  grid-template-columns: minmax(180px, 1.6fr) minmax(100px, 0.85fr) minmax(
-      80px,
-      0.7fr
-    ) minmax(70px, 0.65fr) minmax(118px, 0.95fr) minmax(84px, 0.7fr) minmax(
+  grid-template-columns:
+    minmax(180px, 1.6fr) minmax(100px, 0.85fr) minmax(80px, 0.7fr)
+    minmax(70px, 0.65fr) minmax(118px, 0.95fr) minmax(84px, 0.7fr) minmax(
       110px,
       0.9fr
-    ) minmax(108px, 0.85fr) minmax(145px, 1.15fr) 76px;
+    )
+    minmax(108px, 0.85fr) minmax(145px, 1.15fr) 76px;
   min-width: 1190px;
 }
 .item-head {
@@ -2474,10 +2491,9 @@ html[data-theme="dark"]
 /* Challan list stage-column visibility and movement-modal presentation. */
 .list-head.stage-column-hidden,
 .challan-row.stage-column-hidden {
-  grid-template-columns: minmax(180px, 1.2fr) minmax(
-      190px,
-      1.45fr
-    ) 112px 82px 145px minmax(210px, 1.25fr);
+  grid-template-columns:
+    minmax(180px, 1.2fr) minmax(190px, 1.45fr)
+    112px 82px 145px minmax(210px, 1.25fr);
 }
 .settlement-modal > header {
   flex: 0 0 auto;
@@ -3037,18 +3053,16 @@ html[data-theme="dark"] .challan-image-placeholder button {
 .challan-list .list-head,
 .challan-list .challan-row {
   column-gap: 12px;
-  grid-template-columns: minmax(170px, 1.1fr) minmax(
-      180px,
-      1.3fr
-    ) 104px 76px minmax(148px, 0.95fr) 118px minmax(220px, 1.2fr);
+  grid-template-columns:
+    minmax(170px, 1.1fr) minmax(180px, 1.3fr)
+    104px 76px minmax(148px, 0.95fr) 118px minmax(220px, 1.2fr);
   min-width: 1030px;
 }
 .challan-list .list-head.stage-column-hidden,
 .challan-list .challan-row.stage-column-hidden {
-  grid-template-columns: minmax(170px, 1.15fr) minmax(
-      180px,
-      1.35fr
-    ) 104px 76px 118px minmax(220px, 1.2fr);
+  grid-template-columns:
+    minmax(170px, 1.15fr) minmax(180px, 1.35fr)
+    104px 76px 118px minmax(220px, 1.2fr);
   min-width: 930px;
 }
 .challan-list .stage {
@@ -3182,7 +3196,11 @@ html[data-theme="dark"] .challan-list .stage-4 {
   background: color-mix(in srgb, var(--ui-muted, #64748b) 7%, transparent);
 }
 .challan-page nav button.active {
-  background: color-mix(in srgb, var(--ui-emerald, #16a34a) 9%, var(--ui-surface, #fff));
+  background: color-mix(
+    in srgb,
+    var(--ui-emerald, #16a34a) 9%,
+    var(--ui-surface, #fff)
+  );
   color: var(--ui-emerald, #16a34a);
 }
 .challan-page nav button.active:after {
@@ -3324,7 +3342,8 @@ html[data-theme="dark"] .challan-list .stage-4 {
 }
 .challan-edit-timer {
   background: transparent !important;
-  border: 1px solid color-mix(in srgb, var(--ui-muted, #64748b) 35%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--ui-muted, #64748b) 35%, transparent);
   border-radius: 999px;
   color: var(--ui-muted, #64748b) !important;
   font-size: 11px !important;
@@ -3356,7 +3375,12 @@ html[data-theme="dark"] .challan-page nav .challan-tab-main small {
   background: #334155;
   color: #e5edf6;
 }
-html[data-theme="dark"] .challan-page nav button.active .challan-tab-main small {
+html[data-theme="dark"]
+  .challan-page
+  nav
+  button.active
+  .challan-tab-main
+  small {
   background: #1d604b;
   color: #d5f5e5;
 }

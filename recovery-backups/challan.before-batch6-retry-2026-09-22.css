@@ -1974,10 +1974,9 @@ html[data-theme="dark"] .challan-view-summary {
 .list-head,
 .challan-row {
   column-gap: 16px;
-  grid-template-columns: minmax(180px, 1.15fr) minmax(
-      190px,
-      1.4fr
-    ) 112px 82px minmax(190px, 1.1fr) 145px minmax(190px, 1.2fr);
+  grid-template-columns:
+    minmax(180px, 1.15fr) minmax(190px, 1.4fr)
+    112px 82px minmax(190px, 1.1fr) 145px minmax(190px, 1.2fr);
   min-width: 1110px;
   padding-left: 20px;
   padding-right: 20px;
@@ -2062,13 +2061,13 @@ html[data-theme="dark"] .challan-view-summary {
 .challan-item,
 .challan-item-totals {
   column-gap: 12px;
-  grid-template-columns: minmax(180px, 1.6fr) minmax(100px, 0.85fr) minmax(
-      80px,
-      0.7fr
-    ) minmax(70px, 0.65fr) minmax(118px, 0.95fr) minmax(84px, 0.7fr) minmax(
+  grid-template-columns:
+    minmax(180px, 1.6fr) minmax(100px, 0.85fr) minmax(80px, 0.7fr)
+    minmax(70px, 0.65fr) minmax(118px, 0.95fr) minmax(84px, 0.7fr) minmax(
       110px,
       0.9fr
-    ) minmax(108px, 0.85fr) minmax(145px, 1.15fr) 76px;
+    )
+    minmax(108px, 0.85fr) minmax(145px, 1.15fr) 76px;
   min-width: 1190px;
 }
 .item-head {
@@ -2173,10 +2172,9 @@ html[data-theme="dark"]
 /* Challan list stage-column visibility and movement-modal presentation. */
 .list-head.stage-column-hidden,
 .challan-row.stage-column-hidden {
-  grid-template-columns: minmax(180px, 1.2fr) minmax(
-      190px,
-      1.45fr
-    ) 112px 82px 145px minmax(210px, 1.25fr);
+  grid-template-columns:
+    minmax(180px, 1.2fr) minmax(190px, 1.45fr)
+    112px 82px 145px minmax(210px, 1.25fr);
 }
 .settlement-modal {
   display: flex;

@@ -40,14 +40,14 @@ Both themes are tested independently using actual theme tokens. Checks cover act
 
 ## J. Files changed in this follow-up
 
-| File | Purpose |
-| --- | --- |
+| File                            | Purpose                                                                                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | src/layouts/DashboardLayout.jsx | Keep active route group visible; clear stale tooltip on toggle/group action; preserve full expanded label hints. No route/permission changes. |
-| src/layouts/dashboardLayout.css | 16px brand/14px navigation; label overflow handling; actual-width narrow-screen content alignment; synchronized width transition. |
-| tests/sidebarPolish.ui.spec.mjs | Theme/route-state, keyboard, tooltip, permissions, persistence, transition geometry and short-height regressions. |
-| tests/playwright.config.mjs | Register focused sidebar suite. |
-| docs/sidebar-final-polish.md | Final evidence and checklist. |
-| docs/qa/sidebar-polish/ | Review screenshots. |
+| src/layouts/dashboardLayout.css | 16px brand/14px navigation; label overflow handling; actual-width narrow-screen content alignment; synchronized width transition.             |
+| tests/sidebarPolish.ui.spec.mjs | Theme/route-state, keyboard, tooltip, permissions, persistence, transition geometry and short-height regressions.                             |
+| tests/playwright.config.mjs     | Register focused sidebar suite.                                                                                                               |
+| docs/sidebar-final-polish.md    | Final evidence and checklist.                                                                                                                 |
+| docs/qa/sidebar-polish/         | Review screenshots.                                                                                                                           |
 
 Existing unrelated working-tree changes were preserved.
 

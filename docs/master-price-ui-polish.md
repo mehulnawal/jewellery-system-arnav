@@ -73,4 +73,3 @@ Testing uses local demo Firestore only. No production verification or deployment
 - Spacing, typography and color/contrast issues: addressed.
 - No Dashboard/sidebar/Inventory/Purchase/Challan redesign in this UI-only task.
 - Nothing deployed to production.
-

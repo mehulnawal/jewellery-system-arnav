@@ -44,17 +44,17 @@ Tab order: Type, Shape, Height, Width, Price, Cancel, Save. Tab/Shift+Tab wrap i
 
 ## K. Files changed in this corrective pass
 
-| File | Exact purpose |
-|---|---|
-| `src/modules/masterPrices/MasterPrices.jsx` | Touched/submitted form presentation, error copy, labels, focus/keyboard handling, processing and page states. |
-| `src/modules/masterPrices/masterPrices.css` | Page/table/form typography, spacing, themes, hover, disabled/error states and responsiveness. |
-| `src/hooks/useBusinessAvailability.js` | Shared availability state for contextual warnings. |
-| `src/layouts/BusinessGate.jsx` | Preserve readable pages, compact warnings, retry/recovery and genuine reset protection. |
-| `src/firebase/businessWrites.js` | Fail closed on writes until availability is verified. |
-| `src/layouts/DashboardLayout.jsx`, `dashboardLayout.css` | Earlier requested shell correction; compact single sidebar, active styling and top-bar utilities. |
-| `tests/masterPrices.ui.spec.mjs` | Form, theme, processing and Master Price regression coverage. |
-| `tests/ui.spec.mjs` | Availability, Dashboard/sidebar and existing module regression checks. |
-| `docs/qa/master-price-corrective/` | Local browser screenshots. |
+| File                                                     | Exact purpose                                                                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/modules/masterPrices/MasterPrices.jsx`              | Touched/submitted form presentation, error copy, labels, focus/keyboard handling, processing and page states. |
+| `src/modules/masterPrices/masterPrices.css`              | Page/table/form typography, spacing, themes, hover, disabled/error states and responsiveness.                 |
+| `src/hooks/useBusinessAvailability.js`                   | Shared availability state for contextual warnings.                                                            |
+| `src/layouts/BusinessGate.jsx`                           | Preserve readable pages, compact warnings, retry/recovery and genuine reset protection.                       |
+| `src/firebase/businessWrites.js`                         | Fail closed on writes until availability is verified.                                                         |
+| `src/layouts/DashboardLayout.jsx`, `dashboardLayout.css` | Earlier requested shell correction; compact single sidebar, active styling and top-bar utilities.             |
+| `tests/masterPrices.ui.spec.mjs`                         | Form, theme, processing and Master Price regression coverage.                                                 |
+| `tests/ui.spec.mjs`                                      | Availability, Dashboard/sidebar and existing module regression checks.                                        |
+| `docs/qa/master-price-corrective/`                       | Local browser screenshots.                                                                                    |
 
 The working tree includes earlier feature work. This table describes the corrective pass, not every pre-existing dirty file. Pricing services, canonical normalization, schema and permission rules were not changed for this UI pass.
 
@@ -74,23 +74,23 @@ Production access/deployment was intentionally excluded. Production legacy colli
 
 ## Final yes/no confirmations
 
-| # | Confirmation | Result |
-|---|---|---|
-| 1 | Add opens without immediate errors | Yes |
-| 2-5 | Type/Shape/Height/Price have required stars | Yes |
-| 6 | Width clearly Optional | Yes |
-| 7 | Errors after touch or submit | Yes |
-| 8-9 | Error text and borders clear immediately | Yes |
-| 10 | Duplicate error updates live | Yes |
-| 11 | Laptop modal fits without unnecessary scroll | Yes, 1366×768 |
-| 12-14 | Proper Cancel, primary Save and themed disabled controls | Yes |
-| 15 | Compact helper | Yes |
-| 16-18 | Polished discovery, table and empty state | Yes |
-| 19 | Loading/Empty/Error distinct | Yes |
-| 20 | Same-outage connection notices deduplicated | Yes |
-| 21-22 | Dark/light verified | Yes, local Chrome |
-| 23 | Add/Edit consistent | Yes |
-| 24-27 | Business logic, Width lookup, normalization and permissions unchanged | Yes |
-| 28 | Import/Export/Print work | Yes locally; no physical printer |
-| 29 | Activity Log/Weekly Report work | Yes, browser regression |
-| 30 | Nothing deployed to production | Yes |
+| #     | Confirmation                                                          | Result                           |
+| ----- | --------------------------------------------------------------------- | -------------------------------- |
+| 1     | Add opens without immediate errors                                    | Yes                              |
+| 2-5   | Type/Shape/Height/Price have required stars                           | Yes                              |
+| 6     | Width clearly Optional                                                | Yes                              |
+| 7     | Errors after touch or submit                                          | Yes                              |
+| 8-9   | Error text and borders clear immediately                              | Yes                              |
+| 10    | Duplicate error updates live                                          | Yes                              |
+| 11    | Laptop modal fits without unnecessary scroll                          | Yes, 1366×768                    |
+| 12-14 | Proper Cancel, primary Save and themed disabled controls              | Yes                              |
+| 15    | Compact helper                                                        | Yes                              |
+| 16-18 | Polished discovery, table and empty state                             | Yes                              |
+| 19    | Loading/Empty/Error distinct                                          | Yes                              |
+| 20    | Same-outage connection notices deduplicated                           | Yes                              |
+| 21-22 | Dark/light verified                                                   | Yes, local Chrome                |
+| 23    | Add/Edit consistent                                                   | Yes                              |
+| 24-27 | Business logic, Width lookup, normalization and permissions unchanged | Yes                              |
+| 28    | Import/Export/Print work                                              | Yes locally; no physical printer |
+| 29    | Activity Log/Weekly Report work                                       | Yes, browser regression          |
+| 30    | Nothing deployed to production                                        | Yes                              |

@@ -40,12 +40,12 @@ No Width field was added to Inventory or Purchase. No Inventory SKU, grouping, s
 
 ## G. Exact lookup
 
-| Selected dimensions | Matching master | Price |
-| --- | --- | --- |
-| CBD / PR / H5 / blank Width | H5 / blank | 5,000 |
-| CBD / PR / H5 / W7 | H5 / W7 | 7,000 |
-| CBD / PR / H5 / W8 | None | Blank |
-| CBD / PR / H5.00 / W7.00 | H5 / W7 | 7,000 |
+| Selected dimensions         | Matching master | Price |
+| --------------------------- | --------------- | ----- |
+| CBD / PR / H5 / blank Width | H5 / blank      | 5,000 |
+| CBD / PR / H5 / W7          | H5 / W7         | 7,000 |
+| CBD / PR / H5 / W8          | None            | Blank |
+| CBD / PR / H5.00 / W7.00    | H5 / W7         | 7,000 |
 
 Type and Shape must also match. Entered Width never falls back to a Height-only price, a nearby Width, the preceding item's price, or automatic zero. Invalid Width has an immediate error and cannot drive a lookup or save. A valid manual Price is allowed when no master exists.
 
@@ -81,29 +81,29 @@ A Master Price List section and module filter show Added, Edited, Deleted and Im
 
 ## N. Files changed for Phase 2
 
-| File | Purpose |
-| --- | --- |
-| `src/utils/masterPrices.js` | Canonical identity composition using shared dimensions, validation, import preview, search, exact lookup and price-state reconciliation |
-| `src/utils/masterPriceStore.js` | Transactional Add/Edit/deactivate/import, revision checks, atomic audit events |
-| `src/utils/masterPriceFiles.js` | Excel export/template and escaped printable document |
-| `src/hooks/useMasterPrices.jsx` | Shared authorized real-time subscription, error/offline status, indexed lookup |
-| `src/modules/masterPrices/MasterPrices.jsx` | Admin management forms, table, filters, import preview/results, confirmations |
-| `src/modules/masterPrices/masterPrices.css` | Light/dark, modal, table and responsive styling |
-| `src/App.jsx` | Admin-protected route and shared provider |
-| `src/layouts/DashboardLayout.jsx` | Admin-only navigation entry |
-| `src/modules/challan/Challan.jsx` | Width, live auto/manual/saved price behavior, snapshot retention, Width display/export/print |
-| `src/modules/challan/challan.css` | Width controls and item-grid layout |
-| `src/modules/admin/AdminSettings.jsx` | Master Price import-template download |
-| `src/modules/activityLog/ActivityLog.jsx` | Master events, readable import results, export/print inclusion |
-| `src/modules/weeklyReport/WeeklyReport.jsx` | Master section, counts and filters |
-| `firestore.rules` | Strict Master Price permissions and canonical-key/revision checks; prevent Staff-forged master audit events |
-| `package.json` | Master Price unit/rules test commands |
-| `tests/masterPrices.test.mjs` | Pure normalization, validation, lookup, manual/saved context, import, search, print tests |
-| `tests/masterPriceRules.test.mjs` | Emulator permission, canonical-key, revision and concurrent-create tests |
-| `tests/masterPrices.ui.spec.mjs` | Browser management, import/export/print, templates/reports, live/offline, race, history, stages, theme tests |
-| `tests/playwright.config.mjs` | Includes the new browser suite |
-| `tests/fixtures/firebase.js` | Emulator-only network toggles for offline/reconnect testing |
-| `docs/master-price-list-phase2.md` | This implementation/verification report |
+| File                                        | Purpose                                                                                                                                 |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/utils/masterPrices.js`                 | Canonical identity composition using shared dimensions, validation, import preview, search, exact lookup and price-state reconciliation |
+| `src/utils/masterPriceStore.js`             | Transactional Add/Edit/deactivate/import, revision checks, atomic audit events                                                          |
+| `src/utils/masterPriceFiles.js`             | Excel export/template and escaped printable document                                                                                    |
+| `src/hooks/useMasterPrices.jsx`             | Shared authorized real-time subscription, error/offline status, indexed lookup                                                          |
+| `src/modules/masterPrices/MasterPrices.jsx` | Admin management forms, table, filters, import preview/results, confirmations                                                           |
+| `src/modules/masterPrices/masterPrices.css` | Light/dark, modal, table and responsive styling                                                                                         |
+| `src/App.jsx`                               | Admin-protected route and shared provider                                                                                               |
+| `src/layouts/DashboardLayout.jsx`           | Admin-only navigation entry                                                                                                             |
+| `src/modules/challan/Challan.jsx`           | Width, live auto/manual/saved price behavior, snapshot retention, Width display/export/print                                            |
+| `src/modules/challan/challan.css`           | Width controls and item-grid layout                                                                                                     |
+| `src/modules/admin/AdminSettings.jsx`       | Master Price import-template download                                                                                                   |
+| `src/modules/activityLog/ActivityLog.jsx`   | Master events, readable import results, export/print inclusion                                                                          |
+| `src/modules/weeklyReport/WeeklyReport.jsx` | Master section, counts and filters                                                                                                      |
+| `firestore.rules`                           | Strict Master Price permissions and canonical-key/revision checks; prevent Staff-forged master audit events                             |
+| `package.json`                              | Master Price unit/rules test commands                                                                                                   |
+| `tests/masterPrices.test.mjs`               | Pure normalization, validation, lookup, manual/saved context, import, search, print tests                                               |
+| `tests/masterPriceRules.test.mjs`           | Emulator permission, canonical-key, revision and concurrent-create tests                                                                |
+| `tests/masterPrices.ui.spec.mjs`            | Browser management, import/export/print, templates/reports, live/offline, race, history, stages, theme tests                            |
+| `tests/playwright.config.mjs`               | Includes the new browser suite                                                                                                          |
+| `tests/fixtures/firebase.js`                | Emulator-only network toggles for offline/reconnect testing                                                                             |
+| `docs/master-price-list-phase2.md`          | This implementation/verification report                                                                                                 |
 
 The workspace already contained Phase 1/1.5 and Dashboard changes. Those pre-existing changes were preserved; they are not newly introduced Master Price changes.
 
@@ -111,23 +111,23 @@ The workspace already contained Phase 1/1.5 and Dashboard changes. Those pre-exi
 
 All listed suites were run locally, with Firestore tests restricted to loopback demo emulator projects.
 
-| Suite/check | Result |
-| --- | --- |
-| `tests/masterPrices.test.mjs` | 15 passed |
-| `tests/dimensions.test.mjs` | 21 passed |
-| `tests/purchaseValidation.test.mjs` | 9 passed |
-| `tests/documentNumbers.test.mjs` | 3 passed |
-| `tests/dashboardAnalytics.test.mjs` | 5 passed |
-| `tests/masterPriceRules.test.mjs` | 4 passed |
-| `tests/dimensionRules.test.mjs` | 5 passed |
-| `tests/numberingRules.test.mjs` | 19 passed |
-| `tests/identityRollout.test.mjs` | 10 passed |
-| `tests/identityRolloutCli.test.mjs` | 6 passed |
-| Existing `tests/ui.spec.mjs` | 21 passed |
-| New `tests/masterPrices.ui.spec.mjs` | 7 passed across final targeted runs |
-| Targeted ESLint on changed application modules | Passed |
+| Suite/check                                               | Result                              |
+| --------------------------------------------------------- | ----------------------------------- |
+| `tests/masterPrices.test.mjs`                             | 15 passed                           |
+| `tests/dimensions.test.mjs`                               | 21 passed                           |
+| `tests/purchaseValidation.test.mjs`                       | 9 passed                            |
+| `tests/documentNumbers.test.mjs`                          | 3 passed                            |
+| `tests/dashboardAnalytics.test.mjs`                       | 5 passed                            |
+| `tests/masterPriceRules.test.mjs`                         | 4 passed                            |
+| `tests/dimensionRules.test.mjs`                           | 5 passed                            |
+| `tests/numberingRules.test.mjs`                           | 19 passed                           |
+| `tests/identityRollout.test.mjs`                          | 10 passed                           |
+| `tests/identityRolloutCli.test.mjs`                       | 6 passed                            |
+| Existing `tests/ui.spec.mjs`                              | 21 passed                           |
+| New `tests/masterPrices.ui.spec.mjs`                      | 7 passed across final targeted runs |
+| Targeted ESLint on changed application modules            | Passed                              |
 | `npm run build` including Inventory contract verification | Passed; bundle-size warning remains |
-| `git diff --check` | Passed |
+| `git diff --check`                                        | Passed                              |
 
 The seven new browser scenarios cover:
 

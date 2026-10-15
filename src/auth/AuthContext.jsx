@@ -1,11 +1,5 @@
 import { setDoc } from "../firebase/businessWrites.js";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -117,7 +111,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!user?.uid || user.role === "superadmin") return;
     return onSnapshot(doc(db, "employeeProfiles", user.uid), (snapshot) => {
-      const latest = snapshot.exists() ? { ...snapshot.data(), uid: snapshot.id } : null;
+      const latest = snapshot.exists()
+        ? { ...snapshot.data(), uid: snapshot.id }
+        : null;
       const revokedAt = timestampMs(latest?.accessRevokedAt);
       const deadline = revokedAt + REVOCATION_GRACE_MS;
       if (!latest) {
@@ -150,14 +146,14 @@ export function AuthProvider({ children }) {
     return () => clearInterval(timer);
   }, [sessionActive]);
   const value = {
-      user,
-      isLoading: loading,
-      loginEmployee,
-      logout,
-      hasPermission: (key) => hasModulePermission(user, key),
-      sessionRemaining: remaining,
-      sessionExpiring: remaining > 0,
-    };
+    user,
+    isLoading: loading,
+    loginEmployee,
+    logout,
+    hasPermission: (key) => hasModulePermission(user, key),
+    sessionRemaining: remaining,
+    sessionExpiring: remaining > 0,
+  };
   return (
     <AuthContext.Provider value={value}>
       {children}

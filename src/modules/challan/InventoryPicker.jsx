@@ -1,6 +1,16 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
-import { auditInventorySize, discoverInventory } from "../../utils/inventoryDiscovery.js";
+import {
+  auditInventorySize,
+  discoverInventory,
+} from "../../utils/inventoryDiscovery.js";
 import { isValidSize, normalizeSize } from "../../utils/dimensions.js";
 import { pieceValue } from "../../utils/pieces";
 import "./inventoryPicker.css";
@@ -22,13 +32,34 @@ export default function InventoryPicker({
     list = useRef(),
     id = useId();
   const selected = inventory.find((row) => row.id === inventoryId);
-  const { matches, counts } = useMemo(() => discoverInventory(inventory, query), [inventory, query]);
+  const { matches, counts } = useMemo(
+    () => discoverInventory(inventory, query),
+    [inventory, query],
+  );
   useEffect(() => {
     if (import.meta.env.DEV && open) {
-      console.info('[Inventory picker]', { query, source: counts.source, eligible: counts.eligible, matched: counts.filtered, matchedPhysicalIds: query ? matches.map(row => row.id) : [] });
-      if (isValidSize(query, true)) console.info('[Inventory size audit]', auditInventorySize(inventory, query));
+      console.info("[Inventory picker]", {
+        query,
+        source: counts.source,
+        eligible: counts.eligible,
+        matched: counts.filtered,
+        matchedPhysicalIds: query ? matches.map((row) => row.id) : [],
+      });
+      if (isValidSize(query, true))
+        console.info(
+          "[Inventory size audit]",
+          auditInventorySize(inventory, query),
+        );
     }
-  }, [open, query, inventory, matches, counts.source, counts.eligible, counts.filtered]);
+  }, [
+    open,
+    query,
+    inventory,
+    matches,
+    counts.source,
+    counts.eligible,
+    counts.filtered,
+  ]);
   const active = Math.min(highlighted, Math.max(0, matches.length - 1));
   useLayoutEffect(() => {
     if (!open) return;
@@ -92,7 +123,12 @@ export default function InventoryPicker({
   }, [active, open]);
   const choose = (row) => {
     if (!row) return;
-    if (import.meta.env.DEV) console.info('[Inventory selection]', { physicalRecordId: row.id, sku: row.sku, rawSize: row.size });
+    if (import.meta.env.DEV)
+      console.info("[Inventory selection]", {
+        physicalRecordId: row.id,
+        sku: row.sku,
+        rawSize: row.size,
+      });
     onSelect(row);
     setOpen(false);
   };

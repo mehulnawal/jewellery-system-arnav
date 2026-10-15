@@ -39,15 +39,13 @@ test.beforeEach(async ({ page }) => {
   await setRules(rules);
   await env.clearFirestore();
   for (const uid of ["admin", "staff"])
-    await db
-      .doc("employeeProfiles/" + uid)
-      .set({
-        uid,
-        role: uid === "admin" ? "superadmin" : "employee",
-        active: true,
-        permissions: ["inventory", "challan-stage-1"],
-        accessId: uid,
-      });
+    await db.doc("employeeProfiles/" + uid).set({
+      uid,
+      role: uid === "admin" ? "superadmin" : "employee",
+      active: true,
+      permissions: ["inventory", "challan-stage-1"],
+      accessId: uid,
+    });
   await page.addInitScript(() => {
     localStorage.setItem("theme", "dark");
     localStorage.setItem("test-role", "admin");
@@ -64,17 +62,15 @@ async function healthy(page) {
   ).toBeEnabled();
 }
 async function seedPrice() {
-  await db
-    .doc("masterPrices/5_PR_CBD__default")
-    .set({
-      type: "CBD",
-      shape: "PR",
-      height: "5",
-      width: "",
-      price: 5000,
-      active: true,
-      revision: 1,
-    });
+  await db.doc("masterPrices/5_PR_CBD__default").set({
+    type: "CBD",
+    shape: "PR",
+    height: "5",
+    width: "",
+    price: 5000,
+    active: true,
+    revision: 1,
+  });
 }
 
 test("server-confirmed missing marker is healthy; settings navigation, templates and staff route protection", async ({
@@ -91,11 +87,17 @@ test("server-confirmed missing marker is healthy; settings navigation, templates
     .getByRole("button", { name: "Import Templates", exact: true })
     .click();
   await expect(page).toHaveURL(/section=templates/);
-  await page.locator(".import-template-toggle").filter({ hasText: "Master Price List" }).click();
+  await page
+    .locator(".import-template-toggle")
+    .filter({ hasText: "Master Price List" })
+    .click();
   await expect(
     page.getByRole("button", { name: "Download Master Price Template" }),
   ).toBeVisible();
-  await page.locator(".import-template-toggle").filter({ hasText: "Inventory" }).click();
+  await page
+    .locator(".import-template-toggle")
+    .filter({ hasText: "Inventory" })
+    .click();
   await expect(
     page.getByRole("button", { name: "Download Sample Excel" }),
   ).toBeVisible();
@@ -433,13 +435,21 @@ test("sidebar compact geometry, tooltips, one-click groups and short viewport sc
   ).toBeVisible();
 });
 
-test("Import Templates share one accordion pattern, preserve downloads, and fit both themes on mobile", async ({ page }) => {
+test("Import Templates share one accordion pattern, preserve downloads, and fit both themes on mobile", async ({
+  page,
+}) => {
   await page.goto("/dashboard/admin-settings?section=templates");
   const names = ["Master Price List", "Inventory", "Purchase"];
-  const actions = ["Download Master Price Template", "Download Sample Excel", "Download Purchase Template"];
+  const actions = [
+    "Download Master Price Template",
+    "Download Sample Excel",
+    "Download Purchase Template",
+  ];
   const XLSX = await import("xlsx");
   for (const [index, name] of names.entries()) {
-    const card = page.locator(".import-template-card").filter({ has: page.getByRole("heading", { name, exact: true }) });
+    const card = page
+      .locator(".import-template-card")
+      .filter({ has: page.getByRole("heading", { name, exact: true }) });
     const toggle = card.locator(".import-template-toggle");
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await toggle.click();
@@ -447,15 +457,29 @@ test("Import Templates share one accordion pattern, preserve downloads, and fit 
     const downloadPromise = page.waitForEvent("download");
     await card.getByRole("button", { name: actions[index] }).click();
     const download = await downloadPromise;
-    const workbook = XLSX.read(await readFile(await download.path()), { type: "buffer" });
-    expect(workbook.SheetNames).toEqual([["Master Prices", "Instructions"], ["Inventory"], ["Purchases", "Items"]][index]);
-    const headers = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 })[0];
-    if (index === 0) expect(headers).toEqual(["Type", "Shape", "Height", "Width", "Price"]);
+    const workbook = XLSX.read(await readFile(await download.path()), {
+      type: "buffer",
+    });
+    expect(workbook.SheetNames).toEqual(
+      [
+        ["Master Prices", "Instructions"],
+        ["Inventory"],
+        ["Purchases", "Items"],
+      ][index],
+    );
+    const headers = XLSX.utils.sheet_to_json(
+      workbook.Sheets[workbook.SheetNames[0]],
+      { header: 1 },
+    )[0];
+    if (index === 0)
+      expect(headers).toEqual(["Type", "Shape", "Height", "Width", "Price"]);
     if (index === 1) expect(headers).toContain("Shape");
     if (index === 2) expect(headers).toContain("Purchase Number");
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(card.getByRole("button", { name: actions[index] })).toHaveCount(0);
+    await expect(
+      card.getByRole("button", { name: actions[index] }),
+    ).toHaveCount(0);
   }
   await page.setViewportSize({ width: 390, height: 844 });
   for (const theme of ["light", "dark"]) {
@@ -463,9 +487,14 @@ test("Import Templates share one accordion pattern, preserve downloads, and fit 
     await page.reload();
     await expect(page.locator(".import-template-card")).toHaveCount(3);
     for (const name of names) {
-      const card = page.locator(".import-template-card").filter({ has: page.getByRole("heading", { name, exact: true }) });
+      const card = page
+        .locator(".import-template-card")
+        .filter({ has: page.getByRole("heading", { name, exact: true }) });
       await card.locator(".import-template-toggle").click();
-      const dimensions = await card.evaluate((element) => ({ scroll: element.scrollWidth, visible: element.clientWidth }));
+      const dimensions = await card.evaluate((element) => ({
+        scroll: element.scrollWidth,
+        visible: element.clientWidth,
+      }));
       expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.visible + 1);
     }
   }

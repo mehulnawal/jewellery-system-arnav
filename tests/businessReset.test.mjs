@@ -76,13 +76,11 @@ beforeEach(async () => {
   await db
     .doc("employeeProfiles/admin")
     .set({ role: "superadmin", active: true, accessId: "admin" });
-  await db
-    .doc("employeeProfiles/staff")
-    .set({
-      role: "employee",
-      active: true,
-      permissions: ["inventory", "purchase", "challan-stage-1"],
-    });
+  await db.doc("employeeProfiles/staff").set({
+    role: "employee",
+    active: true,
+    permissions: ["inventory", "purchase", "challan-stage-1"],
+  });
 });
 test("backend denies unauthenticated, Staff, stale auth, skipped warning, wrong phrase and reused token", async () => {
   for (const c of [{}, claims("staff"), { ...claims(), auth_time: 1 }])
@@ -177,13 +175,11 @@ test("maintenance blocks Admin/Staff direct writes and control/token forgery", a
   }
 });
 test("interrupted image cleanup remains locked, preserves reference, resumes idempotently; duplicate worker is fenced", async () => {
-  await db
-    .doc("challans/old")
-    .set({
-      stage1Images: [
-        { publicId: "local-image", secureUrl: "https://example.test/image" },
-      ],
-    });
+  await db.doc("challans/old").set({
+    stage1Images: [
+      { publicId: "local-image", secureUrl: "https://example.test/image" },
+    ],
+  });
   await start();
   await processResetStep(db, await state());
   const s = await state();

@@ -1,23 +1,63 @@
-import { useInventoryDiscovery } from '../../hooks/useInventoryDiscovery.js';
+import { useInventoryDiscovery } from "../../hooks/useInventoryDiscovery.js";
 import { runTransaction, setDoc } from "../../firebase/businessWrites.js";
 import InventoryPicker from "./InventoryPicker";
 import { inventoryMatchesSearch } from "../../utils/inventoryRules.js";
 import { normalizeSize } from "../../utils/dimensions.js";
 import { useMasterPrices } from "../../hooks/useMasterPrices";
-import { refreshItemPrice, savedPriceItem, widthError, priceContext } from "../../utils/masterPrices.js";
+import {
+  refreshItemPrice,
+  savedPriceItem,
+  widthError,
+  priceContext,
+} from "../../utils/masterPrices.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./challan.css";
-import { collection, doc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { writeActivity } from "../../utils/activityLog";
 import { isWholePieces, pieceValue } from "../../utils/pieces";
+import {
+  fromCents,
+  fromMillis,
+  invoiceFromStageTwo,
+  moneyCents,
+  movementFor,
+  normalizeMoney,
+  normalizeWeight,
+  priceItem,
+  settlementFor,
+  stageOneTotals,
+  stageTwoTotals,
+  strictMoney,
+  strictWeight,
+  updateReturnRows,
+  weightMillis,
+  wholePieces,
+  unchangedAdvancedStageOne,
+  sameStageOneReturnSource,
+  sameStageTwoInvoiceSource,
+  invoiceReviewRows,
+  challanStockRestoration,
+} from "../../utils/challanCalculations.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import { challanAging, timestampMs } from "../../utils/challanAging";
 import { uploadChallanImage } from "../../utils/cloudinary";
-import { CHALLAN_NUMBER_HELP, CHALLAN_NUMBER_PATTERN, documentNumberError } from "../../utils/documentNumbers.js";
-import { prepareNumberClaim, prepareNumberRelease } from "../../utils/numberRegistry.js";
+import {
+  CHALLAN_NUMBER_HELP,
+  CHALLAN_NUMBER_PATTERN,
+  documentNumberError,
+} from "../../utils/documentNumbers.js";
+import {
+  prepareNumberClaim,
+  prepareNumberRelease,
+} from "../../utils/numberRegistry.js";
 const STAGES = {
   1: "Goods Out",
   2: "Return / Sale",
@@ -33,17 +73,27 @@ const stageActionLabel = (stage) =>
   })[stage] || "";
 const today = () => new Date().toISOString().slice(0, 10);
 const pricingFor = (amount, discount) => {
-  const value = Math.max(0, Number(amount) || 0),
-    rate = Math.max(0, Number(discount) || 0);
-  const discountAmount = Number(((value * rate) / 100).toFixed(2));
-  return {
-    amount: value,
-    discount: rate,
-    discountAmount,
-    netAmount: Number((value - discountAmount).toFixed(2)),
-  };
+  try {
+    return priceItem(amount, discount);
+  } catch {
+    return null;
+  }
 };
-const money = (value) => Number((Number(value) || 0).toFixed(2));
+const money = (value) => {
+  try {
+    return normalizeMoney(value);
+  } catch {
+    return Number.NaN;
+  }
+};
+const isValidMoney = (value) => {
+  try {
+    strictMoney(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
 const inrFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
   currency: "INR",
@@ -53,32 +103,82 @@ const inrFormatter = new Intl.NumberFormat("en-IN", {
 const hasStoredNumber = (value) =>
   value !== undefined &&
   value !== null &&
-  value !== "" &&
+  /^\d+(?:\.\d+)?$/.test(String(value).trim()) &&
   Number.isFinite(Number(value));
-const viewCurrency = (value, fallback = "--") =>
-  hasStoredNumber(value) ? inrFormatter.format(Number(value)) : fallback;
-const viewWeight = (value, fallback = "--") =>
-  hasStoredNumber(value) ? `${Number(value).toFixed(3)} ct` : fallback;
-const viewPieces = (value, fallback = "--") =>
-  hasStoredNumber(value) ? String(pieceValue(value)) : fallback;
+const exportMoney = (value) => {
+  try {
+    return normalizeMoney(value);
+  } catch {
+    return "";
+  }
+};
+const exportWeight = (value) => {
+  try {
+    return normalizeWeight(value);
+  } catch {
+    return "";
+  }
+};
+const exportPieces = (value) => {
+  try {
+    return wholePieces(value);
+  } catch {
+    return "";
+  }
+};
+const weightText = (value) => {
+  try {
+    return normalizeWeight(value).toFixed(3);
+  } catch {
+    return "Unavailable";
+  }
+};
+const moneyText = (value) => {
+  const amount = exportMoney(value);
+  return amount === "" ? "Unavailable" : amount.toFixed(2);
+};
+const viewCurrency = (value, fallback = "--") => {
+  const amount = exportMoney(value);
+  return amount === "" ? fallback : inrFormatter.format(amount);
+};
+const viewWeight = (value, fallback = "--") => {
+  const weight = exportWeight(value);
+  return weight === "" ? fallback : weight.toFixed(3) + " ct";
+};
+const viewPieces = (value, fallback = "--") => {
+  const pieces = exportPieces(value);
+  return pieces === "" ? fallback : String(pieces);
+};
 const sumStored = (items, key) => {
-  let found = false;
-  const total = (items || []).reduce((sum, item) => {
-    if (!hasStoredNumber(item[key])) return sum;
-    found = true;
-    return sum + Number(item[key]);
-  }, 0);
-  return found ? total : undefined;
+  if (!items?.length) return undefined;
+  const pieces = /pieces/i.test(key);
+  const weight = /weight/i.test(key);
+  let total = 0n;
+  try {
+    for (const item of items) {
+      if (pieces) total += BigInt(wholePieces(item[key]));
+      else if (weight) total += weightMillis(item[key]);
+      else total += moneyCents(item[key]);
+    }
+    if (pieces && total > BigInt(Number.MAX_SAFE_INTEGER)) return undefined;
+    return pieces
+      ? Number(total)
+      : weight
+        ? fromMillis(total)
+        : fromCents(total);
+  } catch {
+    return undefined;
+  }
 };
 const sumStoredBy = (items, read) => {
-  let found = false;
-  const total = (items || []).reduce((sum, item) => {
-    const value = read(item);
-    if (!hasStoredNumber(value)) return sum;
-    found = true;
-    return sum + Number(value);
-  }, 0);
-  return found ? total : undefined;
+  if (!items?.length) return undefined;
+  try {
+    return fromCents(
+      items.reduce((sum, item) => sum + moneyCents(read(item)), 0n),
+    );
+  } catch {
+    return undefined;
+  }
 };
 const viewPercent = (value) =>
   hasStoredNumber(value) ? `${Number(value)}%` : "--";
@@ -86,39 +186,7 @@ const soldKeptText = (item) =>
   hasStoredNumber(item.soldPieces) || hasStoredNumber(item.soldWeight)
     ? `${viewPieces(item.soldPieces)} pcs / ${viewWeight(item.soldWeight)}`
     : "--";
-const invoiceSnapshotFor = (record) => {
-  const stageTwoItems = record.stage2Return?.items;
-  if (!Array.isArray(stageTwoItems) || !stageTwoItems.length)
-    throw new Error("This Stage 2 Challan has no return/sale item history.");
-  const items = stageTwoItems.map((item) => {
-    if (item.amount === "" || item.amount === null || item.amount === undefined)
-      throw new Error(`Item ${item.sku || ""} has no quoted Price.`);
-    const grossAmount = money(item.amount);
-    const stage1DiscountPercent = money(item.discount);
-    const stage1DiscountAmount = money(
-      (grossAmount * stage1DiscountPercent) / 100,
-    );
-    return {
-      ...item,
-      grossAmount,
-      stage1DiscountPercent,
-      stage1DiscountAmount,
-      finalAmount: money(grossAmount - stage1DiscountAmount),
-    };
-  });
-  const grossAmount = money(
-    items.reduce((sum, item) => sum + item.grossAmount, 0),
-  );
-  const stage1DiscountAmount = money(
-    items.reduce((sum, item) => sum + item.stage1DiscountAmount, 0),
-  );
-  return {
-    items,
-    grossAmount,
-    stage1DiscountAmount,
-    finalInvoiceAmount: money(grossAmount - stage1DiscountAmount),
-  };
-};
+
 const historicalItemsFor = (record) => {
   const stage = Number(record.stage || 1);
   if (stage >= 3 && Array.isArray(record.finalInvoice?.items))
@@ -325,7 +393,7 @@ const PartyPicker = ({ value, parties, onChange }) => {
     </div>
   );
 };
-const StageTwoModal = ({ record, onClose, onConfirm }) => {
+export const StageTwoModal = ({ record, onClose, onConfirm }) => {
   usePageFreeze();
   const [rows, setRows] = useState(() =>
     record.items.map((item) => ({
@@ -334,19 +402,16 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
       returnWeight: "",
     })),
   );
+  const rowsRef = useRef(rows);
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const issuedPieces = (item) => pieceValue(item.pieces);
-  const issuedWeight = (item) => Number(item.weight || 0);
+  const issuedWeight = (item) => normalizeWeight(item.weight || 0);
   const update = (id, key, value) => {
     if (key === "returnPieces" && !/^\d*$/.test(value)) return;
     if (key === "returnWeight" && !/^\d*(?:\.\d*)?$/.test(value)) return;
     const item = record.items.find((entry) => (entry.id || entry.sku) === id);
-    const nextRow = {
-      ...(rows.find((row) => row.id === id) || {}),
-      [key]: value,
-    };
     const message =
       key === "returnPieces"
         ? !isWholePieces(value) || pieceValue(value) > issuedPieces(item)
@@ -362,13 +427,18 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
             issuedWeight(item).toFixed(3) +
             "."
           : "";
-    setRows((current) => current.map((row) => (row.id === id ? nextRow : row)));
-    setErrors((current) => ({ ...current, [id + key]: message }));
+    rowsRef.current = updateReturnRows(rowsRef.current, id, key, value);
+    setRows((current) => updateReturnRows(current, id, key, value));
+    setErrors((current) => ({
+      ...current,
+      [id + key]: message,
+      [id + (key === "returnPieces" ? "returnWeight" : "returnPieces")]: "",
+    }));
   };
-  const validate = () => {
+  const validate = (candidate = rowsRef.current) => {
     const next = {};
     record.items.forEach((item, index) => {
-      const row = rows[index],
+      const row = candidate[index],
         pieces = issuedPieces(item),
         weight = issuedWeight(item),
         rp = row.returnPieces,
@@ -382,15 +452,23 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
         Number(rw) > weight
       )
         next[row.id + "returnWeight"] = "Enter 0 to " + weight.toFixed(3);
+      if (!next[row.id + "returnPieces"] && !next[row.id + "returnWeight"]) {
+        try {
+          movementFor(item, rp, rw);
+        } catch (error) {
+          next[row.id + "returnWeight"] = error.message;
+        }
+      }
     });
     setErrors(next);
     return !Object.keys(next).length;
   };
   const submit = async () => {
-    if (!validate()) return;
+    const candidate = rowsRef.current;
+    if (!validate(candidate)) return;
     setSaving(true);
     try {
-      await onConfirm(rows, notes);
+      await onConfirm(candidate, notes);
     } catch (error) {
       setErrors({
         form:
@@ -399,28 +477,12 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
       setSaving(false);
     }
   };
-  const totals = record.items.reduce(
-    (sum, item, index) => {
-      const row = rows[index],
-        rp = pieceValue(row.returnPieces),
-        rw = Number(row.returnWeight || 0);
-      sum.issuedPieces += issuedPieces(item);
-      sum.issuedWeight += issuedWeight(item);
-      sum.returnPieces += rp;
-      sum.returnWeight += rw;
-      sum.soldPieces += issuedPieces(item) - rp;
-      sum.soldWeight += issuedWeight(item) - rw;
-      return sum;
-    },
-    {
-      issuedPieces: 0,
-      issuedWeight: 0,
-      returnPieces: 0,
-      returnWeight: 0,
-      soldPieces: 0,
-      soldWeight: 0,
-    },
-  );
+  let totals = null;
+  try {
+    totals = stageTwoTotals(record.items, rows);
+  } catch {
+    /* Incomplete return inputs cannot form finalized movement totals. */
+  }
   return (
     <div
       className="stage-two-overlay"
@@ -495,10 +557,18 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
             </div>{" "}
             {record.items.map((item, index) => {
               const row = rows[index],
-                rp = pieceValue(row.returnPieces),
-                rw = Number(row.returnWeight || 0),
                 pieces = issuedPieces(item),
                 weight = issuedWeight(item);
+              let movement = null;
+              try {
+                movement = movementFor(
+                  item,
+                  row.returnPieces,
+                  row.returnWeight,
+                );
+              } catch {
+                /* A draft row is not a sold movement. */
+              }
               return (
                 <div className="stage-two-row" key={item.id || item.sku}>
                   {" "}
@@ -541,10 +611,12 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
                       <small>{errors[row.id + "returnWeight"]}</small>
                     )}{" "}
                   </label>{" "}
-                  <span>{pieces - rp}</span>{" "}
-                  <span className="divider">{(weight - rw).toFixed(3)}</span>{" "}
-                  <span>{Number(item.amount || 0).toFixed(2)}</span>{" "}
-                  <span>{Number(item.discount || 0).toFixed(2)}%</span>{" "}
+                  <span>{movement ? movement.soldPieces : "--"}</span>{" "}
+                  <span className="divider">
+                    {movement ? weightText(movement.soldWeight) : "--"}
+                  </span>{" "}
+                  <span>{viewCurrency(item.amount)}</span>{" "}
+                  <span>{viewPercent(item.discount)}</span>{" "}
                 </div>
               );
             })}{" "}
@@ -553,30 +625,33 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
               <span /> <span className="divider" />{" "}
               <strong>
                 {" "}
-                <small>Total Issued Pieces</small> {totals.issuedPieces}{" "}
+                <small>Total Issued Pieces</small>{" "}
+                {totals ? totals.issuedPieces : "--"}{" "}
               </strong>{" "}
               <strong className="divider">
                 {" "}
                 <small>Total Issued Weight</small>{" "}
-                {totals.issuedWeight.toFixed(3)}{" "}
+                {totals ? weightText(totals.issuedWeight) : "--"}{" "}
               </strong>{" "}
               <strong>
                 {" "}
-                <small>Total Return Pieces</small> {totals.returnPieces}{" "}
+                <small>Total Return Pieces</small>{" "}
+                {totals ? totals.returnPieces : "--"}{" "}
               </strong>{" "}
               <strong className="divider">
                 {" "}
                 <small>Total Return Weight</small>{" "}
-                {totals.returnWeight.toFixed(3)}{" "}
+                {totals ? weightText(totals.returnWeight) : "--"}{" "}
               </strong>{" "}
               <strong>
                 {" "}
-                <small>Total Sold Pieces</small> {totals.soldPieces}{" "}
+                <small>Total Sold Pieces</small>{" "}
+                {totals ? totals.soldPieces : "--"}{" "}
               </strong>{" "}
               <strong className="divider">
                 {" "}
                 <small>Total Sold Weight</small>{" "}
-                {totals.soldWeight.toFixed(3)}{" "}
+                {totals ? weightText(totals.soldWeight) : "--"}{" "}
               </strong>{" "}
               <span /> <span />{" "}
             </div>{" "}
@@ -612,14 +687,20 @@ const StageTwoModal = ({ record, onClose, onConfirm }) => {
     </div>
   );
 };
-const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
+export const FinalInvoiceModal = ({
+  record,
+  onClose,
+  onConfirm,
+  canEnterPartial = false,
+}) => {
   usePageFreeze();
-  const [saving, setSaving] = useState(false),
-    [error, setError] = useState("");
-  let invoice;
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [partialAmounts, setPartialAmounts] = useState([]);
+  let rows;
   try {
-    invoice = invoiceSnapshotFor(record);
-  } catch (error) {
+    rows = invoiceReviewRows(record.stage2Return?.items);
+  } catch (reason) {
     return (
       <div className="stage-two-overlay" role="dialog" aria-modal="true">
         <section className="stage-two-modal">
@@ -634,7 +715,7 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
               ×
             </button>
           </header>
-          <p className="stage-two-error">{error.message}</p>
+          <p className="stage-two-error">{reason.message}</p>
           <footer>
             <button type="button" onClick={onClose}>
               Close
@@ -644,10 +725,23 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
       </div>
     );
   }
+  const hasPartial = rows.some((row) => row.billingMode === "partial-return");
+  let invoice = null;
+  try {
+    invoice = invoiceFromStageTwo(record.stage2Return.items, partialAmounts);
+  } catch {
+    /* The review remains open until every partial amount is valid. */
+  }
   const submit = async () => {
-    setSaving(true);
+    setError("");
     try {
-      await onConfirm();
+      if (hasPartial && !canEnterPartial)
+        throw new Error(
+          "Only Admin can enter a partial-return Final Billed Amount.",
+        );
+      invoiceFromStageTwo(record.stage2Return.items, partialAmounts);
+      setSaving(true);
+      await onConfirm(partialAmounts);
     } catch (reason) {
       setError(reason.message || "Could not confirm the Final Invoice.");
       setSaving(false);
@@ -688,13 +782,19 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
               <span>ISSUED</span>
               <span>RETURN</span>
               <span>SOLD / KEPT</span>
-              <span>PRICE</span>
-              <span>STAGE 1 DISCOUNT</span>
+              <span>STAGE 1 PRICE / DISCOUNT</span>
+              <span>STAGE 1 NET</span>
+              <span>FINAL BILLED AMOUNT</span>
             </div>
-            {invoice.items.map((item) => (
+            {rows.map((item, index) => (
               <div
                 className="stage-two-row"
-                key={item.sourceInventoryId || item.inventoryId || item.sku}
+                key={
+                  item.sourceInventoryId ||
+                  item.inventoryId ||
+                  item.sku ||
+                  index
+                }
               >
                 <b>
                   {item.sku}
@@ -704,45 +804,86 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
                   </small>
                 </b>
                 <span>
-                  {item.issuedPieces} pcs /{" "}
-                  {Number(item.issuedWeight || 0).toFixed(3)} ct
+                  {item.issuedPieces} pcs / {weightText(item.issuedWeight)} ct
                 </span>
                 <span>
-                  {item.returnPieces} pcs /{" "}
-                  {Number(item.returnWeight || 0).toFixed(3)} ct
+                  {item.returnPieces} pcs / {weightText(item.returnWeight)} ct
                 </span>
                 <span>
-                  {item.soldPieces} pcs /{" "}
-                  {Number(item.soldWeight || 0).toFixed(3)} ct
+                  {item.soldPieces} pcs / {weightText(item.soldWeight)} ct
                 </span>
-                <span>₹{item.grossAmount.toFixed(2)}</span>
                 <span>
-                  {item.stage1DiscountPercent}% (₹
-                  {item.stage1DiscountAmount.toFixed(2)})
+                  ₹{moneyText(item.amount)} · {item.stage1DiscountPercent}% (₹
+                  {moneyText(item.stage1DiscountAmount)})
                 </span>
+                <span>₹{moneyText(item.stage1NetAmount)}</span>
+                {item.billingMode === "partial-return" ? (
+                  canEnterPartial ? (
+                    <label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={item.stage1NetAmount}
+                        step="0.01"
+                        aria-label={item.sku + " Final Billed Amount"}
+                        value={partialAmounts[index] ?? ""}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setPartialAmounts((current) => {
+                            const next = [...current];
+                            next[index] = value;
+                            return next;
+                          });
+                          setError("");
+                        }}
+                      />
+                      <small>
+                        Admin amount, up to ₹{moneyText(item.stage1NetAmount)}
+                      </small>
+                    </label>
+                  ) : (
+                    <span>Admin entry required</span>
+                  )
+                ) : (
+                  <span>
+                    ₹
+                    {item.billingMode === "full-return"
+                      ? "0.00"
+                      : moneyText(item.stage1NetAmount)}{" "}
+                    (locked)
+                  </span>
+                )}
               </div>
             ))}
           </div>
         </div>
         <div className="stage-two-totals">
           <strong>
-            <small>Gross Amount</small>₹{invoice.grossAmount.toFixed(2)}
+            <small>Original Stage 1 Amount</small>₹
+            {moneyText(invoice?.grossAmount ?? record.amount)}
           </strong>
           <strong>
-            <small>Stage 1 Discount</small>- ₹
-            {invoice.stage1DiscountAmount.toFixed(2)}
+            <small>Original Stage 1 Net</small>₹
+            {moneyText(invoice?.stage1NetAmount ?? record.netAmount)}
           </strong>
           <strong>
-            <small>Final Invoice Amount</small>₹
-            {invoice.finalInvoiceAmount.toFixed(2)}
+            <small>Final Invoice Amount</small>
+            {invoice
+              ? "₹" + invoice.finalInvoiceAmount.toFixed(2)
+              : "Pending valid partial amount"}
           </strong>
         </div>
+        {hasPartial && !canEnterPartial && (
+          <p className="stage-two-error">
+            Only Admin can enter partial-return Final Billed Amounts.
+          </p>
+        )}
         {error && <p className="stage-two-error">{error}</p>}
         <footer>
           <button
             type="button"
             className="primary"
-            disabled={saving}
+            disabled={saving || (hasPartial && !canEnterPartial)}
             onClick={submit}
           >
             {saving
@@ -757,33 +898,37 @@ const FinalInvoiceModal = ({ record, onClose, onConfirm }) => {
     </div>
   );
 };
-const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
+export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
   usePageFreeze();
   const [paid, setPaid] = useState(""),
     [discount, setDiscount] = useState(""),
     [error, setError] = useState(""),
     [saving, setSaving] = useState(false);
   const finalInvoiceAmount = money(record.finalInvoice?.finalInvoiceAmount);
-  const paidValue = Number(paid),
-    discountValue = Number(discount);
-  const validNumbers =
-    paid !== "" &&
-    Number.isFinite(paidValue) &&
-    Number.isFinite(discountValue) &&
-    paidValue >= 0 &&
-    discountValue >= 0;
-  const remaining = validNumbers
-    ? money(finalInvoiceAmount - paidValue - discountValue)
-    : finalInvoiceAmount;
-  const canComplete = validNumbers && remaining === 0;
+  let calculation = null;
+  let inputError = "";
+  try {
+    calculation = settlementFor(
+      finalInvoiceAmount,
+      paid === "" ? "0" : paid,
+      discount,
+    );
+  } catch (reason) {
+    inputError = reason.message;
+  }
+  const remaining = calculation?.remaining ?? finalInvoiceAmount;
+  const canComplete = Boolean(
+    paid !== "" && calculation && calculation.remaining === 0,
+  );
   const submit = async () => {
     if (!canComplete)
       return setError(
-        "Amount Paid plus Discount Amount must equal the Final Invoice Amount exactly.",
+        inputError ||
+          "Amount Paid plus Discount Amount must equal the Final Invoice Amount exactly.",
       );
     setSaving(true);
     try {
-      await onConfirm(money(paidValue), money(discountValue));
+      await onConfirm(paid, discount);
     } catch (reason) {
       setError(reason.message || "Could not complete settlement.");
       setSaving(false);
@@ -855,19 +1000,21 @@ const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
           </strong>
           <strong>
             <small>Amount Paid</small>₹
-            {Number.isFinite(paidValue) ? money(paidValue).toFixed(2) : "0.00"}
+            {calculation ? calculation.amountPaid.toFixed(2) : "0.00"}
           </strong>
           <strong>
             <small>Discount Amount</small>₹
-            {Number.isFinite(discountValue)
-              ? money(discountValue).toFixed(2)
+            {calculation
+              ? calculation.settlementDiscountAmount.toFixed(2)
               : "0.00"}
           </strong>
           <strong>
             <small>Remaining</small>₹{remaining.toFixed(2)}
           </strong>
         </div>
-        {error && <p className="stage-two-error">{error}</p>}
+        {(error || inputError) && (
+          <p className="stage-two-error">{error || inputError}</p>
+        )}
         <footer>
           <button
             type="button"
@@ -940,50 +1087,93 @@ const LegacyInvoiceUnavailableModal = ({ record, onClose }) => {
     </div>
   );
 };
-const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
+export const ChallanDeleteModal = ({ record, onClose, onConfirm }) => {
   usePageFreeze();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const submitting = useRef(false);
   useEffect(() => {
     const keys = (event) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !submitting.current) onClose();
     };
     window.addEventListener("keydown", keys);
     return () => window.removeEventListener("keydown", keys);
   }, [onClose]);
+  let restoration;
+  try {
+    restoration = challanStockRestoration(record);
+  } catch (reason) {
+    restoration = { error: reason.message };
+  }
+  const confirm = async () => {
+    if (submitting.current || restoration.error) return;
+    submitting.current = true;
+    setSaving(true);
+    setError("");
+    try {
+      await onConfirm(record.id);
+    } catch (reason) {
+      setError(reason.message || "Could not delete this Challan.");
+      setSaving(false);
+      submitting.current = false;
+    }
+  };
   return (
     <div
       className="challan-delete-overlay"
       role="dialog"
       aria-modal="true"
       aria-label="Delete challan confirmation"
-      onMouseDown={onClose}
+      onMouseDown={saving ? undefined : onClose}
     >
-      {" "}
       <div
         className="challan-delete-dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {" "}
-        <h3>Delete Challan?</h3>{" "}
+        <h3>Delete Challan?</h3>
         <p>
-          {" "}
-          {record.number} for {record.party} will be permanently removed.{" "}
-        </p>{" "}
-        <small>Press Esc to cancel.</small>{" "}
+          {record.number} for {record.party} · Stage {record.stage} will be
+          permanently removed.
+        </p>
+        <p>
+          {Number(record.stage) === 1
+            ? "Deleting this Challan will restore the full issued stock to Inventory."
+            : "Deleting this Challan will restore only Sold / Kept stock. Returned stock has already been restored."}
+        </p>
+        {restoration.error ? (
+          <p className="stage-two-error">{restoration.error}</p>
+        ) : (
+          <>
+            <p>
+              <strong>
+                Stock to restore: {restoration.totalPieces} pcs /{" "}
+                {weightText(restoration.totalWeight)} ct
+              </strong>
+            </p>
+            {restoration.items.map((item, index) => (
+              <p key={item.inventoryId + "-" + index}>
+                {item.sku || item.inventoryId}: {item.pieces} pcs /{" "}
+                {weightText(item.weight)} ct
+              </p>
+            ))}
+          </>
+        )}
+        {error && <p className="stage-two-error">{error}</p>}
+        <small>Press Esc to cancel.</small>
         <footer>
           <button
             type="button"
             className="challan-delete-confirm"
-            onClick={() => onConfirm(record.id)}
+            disabled={saving || Boolean(restoration.error)}
+            onClick={confirm}
           >
-            {" "}
-            Delete Challan{" "}
-          </button>{" "}
-          <button type="button" onClick={onClose}>
-            {" "}
-            Cancel{" "}
-          </button>{" "}
-        </footer>{" "}
-      </div>{" "}
+            {saving ? "Deleting..." : "Delete Challan"}
+          </button>
+          <button type="button" disabled={saving} onClick={onClose}>
+            Cancel
+          </button>
+        </footer>
+      </div>
     </div>
   );
 };
@@ -995,7 +1185,8 @@ export const StageOneView = ({ items }) => (
         <tr>
           <th>SKU / Item</th>
           <th>Shape</th>
-          <th>Size</th><th>Width</th>
+          <th>Size</th>
+          <th>Width</th>
           <th>Pieces</th>
           <th>Weight</th>
           <th>Price</th>
@@ -1007,7 +1198,8 @@ export const StageOneView = ({ items }) => (
           <tr key={item.id || item.sku || index}>
             <td>{item.sku || "--"}</td>
             <td>{item.shape || "--"}</td>
-            <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
+            <td>{normalizeSize(item.size) || "--"}</td>
+            <td>{normalizeSize(item.width) || "--"}</td>
             <td>{viewPieces(item.pieces)}</td>
             <td>{viewWeight(item.weight)}</td>
             <td>{viewCurrency(item.amount)}</td>
@@ -1044,7 +1236,8 @@ export const StageTwoView = ({ items }) => (
           <tr>
             <th>SKU / Item</th>
             <th>Shape</th>
-            <th>Size</th><th>Width</th>
+            <th>Size</th>
+            <th>Width</th>
             <th>Issued Pieces</th>
             <th>Issued Weight</th>
             <th>Return Pieces</th>
@@ -1060,7 +1253,8 @@ export const StageTwoView = ({ items }) => (
             <tr key={item.id || item.sku || index}>
               <td>{item.sku || "--"}</td>
               <td>{item.shape || "--"}</td>
-              <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
+              <td>{normalizeSize(item.size) || "--"}</td>
+              <td>{normalizeSize(item.width) || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
               <td>{viewWeight(item.issuedWeight)}</td>
               <td>{viewPieces(item.returnPieces)}</td>
@@ -1120,11 +1314,13 @@ export const StageThreeView = ({ invoice }) => {
             <tr>
               <th>SKU / Item</th>
               <th>Shape</th>
-              <th>Size</th><th>Width</th>
+              <th>Size</th>
+              <th>Width</th>
               <th>Sold / Kept</th>
-              <th>Price</th>
+              <th>Original Stage 1 Amount</th>
               <th>Stage 1 Discount</th>
               <th>Discount Amount</th>
+              <th>Final Billed Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -1132,11 +1328,13 @@ export const StageThreeView = ({ invoice }) => {
               <tr key={item.id || item.sku || index}>
                 <td>{item.sku || "--"}</td>
                 <td>{item.shape || "--"}</td>
-                <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
+                <td>{normalizeSize(item.size) || "--"}</td>
+                <td>{normalizeSize(item.width) || "--"}</td>
                 <td>{soldKeptText(item)}</td>
-                <td>{viewCurrency(item.grossAmount ?? item.amount)}</td>
+                <td>{viewCurrency(item.amount)}</td>
                 <td>{viewPercent(item.stage1DiscountPercent)}</td>
                 <td>{viewCurrency(item.stage1DiscountAmount)}</td>
+                <td>{viewCurrency(item.finalAmount)}</td>
               </tr>
             ))}
           </tbody>
@@ -1165,16 +1363,18 @@ export const StageFourView = ({ items, invoice, settlement }) => (
           <tr>
             <th>SKU / Item</th>
             <th>Shape</th>
-            <th>Size</th><th>Width</th>
+            <th>Size</th>
+            <th>Width</th>
             <th>Issued Pieces</th>
             <th>Issued Weight</th>
             <th>Return Pieces</th>
             <th>Return Weight</th>
             <th>Sold / Kept Pieces</th>
             <th>Sold / Kept Weight</th>
-            <th>Price</th>
+            <th>Original Stage 1 Amount</th>
             <th>Stage 1 Discount</th>
             <th>Discount Amount</th>
+            <th>Final Billed Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -1182,18 +1382,20 @@ export const StageFourView = ({ items, invoice, settlement }) => (
             <tr key={item.id || item.sku || index}>
               <td>{item.sku || "--"}</td>
               <td>{item.shape || "--"}</td>
-              <td>{normalizeSize(item.size) || "--"}</td><td>{normalizeSize(item.width) || "--"}</td>
+              <td>{normalizeSize(item.size) || "--"}</td>
+              <td>{normalizeSize(item.width) || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
               <td>{viewWeight(item.issuedWeight)}</td>
               <td>{viewPieces(item.returnPieces)}</td>
               <td>{viewWeight(item.returnWeight)}</td>
               <td>{viewPieces(item.soldPieces)}</td>
               <td>{viewWeight(item.soldWeight)}</td>
-              <td>{viewCurrency(item.grossAmount ?? item.amount)}</td>
+              <td>{viewCurrency(item.amount)}</td>
               <td>
                 {viewPercent(item.stage1DiscountPercent ?? item.discount)}
               </td>
               <td>{viewCurrency(item.stage1DiscountAmount)}</td>
+              <td>{viewCurrency(item.finalAmount)}</td>
             </tr>
           ))}
         </tbody>
@@ -1267,13 +1469,21 @@ const InvoiceSummary = ({ invoice }) => (
     aria-label="Final Invoice financial summary"
   >
     <div className="challan-financial-cell">
-      <span className="challan-financial-label">Gross Amount</span>
+      <span className="challan-financial-label">
+        {invoice?.calculationVersion === "manual-partial-v1"
+          ? "Original Stage 1 Amount"
+          : "Gross Amount"}
+      </span>
       <strong className="challan-financial-value">
         {viewCurrency(invoice?.grossAmount, "Unavailable")}
       </strong>
     </div>
     <div className="challan-financial-cell">
-      <span className="challan-financial-label">Stage 1 Discount</span>
+      <span className="challan-financial-label">
+        {invoice?.calculationVersion === "manual-partial-v1"
+          ? "Original Stage 1 Discount"
+          : "Stage 1 Discount"}
+      </span>
       <strong className="challan-financial-value">
         {hasStoredNumber(invoice?.stage1DiscountAmount)
           ? `− ${viewCurrency(invoice.stage1DiscountAmount)}`
@@ -1294,13 +1504,21 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
     aria-label="Completed Challan financial summary"
   >
     <div className="challan-financial-cell">
-      <span className="challan-financial-label">Gross Amount</span>
+      <span className="challan-financial-label">
+        {invoice?.calculationVersion === "manual-partial-v1"
+          ? "Original Stage 1 Amount"
+          : "Gross Amount"}
+      </span>
       <strong className="challan-financial-value">
         {viewCurrency(invoice?.grossAmount, "Unavailable")}
       </strong>
     </div>
     <div className="challan-financial-cell">
-      <span className="challan-financial-label">Stage 1 Discount</span>
+      <span className="challan-financial-label">
+        {invoice?.calculationVersion === "manual-partial-v1"
+          ? "Original Stage 1 Discount"
+          : "Stage 1 Discount"}
+      </span>
       <strong className="challan-financial-value">
         {hasStoredNumber(invoice?.stage1DiscountAmount)
           ? `− ${viewCurrency(invoice.stage1DiscountAmount)}`
@@ -1333,7 +1551,13 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
     </div>
   </div>
 );
-const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) => {
+const ChallanImageSection = ({
+  stage,
+  images,
+  canUpload,
+  uploading,
+  onUpload,
+}) => {
   const fileInput = useRef(null);
   const [preview, setPreview] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -1357,7 +1581,11 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
           <small>{images.length} uploaded</small>
         </div>
         <div className="challan-image-gallery">
-          {!images.length && <p className="challan-image-empty">No images uploaded for this stage.</p>}
+          {!images.length && (
+            <p className="challan-image-empty">
+              No images uploaded for this stage.
+            </p>
+          )}
           {images.map((image) => (
             <button
               className="challan-image-thumbnail"
@@ -1395,19 +1623,40 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
             const files = Array.from(event.target.files || []);
             event.target.value = "";
             if (!files.length) return;
-            setUploadStatus("Uploading " + files.length + " image" + (files.length === 1 ? "" : "s") + "...");
+            setUploadStatus(
+              "Uploading " +
+                files.length +
+                " image" +
+                (files.length === 1 ? "" : "s") +
+                "...",
+            );
             try {
               const result = await onUpload(files, stage);
-              setUploadStatus([
-                result.uploaded ? result.uploaded + " image" + (result.uploaded === 1 ? "" : "s") + " uploaded." : "",
-                ...result.failed,
-              ].filter(Boolean).join(" "));
+              setUploadStatus(
+                [
+                  result.uploaded
+                    ? result.uploaded +
+                      " image" +
+                      (result.uploaded === 1 ? "" : "s") +
+                      " uploaded."
+                    : "",
+                  ...result.failed,
+                ]
+                  .filter(Boolean)
+                  .join(" "),
+              );
             } catch {
-              setUploadStatus("Images could not be uploaded. Please try again.");
+              setUploadStatus(
+                "Images could not be uploaded. Please try again.",
+              );
             }
           }}
         />
-        {uploadStatus && <p className="challan-image-status" role="status">{uploadStatus}</p>}
+        {uploadStatus && (
+          <p className="challan-image-status" role="status">
+            {uploadStatus}
+          </p>
+        )}
       </article>
       {preview && (
         <div
@@ -1441,7 +1690,11 @@ const ChallanImageSection = ({ stage, images, canUpload, uploading, onUpload }) 
 
 export default function Challan() {
   const { user } = useAuth();
-  const { prices, error: masterPriceError, loading: masterPricesLoading } = useMasterPrices();
+  const {
+    prices,
+    error: masterPriceError,
+    loading: masterPricesLoading,
+  } = useMasterPrices();
   const location = useLocation();
   const navigate = useNavigate();
   const hasStagePermission = (stage) =>
@@ -1452,7 +1705,9 @@ export default function Challan() {
     () =>
       isAdmin
         ? [1, 2, 3, 4]
-        : [1, 2, 3, 4].filter((stage) => user?.permissions?.includes(`challan-stage-${stage}`)),
+        : [1, 2, 3, 4].filter((stage) =>
+            user?.permissions?.includes(`challan-stage-${stage}`),
+          ),
     [isAdmin, user?.permissions],
   );
   const [records, setRecords] = useState([]);
@@ -1488,9 +1743,24 @@ export default function Challan() {
     setForm((state) => {
       let changed = false;
       const items = state.items.map((item) => {
-        const selected = !editingId && inventory.find((row) => row.id === item.inventoryId);
-        const sourceChanged = selected && (item.type !== selected.type || item.shape !== selected.shape || normalizeSize(item.size) !== normalizeSize(selected.size));
-        const next = refreshItemPrice(sourceChanged ? { ...item, type: selected.type, shape: selected.shape, size: normalizeSize(selected.size) } : item, prices);
+        const selected =
+          !editingId && inventory.find((row) => row.id === item.inventoryId);
+        const sourceChanged =
+          selected &&
+          (item.type !== selected.type ||
+            item.shape !== selected.shape ||
+            normalizeSize(item.size) !== normalizeSize(selected.size));
+        const next = refreshItemPrice(
+          sourceChanged
+            ? {
+                ...item,
+                type: selected.type,
+                shape: selected.shape,
+                size: normalizeSize(selected.size),
+              }
+            : item,
+          prices,
+        );
         if (next !== item) changed = true;
         return next;
       });
@@ -1522,11 +1792,25 @@ export default function Challan() {
         setEditingId(null);
         setFormError("");
         setChallanFieldErrors({});
-        setForm({ number: "", date: today(), party: "", notes: "", items: [blank()] });
+        setForm({
+          number: "",
+          date: today(),
+          party: "",
+          notes: "",
+          items: [blank()],
+        });
         setPage("create");
       }
-      if (stage && permittedStages.includes(stage)) { setTab(stage); setPage("list"); setDashboardAge(""); }
-      if (age) { setDashboardAge(age); setPage("list"); setTab(isAdmin ? "all" : permittedStages[0] ?? "all"); }
+      if (stage && permittedStages.includes(stage)) {
+        setTab(stage);
+        setPage("list");
+        setDashboardAge("");
+      }
+      if (age) {
+        setDashboardAge(age);
+        setPage("list");
+        setTab(isAdmin ? "all" : (permittedStages[0] ?? "all"));
+      }
       navigate(location.pathname, { replace: true, state: null });
     });
   }, [location.pathname, location.state, navigate, isAdmin, permittedStages]);
@@ -1624,9 +1908,17 @@ export default function Challan() {
           const matchAge =
             agingFilter === "all" ||
             challanAging(item, clock).status === agingFilter;
-          const created = timestampMs(item.createdAt) || Number(item.createdAtMs || 0);
+          const created =
+            timestampMs(item.createdAt) || Number(item.createdAtMs || 0);
           const hours = created ? (clock - created) / 3600000 : 0;
-          const matchDashboardAge = !dashboardAge || ([1, 2].includes(Number(item.stage) || 1) && (dashboardAge === "5d" ? hours >= 120 : dashboardAge === "60h" ? hours >= 60 && hours < 120 : hours >= 24 && hours < 60));
+          const matchDashboardAge =
+            !dashboardAge ||
+            ([1, 2].includes(Number(item.stage) || 1) &&
+              (dashboardAge === "5d"
+                ? hours >= 120
+                : dashboardAge === "60h"
+                  ? hours >= 60 && hours < 120
+                  : hours >= 24 && hours < 60));
           return (
             (tab === "all" || item.stage === Number(tab)) &&
             (!dateFilter || item.date === dateFilter) &&
@@ -1641,7 +1933,8 @@ export default function Challan() {
               item.items.map((row) => row.sku).join(" ")
             )
               .toLowerCase()
-              .includes(search.toLowerCase()) || item.items.some((row) => inventoryMatchesSearch(row, search)))
+              .includes(search.toLowerCase()) ||
+              item.items.some((row) => inventoryMatchesSearch(row, search)))
           );
         })
         .sort((a, b) =>
@@ -1664,10 +1957,21 @@ export default function Challan() {
   const itemChange = (id, key, value) => {
     setForm((state) => {
       const items = state.items.map((item) =>
-        item.id === id ? refreshItemPrice({ ...item, [key]: value,
-          ...(key === "amount" ? { priceSource: "manual", priceContext: priceContext(item) } : {}),
-          ...(key === "sku" ? { inventoryId: "", type: "", shape: "", size: "" } : {}),
-        }, prices) : item,
+        item.id === id
+          ? refreshItemPrice(
+              {
+                ...item,
+                [key]: value,
+                ...(key === "amount"
+                  ? { priceSource: "manual", priceContext: priceContext(item) }
+                  : {}),
+                ...(key === "sku"
+                  ? { inventoryId: "", type: "", shape: "", size: "" }
+                  : {}),
+              },
+              prices,
+            )
+          : item,
       );
       setFormError(stockError(items, inventory));
       return { ...state, items };
@@ -1677,16 +1981,19 @@ export default function Challan() {
     setForm((state) => {
       const items = state.items.map((item) =>
         item.id === id
-          ? refreshItemPrice({
-              ...item,
-              inventoryId: selected.id || "",
-              sku: selected.sku || "",
-              shape: selected.shape || "",
-              size: normalizeSize(selected.size),
-              type: selected.type || "",
-              weight: "",
-              pieces: "",
-            }, prices)
+          ? refreshItemPrice(
+              {
+                ...item,
+                inventoryId: selected.id || "",
+                sku: selected.sku || "",
+                shape: selected.shape || "",
+                size: normalizeSize(selected.size),
+                type: selected.type || "",
+                weight: "",
+                pieces: "",
+              },
+              prices,
+            )
           : item,
       );
       setFormError(stockError(items, inventory));
@@ -1713,202 +2020,276 @@ export default function Challan() {
     if (saving) return;
     setSaving(true);
     try {
-    if (!hasStagePermission(1)) {
-      setFormError("Your account does not have Challan Stage 1 permission.");
-      return;
-    }
-    const items = form.items.filter((item) => item.sku.trim());
-    const invalidWidth = items.find((item) => widthError(item.width));
-    if (invalidWidth) { setFormError(widthError(invalidWidth.width)); return; }
-    if (items.some((item) => item.amount === "" || item.amount == null || !Number.isFinite(Number(item.amount)) || Number(item.amount) < 0)) {
-      setFormError("Enter a valid Price for every item. Missing Master Prices may be entered manually."); return;
-    }
-    const typedParty = form.party.trim();
-    const existingParty = parties.find(
-      (name) => name.toLocaleLowerCase() === typedParty.toLocaleLowerCase(),
-    );
-    const party = existingParty || typedParty;
-    const fieldErrors = {};
-    const previous = editingId
-      ? records.find((record) => record.id === editingId)
-      : null;
-    if (editingId && !previous) throw new Error("This Challan is no longer available.");
-    if (!previous || form.number !== previous.number) {
-      const numberError = documentNumberError("challan", form.number, records, editingId);
-      if (numberError) fieldErrors.number = numberError;
-      if (previous && !isAdmin) fieldErrors.number = "Only Admin can change the Challan Number.";
-    }
-    if (!party) fieldErrors.party = "Party Name is required.";
-    if (!items.length)
-      fieldErrors.items =
-        "Add at least one Inventory SKU before creating the Challan.";
-    if (Object.keys(fieldErrors).length) {
-      setChallanFieldErrors(fieldErrors);
-      return;
-    }
-    const stockIssue = previous ? "" : stockError(items, inventory);
-    if (stockIssue) {
-      setFormError(stockIssue);
-      return;
-    }
-    setFormError("");
-    setChallanFieldErrors({});
-    const pricedItems = items.map((item) => ({
-      ...item,
-      width: normalizeSize(item.width),
-      pieces: pieceValue(item.pieces),
-      ...pricingFor(item.amount, item.discount),
-    }));
-    const pricing = pricedItems.reduce(
-      (total, item) => ({
-        amount: total.amount + item.amount,
-        discountAmount: total.discountAmount + item.discountAmount,
-        netAmount: total.netAmount + item.netAmount,
-      }),
-      { amount: 0, discountAmount: 0, netAmount: 0 },
-    );
-    pricing.amount = Number(pricing.amount.toFixed(2));
-    pricing.discountAmount = Number(pricing.discountAmount.toFixed(2));
-    pricing.netAmount = Number(pricing.netAmount.toFixed(2));
-    pricing.discount = pricing.amount
-      ? Number(((pricing.discountAmount * 100) / pricing.amount).toFixed(2))
-      : 0;
-    if (previous && !canEditChallan(previous)) {
-      setFormError("Your 60-minute staff edit window has ended.");
-      return;
-    }
-    if (
-      previous?.items?.some(
-        (item) => item.sourceInventoryId || item.inventoryId,
-      ) &&
-      (previous.items.length !== pricedItems.length ||
-        previous.items.some((item, index) => {
-          const next = pricedItems[index];
-          return (
-            (item.sourceInventoryId || item.inventoryId) !== next.inventoryId ||
-            Number(item.weight || 0) !== Number(next.weight || 0) ||
-            pieceValue(item.pieces) !== pieceValue(next.pieces)
-          );
-        }))
-    ) {
-      setFormError(
-        "Issued Inventory quantities cannot be changed after a Challan is created. Edit party, date, comments, or pricing only.",
-      );
-      return;
-    }
-    const record = previous
-      ? {
-          ...previous,
-          number: form.number,
-          party,
-          date: form.date,
-          notes: form.notes,
-          items: pricedItems,
-          ...pricing,
-        }
-      : {
-          id: crypto.randomUUID(),
-          number: form.number,
-          party,
-          date: form.date,
-          notes: form.notes,
-          items: pricedItems,
-          ...pricing,
-          stage: 1,
-          createdBy: user?.uid || "",
-          createdByRole: user?.role || "staff",
-        };
-    if (previous) {
-      await runTransaction(db, async (tx) => {
-        const ref = doc(db, "challans", record.id);
-        const snapshot = await tx.get(ref);
-        if (!snapshot.exists()) throw new Error("This Challan is no longer available.");
-        const latest = snapshot.data();
-        if (latest.stage !== previous.stage || latest.number !== previous.number)
-          throw new Error("This Challan changed while you were editing. Reopen it and try again.");
-        const claimNumber = record.number !== latest.number
-          ? await prepareNumberClaim(tx, db, "challan", record.number, record.id, latest.number)
-          : () => {};
-        claimNumber();
-        // Update only editable fields; retain concurrently uploaded images/history.
-        tx.update(ref, {
-          number: record.number, party, date: form.date, notes: form.notes,
-          items: pricedItems, ...pricing,
-        });
-      });
-    } else {
-      const saved = await runTransaction(db, async (tx) => {
-        const now = Date.now();
-        const claimNumber = await prepareNumberClaim(tx, db, "challan", record.number, record.id);
-        const inventorySnapshots = await Promise.all(
-          pricedItems.map((item) => {
-            if (!item.inventoryId)
-              throw new Error(`Select an Inventory item for ${item.sku}.`);
-            return tx.get(doc(db, "inventory", item.inventoryId));
-          }),
-        );
-        if (
-          new Set(pricedItems.map((item) => item.inventoryId)).size !==
-          pricedItems.length
+      if (!hasStagePermission(1)) {
+        setFormError("Your account does not have Challan Stage 1 permission.");
+        return;
+      }
+      const items = form.items.filter((item) => item.sku.trim());
+      const invalidWidth = items.find((item) => widthError(item.width));
+      if (invalidWidth) {
+        setFormError(widthError(invalidWidth.width));
+        return;
+      }
+      if (
+        items.some(
+          (item) =>
+            item.amount === "" ||
+            item.amount == null ||
+            !Number.isFinite(Number(item.amount)) ||
+            Number(item.amount) < 0,
         )
-          throw new Error(
-            "Each Challan line must use a different Inventory item. Combine quantities for the same item into one line.",
-          );
-        const issuedItems = [];
-        for (const [index, item] of pricedItems.entries()) {
-          const inventoryRef = doc(db, "inventory", item.inventoryId);
-          const inventorySnapshot = inventorySnapshots[index];
-          if (!inventorySnapshot.exists())
-            throw new Error(
-              `Inventory item ${item.sku} is no longer available.`,
-            );
-          const stock = inventorySnapshot.data();
-          const requestedWeight = Number(item.weight || 0);
-          const requestedPieces = pieceValue(item.pieces);
-          if (
-            requestedWeight < 0 ||
-            requestedPieces < 0 ||
-            requestedWeight > Number(stock.weight || 0) ||
-            requestedPieces > stockPieces(stock)
-          )
-            throw new Error(`Insufficient available stock for ${item.sku}.`);
-          tx.update(inventoryRef, {
-            weight: Number(
-              (Number(stock.weight || 0) - requestedWeight).toFixed(3),
-            ),
-            pieces: stockPieces(stock) - requestedPieces,
-            updatedAt: serverTimestamp(),
-          });
-          issuedItems.push({ ...item, sourceInventoryId: item.inventoryId });
-        }
-        const savedRecord = {
-          ...record,
-          items: issuedItems,
-          createdAt: serverTimestamp(),
-          createdAtMs: now,
-          stageHistory: { stage1: { enteredAtMs: now } },
+      ) {
+        setFormError(
+          "Enter a valid Price for every item. Missing Master Prices may be entered manually.",
+        );
+        return;
+      }
+      const typedParty = form.party.trim();
+      const existingParty = parties.find(
+        (name) => name.toLocaleLowerCase() === typedParty.toLocaleLowerCase(),
+      );
+      const party = existingParty || typedParty;
+      const fieldErrors = {};
+      const previous = editingId
+        ? records.find((record) => record.id === editingId)
+        : null;
+      if (editingId && !previous)
+        throw new Error("This Challan is no longer available.");
+      if (!previous || form.number !== previous.number) {
+        const numberError = documentNumberError(
+          "challan",
+          form.number,
+          records,
+          editingId,
+        );
+        if (numberError) fieldErrors.number = numberError;
+        if (previous && !isAdmin)
+          fieldErrors.number = "Only Admin can change the Challan Number.";
+      }
+      if (!party) fieldErrors.party = "Party Name is required.";
+      if (!items.length)
+        fieldErrors.items =
+          "Add at least one Inventory SKU before creating the Challan.";
+      if (Object.keys(fieldErrors).length) {
+        setChallanFieldErrors(fieldErrors);
+        return;
+      }
+      const stockIssue = previous ? "" : stockError(items, inventory);
+      if (stockIssue) {
+        setFormError(stockIssue);
+        return;
+      }
+      setFormError("");
+      setChallanFieldErrors({});
+      const pricedItems = items.map((item) => {
+        const pieces = wholePieces(
+          item.pieces === "" ? 0 : item.pieces,
+          "Pieces",
+        );
+        const weight = normalizeWeight(item.weight, "Weight");
+        if (weight <= 0)
+          throw new Error("Issued Weight must be greater than zero.");
+        return {
+          ...item,
+          width: normalizeSize(item.width),
+          pieces,
+          weight,
+          ...priceItem(item.amount, item.discount),
         };
-        claimNumber();
-        tx.set(doc(db, "challans", record.id), savedRecord);
-        return { ...savedRecord, createdAt: now };
       });
-      Object.assign(record, saved);
-    }
-    void writeActivity({
-      panel: "challan",
-      stage: "Stage " + record.stage,
-      action: previous ? "edited" : "created",
-      recordId: record.id,
-      snapshot: challanSnapshot(record),
-      before: previous ? challanSnapshot(previous) : undefined,
-      user,
-    }).catch((error) =>
-      console.warn("Challan activity could not be saved.", error),
-    );
-    if (!editingId && !existingParty) await saveParty(party);
-    setEditingId(null);
-    setForm({ number: "", date: today(), party: "", notes: "", items: [blank()] });
-    setPage("list");
+      const totals = stageOneTotals(pricedItems);
+      const pricing = {
+        amount: totals.amount,
+        discountAmount: totals.discountAmount,
+        netAmount: totals.netAmount,
+      };
+      pricing.discount = pricing.amount
+        ? Number(((pricing.discountAmount * 100) / pricing.amount).toFixed(2))
+        : 0;
+      if (previous && !canEditChallan(previous)) {
+        setFormError("Your 60-minute staff edit window has ended.");
+        return;
+      }
+      if (
+        previous?.items?.some(
+          (item) => item.sourceInventoryId || item.inventoryId,
+        ) &&
+        (previous.items.length !== pricedItems.length ||
+          previous.items.some((item, index) => {
+            const next = pricedItems[index];
+            return (
+              (item.sourceInventoryId || item.inventoryId) !==
+                next.inventoryId ||
+              Number(item.weight || 0) !== Number(next.weight || 0) ||
+              pieceValue(item.pieces) !== pieceValue(next.pieces)
+            );
+          }))
+      ) {
+        setFormError(
+          "Issued Inventory quantities cannot be changed after a Challan is created. Edit party, date, comments, or pricing only.",
+        );
+        return;
+      }
+      if (
+        previous &&
+        Number(previous.stage) > 1 &&
+        !unchangedAdvancedStageOne(previous.items, pricedItems)
+      )
+        throw new Error(
+          "Calculation fields are locked after Stage 1. Reopen the Challan to edit notes or party details.",
+        );
+      const record = previous
+        ? {
+            ...previous,
+            number: form.number,
+            party,
+            date: form.date,
+            notes: form.notes,
+            items: pricedItems,
+            ...pricing,
+          }
+        : {
+            id: crypto.randomUUID(),
+            number: form.number,
+            party,
+            date: form.date,
+            notes: form.notes,
+            items: pricedItems,
+            ...pricing,
+            stage: 1,
+            createdBy: user?.uid || "",
+            createdByRole: user?.role || "staff",
+          };
+      if (previous) {
+        await runTransaction(db, async (tx) => {
+          const ref = doc(db, "challans", record.id);
+          const snapshot = await tx.get(ref);
+          if (!snapshot.exists())
+            throw new Error("This Challan is no longer available.");
+          const latest = snapshot.data();
+          if (
+            latest.stage !== previous.stage ||
+            latest.number !== previous.number ||
+            JSON.stringify(latest.items) !== JSON.stringify(previous.items)
+          )
+            throw new Error(
+              "This Challan changed while you were editing. Reopen it and try again.",
+            );
+          const claimNumber =
+            record.number !== latest.number
+              ? await prepareNumberClaim(
+                  tx,
+                  db,
+                  "challan",
+                  record.number,
+                  record.id,
+                  latest.number,
+                )
+              : () => {};
+          claimNumber();
+          // Update only editable fields; retain concurrently uploaded images/history.
+          tx.update(ref, {
+            number: record.number,
+            party,
+            date: form.date,
+            notes: form.notes,
+            items: pricedItems,
+            ...pricing,
+          });
+        });
+      } else {
+        const saved = await runTransaction(db, async (tx) => {
+          const now = Date.now();
+          const claimNumber = await prepareNumberClaim(
+            tx,
+            db,
+            "challan",
+            record.number,
+            record.id,
+          );
+          const inventorySnapshots = await Promise.all(
+            pricedItems.map((item) => {
+              if (!item.inventoryId)
+                throw new Error(`Select an Inventory item for ${item.sku}.`);
+              return tx.get(doc(db, "inventory", item.inventoryId));
+            }),
+          );
+          if (
+            new Set(pricedItems.map((item) => item.inventoryId)).size !==
+            pricedItems.length
+          )
+            throw new Error(
+              "Each Challan line must use a different Inventory item. Combine quantities for the same item into one line.",
+            );
+          const issuedItems = [];
+          for (const [index, item] of pricedItems.entries()) {
+            const inventoryRef = doc(db, "inventory", item.inventoryId);
+            const inventorySnapshot = inventorySnapshots[index];
+            if (!inventorySnapshot.exists())
+              throw new Error(
+                `Inventory item ${item.sku} is no longer available.`,
+              );
+            const stock = inventorySnapshot.data();
+            const requestedWeight = strictWeight(item.weight, "Issued Weight");
+            const requestedPieces = wholePieces(item.pieces, "Issued Pieces");
+            if (
+              requestedWeight < 0 ||
+              requestedPieces < 0 ||
+              requestedWeight > normalizeWeight(stock.weight || 0) ||
+              requestedPieces >
+                wholePieces(
+                  stock.pieces ?? stock.quantity ?? stock.qty ?? 0,
+                  "Inventory Pieces",
+                )
+            )
+              throw new Error(`Insufficient available stock for ${item.sku}.`);
+            tx.update(inventoryRef, {
+              weight: fromMillis(
+                weightMillis(stock.weight || 0) - weightMillis(requestedWeight),
+              ),
+              pieces:
+                wholePieces(
+                  stock.pieces ?? stock.quantity ?? stock.qty ?? 0,
+                  "Inventory Pieces",
+                ) - requestedPieces,
+              updatedAt: serverTimestamp(),
+            });
+            issuedItems.push({ ...item, sourceInventoryId: item.inventoryId });
+          }
+          const savedRecord = {
+            ...record,
+            items: issuedItems,
+            createdAt: serverTimestamp(),
+            createdAtMs: now,
+            stageHistory: { stage1: { enteredAtMs: now } },
+          };
+          claimNumber();
+          tx.set(doc(db, "challans", record.id), savedRecord);
+          return { ...savedRecord, createdAt: now };
+        });
+        Object.assign(record, saved);
+      }
+      void writeActivity({
+        panel: "challan",
+        stage: "Stage " + record.stage,
+        action: previous ? "edited" : "created",
+        recordId: record.id,
+        snapshot: challanSnapshot(record),
+        before: previous ? challanSnapshot(previous) : undefined,
+        user,
+      }).catch((error) =>
+        console.warn("Challan activity could not be saved.", error),
+      );
+      if (!editingId && !existingParty) await saveParty(party);
+      setEditingId(null);
+      setForm({
+        number: "",
+        date: today(),
+        party: "",
+        notes: "",
+        items: [blank()],
+      });
+      setPage("list");
     } catch (error) {
       console.error("Challan could not be saved", error);
       setFormError(
@@ -1944,7 +2325,7 @@ export default function Challan() {
         rawFinalInvoiceAmount === undefined ||
         rawFinalInvoiceAmount === null ||
         rawFinalInvoiceAmount === "" ||
-        !Number.isFinite(Number(rawFinalInvoiceAmount))
+        !isValidMoney(rawFinalInvoiceAmount)
       ) {
         setLegacyInvoiceCandidate(previous);
         return;
@@ -1960,9 +2341,13 @@ export default function Challan() {
     if (!hasStagePermission(2))
       throw new Error("Your account does not have Challan Stage 2 permission.");
     const transitionItems = previous.items.map((item, index) => {
-      const input = returns[index],
-        returnedPieces = pieceValue(input.returnPieces),
-        returnedWeight = Number(input.returnWeight);
+      const input = returns[index];
+      const movement = movementFor(
+        item,
+        input.returnPieces,
+        input.returnWeight,
+      );
+      const priced = priceItem(item.amount, item.discount);
       return {
         inventoryId: item.sourceInventoryId || item.inventoryId || "",
         sourceInventoryId: item.sourceInventoryId || item.inventoryId || "",
@@ -1971,16 +2356,9 @@ export default function Challan() {
         shape: item.shape || "",
         size: normalizeSize(item.size),
         width: normalizeSize(item.width),
-        issuedPieces: pieceValue(item.pieces),
-        issuedWeight: Number(item.weight || 0),
-        returnPieces: returnedPieces,
-        returnWeight: returnedWeight,
-        soldPieces: pieceValue(item.pieces) - returnedPieces,
-        soldWeight: Number(
-          (Number(item.weight || 0) - returnedWeight).toFixed(3),
-        ),
-        amount: Number(item.amount || 0),
-        discount: Number(item.discount || 0),
+        ...movement,
+        amount: priced.amount,
+        discount: priced.discount,
       };
     });
     const record = { ...previous, stage: 2 };
@@ -1989,6 +2367,12 @@ export default function Challan() {
       const latestSnapshot = await tx.get(challanRef);
       if (!latestSnapshot.exists() || Number(latestSnapshot.data().stage) !== 1)
         throw new Error("This Challan is no longer in Stage 1.");
+      if (
+        !sameStageOneReturnSource(previous.items, latestSnapshot.data().items)
+      )
+        throw new Error(
+          "This Challan changed during return review. Reopen it and try again.",
+        );
       const inventorySnapshots = await Promise.all(
         transitionItems.map((item) => {
           if (!item.sourceInventoryId)
@@ -2005,12 +2389,14 @@ export default function Challan() {
           throw new Error(`Inventory item ${item.sku} is no longer available.`);
         const stock = inventorySnapshot.data();
         tx.update(inventorySnapshot.ref, {
-          weight: Number(
-            (
-              Number(stock.weight || 0) + Number(item.returnWeight || 0)
-            ).toFixed(3),
+          weight: fromMillis(
+            weightMillis(stock.weight || 0) + weightMillis(item.returnWeight),
           ),
-          pieces: stockPieces(stock) + pieceValue(item.returnPieces),
+          pieces:
+            wholePieces(
+              stock.pieces ?? stock.quantity ?? stock.qty ?? 0,
+              "Inventory Pieces",
+            ) + item.returnPieces,
           updatedAt: serverTimestamp(),
         });
       });
@@ -2052,7 +2438,7 @@ export default function Challan() {
       console.warn("Challan return activity could not be saved.", error),
     );
   };
-  const confirmFinalInvoice = async () => {
+  const confirmFinalInvoice = async (partialAmounts = []) => {
     const previous = finalInvoiceCandidate;
     if (!previous) throw new Error("This Challan is no longer available.");
     if (!hasStagePermission(3))
@@ -2065,8 +2451,29 @@ export default function Challan() {
       const current = snapshot.data();
       if (current.finalInvoice)
         throw new Error("Final Invoice has already been confirmed.");
+      if (
+        !sameStageTwoInvoiceSource(
+          previous.stage2Return?.items,
+          current.stage2Return?.items,
+        )
+      )
+        throw new Error(
+          "Return or pricing data changed during invoice review. Reopen it and try again.",
+        );
       const now = Date.now();
-      const invoice = invoiceSnapshotFor(current);
+      if (
+        !isAdmin &&
+        invoiceReviewRows(current.stage2Return.items).some(
+          (item) => item.billingMode === "partial-return",
+        )
+      )
+        throw new Error(
+          "Only Admin can enter a partial-return Final Billed Amount.",
+        );
+      const invoice = invoiceFromStageTwo(
+        current.stage2Return.items,
+        partialAmounts,
+      );
       const savedRecord = {
         ...current,
         id: previous.id,
@@ -2113,25 +2520,19 @@ export default function Challan() {
         rawFinalInvoiceAmount === undefined ||
         rawFinalInvoiceAmount === null ||
         rawFinalInvoiceAmount === "" ||
-        !Number.isFinite(Number(rawFinalInvoiceAmount))
+        !isValidMoney(rawFinalInvoiceAmount)
       )
         throw new Error(
           "Final Invoice data is unavailable for this historical Challan. Settlement cannot be completed until the invoice record is available.",
         );
       if (current.finalSettlement)
         throw new Error("This Challan has already been settled.");
-      if (
-        !Number.isFinite(Number(amountPaid)) ||
-        !Number.isFinite(Number(settlementDiscountAmount))
-      )
-        throw new Error(
-          "Amount Paid and Discount Amount must be valid numbers.",
-        );
-      const finalInvoiceAmount = money(rawFinalInvoiceAmount);
-      const paid = money(amountPaid),
-        discount = money(settlementDiscountAmount);
-      const remaining = money(finalInvoiceAmount - paid - discount);
-      if (paid < 0 || discount < 0 || remaining !== 0)
+      const calculation = settlementFor(
+        rawFinalInvoiceAmount,
+        amountPaid,
+        settlementDiscountAmount,
+      );
+      if (calculation.remaining !== 0)
         throw new Error(
           "Amount Paid plus Discount Amount must equal the Final Invoice Amount.",
         );
@@ -2140,14 +2541,7 @@ export default function Challan() {
         ...current,
         id: previous.id,
         stage: 4,
-        finalSettlement: {
-          finalInvoiceAmount,
-          amountPaid: paid,
-          settlementDiscountAmount: discount,
-          remaining,
-          actualReceivedAmount: paid,
-          completedAtMs: now,
-        },
+        finalSettlement: { ...calculation, completedAtMs: now },
         stageHistory: {
           ...(current.stageHistory || {}),
           stage4: current.stageHistory?.stage4 || { enteredAtMs: now },
@@ -2182,7 +2576,13 @@ export default function Challan() {
     (hasStagePermission(record.stage) && staffEditRemaining(record) > 0);
   const closeEditor = () => {
     setEditingId(null);
-    setForm({ number: "", date: today(), party: "", notes: "", items: [blank()] });
+    setForm({
+      number: "",
+      date: today(),
+      party: "",
+      notes: "",
+      items: [blank()],
+    });
     setFormError("");
     setChallanFieldErrors({});
     setPage("list");
@@ -2197,23 +2597,100 @@ export default function Challan() {
       date: record.date,
       party: record.party,
       notes: record.notes || "",
-      items: record.items.map((item) => savedPriceItem({
-        ...item,
-        id: item.id || crypto.randomUUID(),
-        amount: item.amount ?? "",
-        discount: item.discount ?? "",
-      })),
+      items: record.items.map((item) =>
+        savedPriceItem({
+          ...item,
+          id: item.id || crypto.randomUUID(),
+          amount: item.amount ?? "",
+          discount: item.discount ?? "",
+        }),
+      ),
     });
     setPage("create");
   };
   const deleteChallan = async (id) => {
-    const record = records.find((entry) => entry.id === id);
-    if (!record || !isAdmin) return;
+    const record = deleteCandidate;
+    if (!record || record.id !== id || !isAdmin)
+      throw new Error("Only Admin can delete this Challan.");
     await runTransaction(db, async (tx) => {
       const ref = doc(db, "challans", id);
       const snapshot = await tx.get(ref);
-      if (!snapshot.exists()) return;
-      const releaseNumber = await prepareNumberRelease(tx, db, "challan", snapshot.data().number, id);
+      if (!snapshot.exists())
+        throw new Error("This Challan has already been deleted.");
+      const latest = snapshot.data();
+      const reversal = challanStockRestoration(latest);
+      const reviewed = challanStockRestoration(record);
+      if (
+        Number(latest.stage) !== Number(record.stage) ||
+        reversal.items.length !== reviewed.items.length ||
+        reversal.items.some(
+          (item, index) =>
+            item.inventoryId !== reviewed.items[index].inventoryId ||
+            item.pieces !== reviewed.items[index].pieces ||
+            weightMillis(item.weight) !==
+              weightMillis(reviewed.items[index].weight),
+        )
+      )
+        throw new Error(
+          "Challan stock movement changed during delete review. Reopen it and try again.",
+        );
+      const grouped = new Map();
+      for (const item of reversal.items) {
+        const current = grouped.get(item.inventoryId) || {
+          pieces: 0,
+          weight: 0n,
+          sku: item.sku,
+        };
+        if (current.sku !== item.sku)
+          throw new Error(
+            "Challan Inventory identity and SKU disagree; deletion was cancelled.",
+          );
+        current.pieces += item.pieces;
+        current.weight += weightMillis(item.weight);
+        if (!Number.isSafeInteger(current.pieces))
+          throw new Error("Restored Pieces are too large.");
+        grouped.set(item.inventoryId, current);
+      }
+      const inventorySnapshots = await Promise.all(
+        [...grouped.keys()].map(async (inventoryId) => {
+          const inventory = await tx.get(doc(db, "inventory", inventoryId));
+          if (!inventory.exists())
+            throw new Error(
+              "Linked Inventory is missing; Challan was not deleted.",
+            );
+          return inventory;
+        }),
+      );
+      const releaseNumber = await prepareNumberRelease(
+        tx,
+        db,
+        "challan",
+        latest.number,
+        id,
+      );
+      for (const inventory of inventorySnapshots) {
+        const amount = grouped.get(inventory.id);
+        const stock = inventory.data();
+        if (stock.sku && amount.sku && stock.sku !== amount.sku)
+          throw new Error(
+            "Linked Inventory SKU changed; Challan was not deleted.",
+          );
+        if (amount.pieces === 0 && amount.weight === 0n) continue;
+        const pieces =
+          wholePieces(
+            stock.pieces ?? stock.quantity ?? stock.qty ?? 0,
+            "Inventory Pieces",
+          ) + amount.pieces;
+        if (!Number.isSafeInteger(pieces))
+          throw new Error("Inventory Pieces are too large.");
+        tx.update(inventory.ref, {
+          pieces,
+          weight: fromMillis(
+            weightMillis(stock.weight ?? 0, "Inventory Weight") + amount.weight,
+          ),
+          updatedAt: serverTimestamp(),
+        });
+      }
       releaseNumber();
       tx.delete(ref);
     });
@@ -2230,17 +2707,12 @@ export default function Challan() {
     setRecords((state) => state.filter((entry) => entry.id !== id));
     setDeleteCandidate(null);
   };
-  const pricing = form.items.reduce(
-    (total, item) => {
-      const itemPricing = pricingFor(item.amount, item.discount);
-      return {
-        amount: total.amount + itemPricing.amount,
-        discountAmount: total.discountAmount + itemPricing.discountAmount,
-        netAmount: total.netAmount + itemPricing.netAmount,
-      };
-    },
-    { amount: 0, discountAmount: 0, netAmount: 0 },
-  );
+  let pricing = null;
+  try {
+    pricing = stageOneTotals(form.items);
+  } catch {
+    /* Draft or invalid rows are not counted as savable totals. */
+  }
   const exportList = async () => {
     const XLSX = await import("xlsx");
     const rows = shown.map((row) => ({
@@ -2405,13 +2877,9 @@ export default function Challan() {
       .map((item) => item.type)
       .filter(Boolean)
       .join(", ");
-    const totalAmount = money(
-      items.reduce((sum, item) => sum + Number(item.amount || 0), 0),
-    );
-    const sumPiecesForPrint = (key) =>
-      items.reduce((sum, item) => sum + pieceValue(item[key]), 0);
-    const sumWeightForPrint = (key) =>
-      items.reduce((sum, item) => sum + Number(item[key] || 0), 0);
+    const totalAmount = moneyText(sumStored(items, "amount"));
+    const sumPiecesForPrint = (key) => sumStored(items, key) ?? "Unavailable";
+    const sumWeightForPrint = (key) => weightText(sumStored(items, key));
     const totalDetails =
       stage === 1
         ? "Items: " +
@@ -2419,30 +2887,30 @@ export default function Challan() {
           " &nbsp; Pieces: " +
           sumPiecesForPrint("pieces") +
           " &nbsp; Weight: " +
-          sumWeightForPrint("weight").toFixed(3) +
+          sumWeightForPrint("weight") +
           " ct &nbsp; Original Amount: &#8377;" +
-          totalAmount.toFixed(2)
+          totalAmount
         : isFlowStage
           ? "Items: " +
             items.length +
             " &nbsp; Issued: " +
             sumPiecesForPrint("issuedPieces") +
             " pcs / " +
-            sumWeightForPrint("issuedWeight").toFixed(3) +
+            sumWeightForPrint("issuedWeight") +
             " ct &nbsp; Returned: " +
             sumPiecesForPrint("returnPieces") +
             " pcs / " +
-            sumWeightForPrint("returnWeight").toFixed(3) +
+            sumWeightForPrint("returnWeight") +
             " ct &nbsp; Sold / Kept: " +
             sumPiecesForPrint("soldPieces") +
             " pcs / " +
-            sumWeightForPrint("soldWeight").toFixed(3) +
+            sumWeightForPrint("soldWeight") +
             " ct &nbsp; Original Amount: &#8377;" +
-            totalAmount.toFixed(2)
+            totalAmount
           : "Items: " +
             items.length +
             " &nbsp; Original Amount: &#8377;" +
-            totalAmount.toFixed(2);
+            totalAmount;
     const headers = ["SKU / Item", "Shape", "Size", "Width"];
     if (stage === 1) headers.push("Pieces", "Weight");
     if (isFlowStage)
@@ -2455,29 +2923,32 @@ export default function Challan() {
         "Sold / Kept Weight",
       );
     if (stage === 3) headers.push("Sold / Kept");
-    headers.push("Original Price", "Stage 1 Discount %");
+    headers.push("Original Stage 1 Amount", "Stage 1 Discount %");
+    if (stage >= 3) headers.push("Discount Amount", "Final Billed Amount");
     const itemRows = items
       .map((item) => {
-        const cells = [escape(item.sku), escape(item.shape), escape(normalizeSize(item.size)), escape(normalizeSize(item.width) || "--")];
+        const cells = [
+          escape(item.sku),
+          escape(item.shape),
+          escape(normalizeSize(item.size)),
+          escape(normalizeSize(item.width) || "--"),
+        ];
         if (stage === 1)
-          cells.push(
-            pieceValue(item.pieces),
-            Number(item.weight || 0).toFixed(3) + " ct",
-          );
+          cells.push(pieceValue(item.pieces), weightText(item.weight) + " ct");
         if (isFlowStage)
           cells.push(
             pieceValue(item.issuedPieces ?? item.pieces),
-            Number(item.issuedWeight ?? item.weight ?? 0).toFixed(3) + " ct",
+            weightText(item.issuedWeight ?? item.weight ?? 0) + " ct",
             item.returnPieces === undefined
               ? "-"
               : pieceValue(item.returnPieces),
             item.returnWeight === undefined
               ? "-"
-              : Number(item.returnWeight).toFixed(3) + " ct",
+              : weightText(item.returnWeight) + " ct",
             item.soldPieces === undefined ? "-" : pieceValue(item.soldPieces),
             item.soldWeight === undefined
               ? "-"
-              : Number(item.soldWeight).toFixed(3) + " ct",
+              : weightText(item.soldWeight) + " ct",
           );
         if (stage === 3)
           cells.push(
@@ -2487,12 +2958,17 @@ export default function Challan() {
               " / " +
               (item.soldWeight === undefined
                 ? "-"
-                : Number(item.soldWeight).toFixed(3) + " ct"),
+                : weightText(item.soldWeight) + " ct"),
           );
         cells.push(
-          "&#8377;" + money(item.amount).toFixed(2),
-          money(item.stage1DiscountPercent ?? item.discount).toFixed(2) + "%",
+          "&#8377;" + moneyText(item.amount),
+          viewPercent(item.stage1DiscountPercent ?? item.discount),
         );
+        if (stage >= 3)
+          cells.push(
+            "&#8377;" + moneyText(item.stage1DiscountAmount),
+            "&#8377;" + moneyText(item.finalAmount),
+          );
         return (
           "<tr>" +
           cells.map((cell) => "<td>" + cell + "</td>").join("") +
@@ -2501,14 +2977,18 @@ export default function Challan() {
       })
       .join("");
     const invoiceDetails = invoice
-      ? '<p class="total">Gross Amount: &#8377;' +
-        money(invoice.grossAmount).toFixed(2) +
+      ? '<p class="total">' +
+        (invoice.calculationVersion === "manual-partial-v1"
+          ? "Original Stage 1 Amount"
+          : "Gross Amount") +
+        ": &#8377;" +
+        moneyText(invoice.grossAmount) +
         (Number(invoice.stage1DiscountAmount)
           ? " &nbsp; Stage 1 Discount: -&#8377;" +
-            money(invoice.stage1DiscountAmount).toFixed(2)
+            moneyText(invoice.stage1DiscountAmount)
           : "") +
         " &nbsp; <strong>Final Invoice Amount: &#8377;" +
-        money(invoice.finalInvoiceAmount).toFixed(2) +
+        moneyText(invoice.finalInvoiceAmount) +
         "</strong></p>" +
         (invoice.confirmedAtMs
           ? "<p>Final Invoice confirmed: " +
@@ -2523,11 +3003,11 @@ export default function Challan() {
     const settlementDetails =
       stage === 4 && settlement
         ? '<p class="total">Amount Paid by Customer: &#8377;' +
-          money(settlement.amountPaid).toFixed(2) +
+          moneyText(settlement.amountPaid) +
           " &nbsp; Settlement Discount: &#8377;" +
-          money(settlement.settlementDiscountAmount).toFixed(2) +
+          moneyText(settlement.settlementDiscountAmount) +
           " &nbsp; <strong>Actual Received: &#8377;" +
-          money(settlement.actualReceivedAmount).toFixed(2) +
+          moneyText(settlement.actualReceivedAmount) +
           "</strong></p>" +
           (settlement.completedAtMs
             ? "<p>Completed: " +
@@ -2585,9 +3065,13 @@ export default function Challan() {
     const settlement = record.finalSettlement;
     const items = historicalItemsFor(record).map((item) => {
       if (stage !== 4) return item;
-      const returnItem = (record.stage2Return?.items || []).find((candidate) =>
-        (candidate.sourceInventoryId || candidate.inventoryId || candidate.sku) ===
-        (item.sourceInventoryId || item.inventoryId || item.sku));
+      const returnItem = (record.stage2Return?.items || []).find(
+        (candidate) =>
+          (candidate.sourceInventoryId ||
+            candidate.inventoryId ||
+            candidate.sku) ===
+          (item.sourceInventoryId || item.inventoryId || item.sku),
+      );
       return returnItem ? { ...returnItem, ...item } : item;
     });
     const details = [
@@ -2597,55 +3081,118 @@ export default function Challan() {
       ["Date", record.date || ""],
       ["Stage", "Stage " + stage + " - " + STAGES[stage]],
       ["Notes", record.notes || ""],
-      ["Original Amount", record.amount ?? ""],
-      ["Stage 1 Discount Amount", record.discountAmount ?? ""],
-      ["Stage 1 Net Amount", record.netAmount ?? ""],
+      ["Original Amount", exportMoney(record.amount)],
+      ["Stage 1 Discount Amount", exportMoney(record.discountAmount)],
+      ["Stage 1 Net Amount", exportMoney(record.netAmount)],
     ];
-    if (stage >= 3 && invoice) details.push(
-      ["Gross Amount", invoice.grossAmount ?? ""],
-      ["Final Invoice Stage 1 Discount", invoice.stage1DiscountAmount ?? ""],
-      ["Final Invoice Amount", invoice.finalInvoiceAmount ?? ""],
-      ["Final Invoice Confirmed", invoice.confirmedAtMs ? formatStageDate(invoice.confirmedAtMs) + ", " + formatStageTime(invoice.confirmedAtMs) : ""],
-    );
-    if (stage === 4 && settlement) details.push(
-      ["Amount Paid", settlement.amountPaid ?? ""],
-      ["Settlement Discount", settlement.settlementDiscountAmount ?? ""],
-      ["Actual Received", settlement.actualReceivedAmount ?? ""],
-      ["Remaining", settlement.remaining ?? ""],
-      ["Completed", settlement.completedAtMs ? formatStageDate(settlement.completedAtMs) + ", " + formatStageTime(settlement.completedAtMs) : ""],
-    );
+    if (stage >= 3 && invoice)
+      details.push(
+        [
+          invoice.calculationVersion === "manual-partial-v1"
+            ? "Original Stage 1 Amount"
+            : "Gross Amount",
+          exportMoney(invoice.grossAmount),
+        ],
+        [
+          invoice.calculationVersion === "manual-partial-v1"
+            ? "Original Stage 1 Discount"
+            : "Final Invoice Stage 1 Discount",
+          exportMoney(invoice.stage1DiscountAmount),
+        ],
+        ["Final Invoice Amount", exportMoney(invoice.finalInvoiceAmount)],
+        [
+          "Final Invoice Confirmed",
+          invoice.confirmedAtMs
+            ? formatStageDate(invoice.confirmedAtMs) +
+              ", " +
+              formatStageTime(invoice.confirmedAtMs)
+            : "",
+        ],
+      );
+    if (stage === 4 && settlement)
+      details.push(
+        ["Amount Paid", exportMoney(settlement.amountPaid)],
+        [
+          "Settlement Discount",
+          exportMoney(settlement.settlementDiscountAmount),
+        ],
+        ["Actual Received", exportMoney(settlement.actualReceivedAmount)],
+        ["Remaining", exportMoney(settlement.remaining)],
+        [
+          "Completed",
+          settlement.completedAtMs
+            ? formatStageDate(settlement.completedAtMs) +
+              ", " +
+              formatStageTime(settlement.completedAtMs)
+            : "",
+        ],
+      );
     const itemRows = items.map((item) => ({
       SKU: item.sku || "",
       Type: item.type || "",
       Shape: item.shape || "",
       Size: normalizeSize(item.size),
       Width: normalizeSize(item.width),
-      "Original Pieces": item.pieces ?? item.issuedPieces ?? "",
-      "Original Weight": item.weight ?? item.issuedWeight ?? "",
-      "Issued Pieces": stage >= 2 ? item.issuedPieces ?? item.pieces ?? "" : "",
-      "Issued Weight": stage >= 2 ? item.issuedWeight ?? item.weight ?? "" : "",
-      "Return Pieces": stage >= 2 ? item.returnPieces ?? "" : "",
-      "Return Weight": stage >= 2 ? item.returnWeight ?? "" : "",
-      "Sold / Kept Pieces": stage >= 2 ? item.soldPieces ?? "" : "",
-      "Sold / Kept Weight": stage >= 2 ? item.soldWeight ?? "" : "",
-      "Original Price": item.amount ?? "",
+      "Original Pieces": exportPieces(item.pieces ?? item.issuedPieces),
+      "Original Weight": exportWeight(item.weight ?? item.issuedWeight),
+      "Issued Pieces":
+        stage >= 2 ? exportPieces(item.issuedPieces ?? item.pieces) : "",
+      "Issued Weight":
+        stage >= 2 ? exportWeight(item.issuedWeight ?? item.weight) : "",
+      "Return Pieces": stage >= 2 ? exportPieces(item.returnPieces) : "",
+      "Return Weight": stage >= 2 ? exportWeight(item.returnWeight) : "",
+      "Sold / Kept Pieces": stage >= 2 ? exportPieces(item.soldPieces) : "",
+      "Sold / Kept Weight": stage >= 2 ? exportWeight(item.soldWeight) : "",
+      "Original Price": exportMoney(item.amount),
+      "Original Stage 1 Amount": exportMoney(item.amount),
+      "Stage 1 Net Amount": stage >= 3 ? exportMoney(item.stage1NetAmount) : "",
       "Stage 1 Discount %": item.stage1DiscountPercent ?? item.discount ?? "",
-      "Stage 1 Discount Amount": item.stage1DiscountAmount ?? item.discountAmount ?? "",
-      "Final Item Amount": item.finalAmount ?? item.netAmount ?? "",
+      "Billable Gross":
+        stage >= 3 && invoice?.calculationVersion !== "manual-partial-v1"
+          ? exportMoney(item.grossAmount)
+          : "",
+      "Stage 1 Discount Amount": exportMoney(
+        item.stage1DiscountAmount ?? item.discountAmount,
+      ),
+      "Final Item Amount": exportMoney(item.finalAmount ?? item.netAmount),
+      "Final Billed Amount": stage >= 3 ? exportMoney(item.finalAmount) : "",
     }));
     const images = [1, 2].flatMap((imageStage) =>
-      (Array.isArray(record["stage" + imageStage + "Images"]) ? record["stage" + imageStage + "Images"] : [])
-        .map((image) => ({
-          Stage: "Stage " + imageStage,
-          Filename: image.originalFilename || "",
-          URL: image.secureUrl || "",
-        })),
+      (Array.isArray(record["stage" + imageStage + "Images"])
+        ? record["stage" + imageStage + "Images"]
+        : []
+      ).map((image) => ({
+        Stage: "Stage " + imageStage,
+        Filename: image.originalFilename || "",
+        URL: image.secureUrl || "",
+      })),
     );
     const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(details), "Challan");
-    XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(itemRows), "Items");
-    if (images.length) XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(images), "Images");
-    XLSX.writeFile(book, "challan-" + String(record.number || record.id || "record").replace(/[\\/:*?"<>|]/g, "-") + ".xlsx");
+    XLSX.utils.book_append_sheet(
+      book,
+      XLSX.utils.aoa_to_sheet(details),
+      "Challan",
+    );
+    XLSX.utils.book_append_sheet(
+      book,
+      XLSX.utils.json_to_sheet(itemRows),
+      "Items",
+    );
+    if (images.length)
+      XLSX.utils.book_append_sheet(
+        book,
+        XLSX.utils.json_to_sheet(images),
+        "Images",
+      );
+    XLSX.writeFile(
+      book,
+      "challan-" +
+        String(record.number || record.id || "record").replace(
+          /[\\/:*?"<>|]/g,
+          "-",
+        ) +
+        ".xlsx",
+    );
   };
   const viewRecord = viewId
     ? accessibleRecords.find((record) => record.id === viewId)
@@ -2660,7 +3207,10 @@ export default function Challan() {
       !hasStagePermission(stage) ||
       !canEditChallan(viewRecord)
     ) {
-      return { uploaded: 0, failed: ["You are not permitted to upload images for this Challan."] };
+      return {
+        uploaded: 0,
+        failed: ["You are not permitted to upload images for this Challan."],
+      };
     }
     const imageField = stage === 1 ? "stage1Images" : "stage2Images";
     uploadInProgress.current = true;
@@ -2688,7 +3238,11 @@ export default function Challan() {
             tx.update(challanRef, {
               [imageField]: [
                 ...currentImages,
-                { ...image, uploadedAtMs: Date.now(), uploadedBy: user?.uid || "" },
+                {
+                  ...image,
+                  uploadedAtMs: Date.now(),
+                  uploadedBy: user?.uid || "",
+                },
               ],
               updatedAt: serverTimestamp(),
             });
@@ -2696,11 +3250,13 @@ export default function Challan() {
           result.uploaded += 1;
         } catch (error) {
           result.failed.push(
-            file.name + (error.message === "stage-changed"
-              ? ": this Challan has moved to another stage."
-              : error.message === "Image uploads are not configured. Please contact Admin."
-                ? ": image uploads are not configured. Please contact Admin."
-                : ": upload or attachment failed. Please try again or contact Admin."),
+            file.name +
+              (error.message === "stage-changed"
+                ? ": this Challan has moved to another stage."
+                : error.message ===
+                    "Image uploads are not configured. Please contact Admin."
+                  ? ": image uploads are not configured. Please contact Admin."
+                  : ": upload or attachment failed. Please try again or contact Admin."),
           );
         }
       }
@@ -2757,10 +3313,8 @@ export default function Challan() {
         : stage >= 2 && returnItems.length
           ? returnItems
           : issuedItems;
-    const sumNumber = (key) =>
-      items.reduce((total, item) => total + Number(item[key] || 0), 0);
-    const sumPieces = (key = "pieces") =>
-      items.reduce((total, item) => total + pieceValue(item[key]), 0);
+    const sumNumber = (key) => sumStored(items, key) ?? Number.NaN;
+    const sumPieces = (key = "pieces") => sumStored(items, key) ?? Number.NaN;
     const originalAmount = money(sumNumber("amount"));
     const types = [
       ...new Set(issuedItems.map((item) => item.type).filter(Boolean)),
@@ -2796,7 +3350,13 @@ export default function Challan() {
             {" "}
             Print{" "}
           </button>{" "}
-          <button type="button" className="challan-view-print" onClick={() => exportChallan(viewRecord)}>Export</button>{" "}
+          <button
+            type="button"
+            className="challan-view-print"
+            onClick={() => exportChallan(viewRecord)}
+          >
+            Export
+          </button>{" "}
         </div>{" "}
         <article className="challan-view-card">
           {" "}
@@ -2908,7 +3468,8 @@ export default function Challan() {
                   <tr>
                     <th>SKU / Item</th>
                     <th>Shape</th>
-                    <th>Size</th><th>Width</th>
+                    <th>Size</th>
+                    <th>Width</th>
                     {stage === 1 && (
                       <>
                         <th>Pieces</th>
@@ -2937,11 +3498,12 @@ export default function Challan() {
                     <tr key={item.id || item.sku || index}>
                       <td>{item.sku || "-"}</td>
                       <td>{item.shape || "-"}</td>
-                      <td>{normalizeSize(item.size) || "-"}</td><td>{normalizeSize(item.width) || "--"}</td>
+                      <td>{normalizeSize(item.size) || "-"}</td>
+                      <td>{normalizeSize(item.width) || "--"}</td>
                       {stage === 1 && (
                         <>
                           <td>{pieceValue(item.pieces)}</td>
-                          <td>{Number(item.weight || 0).toFixed(3)} ct</td>
+                          <td>{weightText(item.weight)} ct</td>
                         </>
                       )}
                       {[2, 4].includes(stage) && (
@@ -2956,17 +3518,15 @@ export default function Challan() {
                             ct
                           </td>
                           <td>{pieceValue(item.returnPieces)}</td>
-                          <td>
-                            {Number(item.returnWeight || 0).toFixed(3)} ct
-                          </td>
+                          <td>{weightText(item.returnWeight)} ct</td>
                           <td>{pieceValue(item.soldPieces)}</td>
-                          <td>{Number(item.soldWeight || 0).toFixed(3)} ct</td>
+                          <td>{weightText(item.soldWeight)} ct</td>
                         </>
                       )}
                       {stage === 3 && (
                         <td>
                           {pieceValue(item.soldPieces)} pcs /{" "}
-                          {Number(item.soldWeight || 0).toFixed(3)} ct
+                          {weightText(item.soldWeight)} ct
                         </td>
                       )}
                       <td>₹{money(item.amount).toFixed(2)}</td>
@@ -3117,7 +3677,9 @@ export default function Challan() {
                 ? viewRecord.stage1Images
                 : []
             }
-            canUpload={stage === 1 && hasStagePermission(1) && canEditChallan(viewRecord)}
+            canUpload={
+              stage === 1 && hasStagePermission(1) && canEditChallan(viewRecord)
+            }
             uploading={uploadingStage === 1}
             onUpload={uploadImage}
           />
@@ -3130,7 +3692,9 @@ export default function Challan() {
                 ? viewRecord.stage2Images
                 : []
             }
-            canUpload={stage === 2 && hasStagePermission(2) && canEditChallan(viewRecord)}
+            canUpload={
+              stage === 2 && hasStagePermission(2) && canEditChallan(viewRecord)
+            }
             uploading={uploadingStage === 2}
             onUpload={uploadImage}
           />
@@ -3210,20 +3774,35 @@ export default function Challan() {
                 Challan Number *
                 <input
                   value={form.number || ""}
-                  required={!editingId || form.number !== records.find((record) => record.id === editingId)?.number}
-                  pattern={!editingId || form.number !== records.find((record) => record.id === editingId)?.number ? CHALLAN_NUMBER_PATTERN : undefined}
+                  required={
+                    !editingId ||
+                    form.number !==
+                      records.find((record) => record.id === editingId)?.number
+                  }
+                  pattern={
+                    !editingId ||
+                    form.number !==
+                      records.find((record) => record.id === editingId)?.number
+                      ? CHALLAN_NUMBER_PATTERN
+                      : undefined
+                  }
                   readOnly={Boolean(editingId) && !isAdmin}
                   placeholder="B35/1"
                   aria-describedby="challan-number-help challan-number-error"
                   aria-invalid={Boolean(challanFieldErrors.number)}
                   onChange={(event) => {
                     setFormError("");
-                    setChallanFieldErrors((errors) => ({ ...errors, number: "" }));
+                    setChallanFieldErrors((errors) => ({
+                      ...errors,
+                      number: "",
+                    }));
                     setForm({ ...form, number: event.target.value });
                   }}
                 />
                 <small id="challan-number-help">{CHALLAN_NUMBER_HELP}</small>
-                <small id="challan-number-error" role="alert">{challanFieldErrors.number}</small>
+                <small id="challan-number-error" role="alert">
+                  {challanFieldErrors.number}
+                </small>
               </label>{" "}
               <label className={challanFieldErrors.party ? "has-error" : ""}>
                 {" "}
@@ -3262,7 +3841,12 @@ export default function Challan() {
           <article>
             {" "}
             <h3>Inventory Items</h3>{" "}
-            {(masterPriceError || masterPricesLoading) && <p role="status">{masterPriceError || "Loading Master Prices… You can enter Price manually."}</p>}
+            {(masterPriceError || masterPricesLoading) && (
+              <p role="status">
+                {masterPriceError ||
+                  "Loading Master Prices… You can enter Price manually."}
+              </p>
+            )}
             {challanFieldErrors.items && (
               <p className="challan-form-error" role="alert">
                 {" "}
@@ -3282,10 +3866,10 @@ export default function Challan() {
                 Inventory SKU *{" "}
                 <em className="live-weight-label">live weight</em>{" "}
               </span>{" "}
-              <span>Width</span><span>Shape</span> <span>Size</span> <span>Type</span>{" "}
-              <span>Weight / Carat</span> <span>Pieces</span>{" "}
-              <span>Price</span> <span>Discount %</span>{" "}
-              <span>Discount / Net</span> <span />{" "}
+              <span>Width</span>
+              <span>Shape</span> <span>Size</span> <span>Type</span>{" "}
+              <span>Weight / Carat</span> <span>Pieces</span> <span>Price</span>{" "}
+              <span>Discount %</span> <span>Discount / Net</span> <span />{" "}
             </div>{" "}
             {form.items.map((item) => (
               <div className="challan-item" key={item.id}>
@@ -3299,7 +3883,25 @@ export default function Challan() {
                   onSelect={(selected) => selectSku(item.id, selected)}
                   autoFocus={focusSkuId === item.id}
                 />{" "}
-                <label className="challan-width"><input aria-label="Width" placeholder="Width (optional)" inputMode="decimal" value={item.width ?? ""} aria-invalid={Boolean(widthError(item.width))} onChange={(event) => itemChange(item.id, "width", event.target.value)} onBlur={() => { if (!widthError(item.width)) itemChange(item.id, "width", normalizeSize(item.width)); }} />{widthError(item.width) && <small role="alert">{widthError(item.width)}</small>}</label>
+                <label className="challan-width">
+                  <input
+                    aria-label="Width"
+                    placeholder="Width (optional)"
+                    inputMode="decimal"
+                    value={item.width ?? ""}
+                    aria-invalid={Boolean(widthError(item.width))}
+                    onChange={(event) =>
+                      itemChange(item.id, "width", event.target.value)
+                    }
+                    onBlur={() => {
+                      if (!widthError(item.width))
+                        itemChange(item.id, "width", normalizeSize(item.width));
+                    }}
+                  />
+                  {widthError(item.width) && (
+                    <small role="alert">{widthError(item.width)}</small>
+                  )}
+                </label>
                 {["shape", "size", "type", "weight", "pieces"].map((key) => (
                   <input
                     key={key}
@@ -3307,9 +3909,17 @@ export default function Challan() {
                       key === "weight" || key === "pieces" ? "number" : "text"
                     }
                     min={key === "pieces" ? "0" : undefined}
-                    step={key === "pieces" ? "1" : undefined}
+                    step={
+                      key === "pieces"
+                        ? "1"
+                        : key === "weight"
+                          ? "any"
+                          : undefined
+                    }
                     inputMode={key === "pieces" ? "numeric" : undefined}
-                    value={key === "size" ? normalizeSize(item[key]) : item[key]}
+                    value={
+                      key === "size" ? normalizeSize(item[key]) : item[key]
+                    }
                     readOnly={["shape", "size", "type"].includes(key)}
                     aria-invalid={
                       key === "pieces" &&
@@ -3331,7 +3941,6 @@ export default function Challan() {
                     placeholder={key === "weight" ? "Weight (ct)" : key}
                   />
                 ))}{" "}
-
                 <input
                   type="number"
                   min="0"
@@ -3360,11 +3969,11 @@ export default function Challan() {
                   {pricingFor(
                     item.amount,
                     item.discount,
-                  ).discountAmount.toFixed(2)}{" "}
+                  )?.discountAmount.toFixed(2) ?? "--"}{" "}
                   / ₹{" "}
-                  {pricingFor(item.amount, item.discount).netAmount.toFixed(
+                  {pricingFor(item.amount, item.discount)?.netAmount.toFixed(
                     2,
-                  )}{" "}
+                  ) ?? "--"}{" "}
                 </span>{" "}
                 <button
                   className="remove-item"
@@ -3389,29 +3998,23 @@ export default function Challan() {
               {" "}
               <strong>
                 {" "}
-                Total Items:{" "}
-                {form.items.filter((item) => item.sku.trim()).length}{" "}
+                Total Items: {pricing ? pricing.itemCount : "--"}{" "}
               </strong>{" "}
               <span /> <span /> <span />{" "}
               <strong>
                 {" "}
-                Total:{" "}
-                {form.items
-                  .reduce((sum, item) => sum + Number(item.weight || 0), 0)
-                  .toFixed(3)}{" "}
-                ct{" "}
+                Total: {pricing ? pricing.weight.toFixed(3) : "--"} ct{" "}
+              </strong>{" "}
+              <strong> Total: {pricing ? pricing.pieces : "--"} pcs </strong>{" "}
+              <strong>
+                Amount: ₹{pricing ? pricing.amount.toFixed(2) : "--"}
               </strong>{" "}
               <strong>
-                {" "}
-                Total:{" "}
-                {form.items.reduce(
-                  (sum, item) => sum + pieceValue(item.pieces),
-                  0,
-                )}{" "}
-                pcs{" "}
+                Discount: ₹{pricing ? pricing.discountAmount.toFixed(2) : "--"}
               </strong>{" "}
-              <strong>Discount: ₹{pricing.discountAmount.toFixed(2)}</strong>{" "}
-              <strong>Net: ₹{pricing.netAmount.toFixed(2)}</strong>{" "}
+              <strong>
+                Net: ₹{pricing ? pricing.netAmount.toFixed(2) : "--"}
+              </strong>{" "}
               <span />{" "}
             </div>{" "}
             <button type="button" className="add" onClick={addItem}>
@@ -3439,7 +4042,11 @@ export default function Challan() {
               disabled={saving || (!editingId && !hasStagePermission(1))}
             >
               {" "}
-              {saving ? "Saving..." : editingId ? "Save Changes" : "Create Challan"}{" "}
+              {saving
+                ? "Saving..."
+                : editingId
+                  ? "Save Changes"
+                  : "Create Challan"}{" "}
             </button>{" "}
             <button type="button" onClick={closeEditor}>
               {" "}
@@ -3521,7 +4128,21 @@ export default function Challan() {
           </button>
         ))}{" "}
       </nav>{" "}
-      {dashboardAge && <button type="button" className="business-text-link" onClick={() => setDashboardAge("")}>Age filter: {dashboardAge === "5d" ? "5+ days" : dashboardAge === "60h" ? "60h to 5d" : "24h to 60h"} ×</button>}
+      {dashboardAge && (
+        <button
+          type="button"
+          className="business-text-link"
+          onClick={() => setDashboardAge("")}
+        >
+          Age filter:{" "}
+          {dashboardAge === "5d"
+            ? "5+ days"
+            : dashboardAge === "60h"
+              ? "60h to 5d"
+              : "24h to 60h"}{" "}
+          ×
+        </button>
+      )}
       <div className="metrics">
         {" "}
         {metrics.map(([label, value]) => (
@@ -3776,6 +4397,7 @@ export default function Challan() {
           record={finalInvoiceCandidate}
           onClose={() => setFinalInvoiceCandidate(null)}
           onConfirm={confirmFinalInvoice}
+          canEnterPartial={isAdmin}
         />
       )}{" "}
       {finalSettlementCandidate && (

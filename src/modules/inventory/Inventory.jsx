@@ -1,17 +1,29 @@
-import { useInventoryDiscovery } from '../../hooks/useInventoryDiscovery.js';
+import { useInventoryDiscovery } from "../../hooks/useInventoryDiscovery.js";
 import { deleteDoc, updateDoc } from "../../firebase/businessWrites.js";
-import { canonicalSku, canonicalInventoryIdentity } from "../../utils/dimensions.js";
+import {
+  canonicalSku,
+  canonicalInventoryIdentity,
+} from "../../utils/dimensions.js";
 import { saveInventoryIdentity } from "../../utils/inventoryIdentity.js";
 import { auditDimensions } from "../../utils/dimensionAudit.js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, doc, getDocFromServer, onSnapshot, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocFromServer,
+  onSnapshot,
+  serverTimestamp,
+} from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../ui/ToastContext";
 import { getAgeingColor, getAgeingDays } from "../../config/ageingConfig";
 import { writeInventoryActivity } from "../../utils/activityLog";
-import { inventoryFieldError, inventorySaveErrorMessage } from "../../utils/inventoryForm.js";
+import {
+  inventoryFieldError,
+  inventorySaveErrorMessage,
+} from "../../utils/inventoryForm.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import {
   DEFAULT_SHAPES,
@@ -152,11 +164,25 @@ async function excel(rows) {
   XLSX.utils.book_append_sheet(book, sheet, `Inventory_${stamp}`);
   XLSX.writeFile(book, `inventory_${stamp}.xlsx`);
 }
-function Picker({ label, value, options, onChange, onBlur, error, required = false }) {
+function Picker({
+  label,
+  value,
+  options,
+  onChange,
+  onBlur,
+  error,
+  required = false,
+}) {
   return (
     <label className={`inventory-field ${error ? "has-error" : ""}`}>
-      <span>{label} {required && <b className="inventory-required-star">*</b>}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} onBlur={onBlur}>
+      <span>
+        {label} {required && <b className="inventory-required-star">*</b>}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+      >
         <option value="">Select {label.toLowerCase()}</option>
         {options.map((option) => (
           <option key={option}>{option}</option>
@@ -197,18 +223,24 @@ export function AddModal({
     box: normalizeBox(form.box),
   };
   const candidateSku = canonicalSku(normalized);
-  const duplicate = candidateSku !== "--" &&
-    existingItems.some((entry) =>
-      entry.id !== item?.id &&
-      canonicalInventoryIdentity(entry) === candidateSku &&
-      (!item || canonicalInventoryIdentity(item) !== candidateSku));
+  const duplicate =
+    candidateSku !== "--" &&
+    existingItems.some(
+      (entry) =>
+        entry.id !== item?.id &&
+        canonicalInventoryIdentity(entry) === candidateSku &&
+        (!item || canonicalInventoryIdentity(item) !== candidateSku),
+    );
   const fieldErrors = Object.fromEntries(
-    ["type", "shape", "size", "weight", "box"].map((key) =>
-      [key, inventoryFieldError(key, normalized[key], allowDimensions)]),
+    ["type", "shape", "size", "weight", "box"].map((key) => [
+      key,
+      inventoryFieldError(key, normalized[key], allowDimensions),
+    ]),
   );
   if (!fieldErrors.size && duplicate)
     fieldErrors.size = "This Type, Shape and Size already exists in Inventory.";
-  const visibleError = (key) => (submitted || touched[key] ? fieldErrors[key] : "");
+  const visibleError = (key) =>
+    submitted || touched[key] ? fieldErrors[key] : "";
   const touch = (key) => setTouched((current) => ({ ...current, [key]: true }));
   const update = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -225,8 +257,11 @@ export function AddModal({
     }
     savingRef.current = true;
     setSaving(true);
-    const ref = item ? doc(db, INVENTORY, item.id) : doc(collection(db, INVENTORY));
-    let operation = "Inventory and identity transaction", stockSaved = false;
+    const ref = item
+      ? doc(db, INVENTORY, item.id)
+      : doc(collection(db, INVENTORY));
+    let operation = "Inventory and identity transaction",
+      stockSaved = false;
     try {
       const payload = {
         shape: normalized.shape,
@@ -238,36 +273,55 @@ export function AddModal({
         sku: candidateSku,
         updatedAt: serverTimestamp(),
       };
-      const created = item ? payload : {
-        ...payload,
-        origin: "Manual",
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
-      };
+      const created = item
+        ? payload
+        : {
+            ...payload,
+            origin: "Manual",
+            createdBy: user.uid,
+            createdAt: serverTimestamp(),
+          };
       await saveInventoryIdentity(db, ref, created, Boolean(item));
       stockSaved = true;
       operation = "Inventory server read";
       const saved = await getDocFromServer(ref);
       const savedItem = { ...saved.data(), id: ref.id };
       operation = "Activity Log create";
-      await writeInventoryActivity(item ? "edited" : "created", savedItem,
-        { before: item, origin: "Manual", user });
-      if (import.meta.env.DEV) console.info("[Inventory save success]", {
-        uid: user?.uid, role: user?.role, inventoryPermission: allowed,
-        operation: item ? "update" : "create", inventoryPath: ref.path,
-        identityPath: `inventoryIdentities/${candidateSku}`,
+      await writeInventoryActivity(item ? "edited" : "created", savedItem, {
+        before: item,
+        origin: "Manual",
+        user,
       });
+      if (import.meta.env.DEV)
+        console.info("[Inventory save success]", {
+          uid: user?.uid,
+          role: user?.role,
+          inventoryPermission: allowed,
+          operation: item ? "update" : "create",
+          inventoryPath: ref.path,
+          identityPath: `inventoryIdentities/${candidateSku}`,
+        });
       onSaved(savedItem);
     } catch (error) {
-      if (import.meta.env.DEV) console.info("[Inventory save failure]", {
-        uid: user?.uid, role: user?.role, inventoryPermission: allowed,
-        operation, inventoryPath: ref.path, identityPath: candidateSku === "--"
-          ? null : `inventoryIdentities/${candidateSku}`,
-        code: error?.code, message: error?.message,
-      });
+      if (import.meta.env.DEV)
+        console.info("[Inventory save failure]", {
+          uid: user?.uid,
+          role: user?.role,
+          inventoryPermission: allowed,
+          operation,
+          inventoryPath: ref.path,
+          identityPath:
+            candidateSku === "--"
+              ? null
+              : `inventoryIdentities/${candidateSku}`,
+          code: error?.code,
+          message: error?.message,
+        });
       if (stockSaved) {
         setSavedWithoutActivity(true);
-        setSystemError("Inventory was saved, but a follow-up read or Activity Log write failed. Do not save it again; contact an administrator.");
+        setSystemError(
+          "Inventory was saved, but a follow-up read or Activity Log write failed. Do not save it again; contact an administrator.",
+        );
       } else {
         setSystemError(inventorySaveErrorMessage(error, allowed));
       }
@@ -278,51 +332,131 @@ export function AddModal({
   };
   return (
     <div className="inventory-modal">
-      <div className="inventory-modal-card" role="dialog" aria-modal="true" aria-label={item ? "Edit Inventory" : "Add Inventory"}>
-        <button type="button" className="inventory-modal-close" aria-label="Close Inventory form" onClick={onClose}>
+      <div
+        className="inventory-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={item ? "Edit Inventory" : "Add Inventory"}
+      >
+        <button
+          type="button"
+          className="inventory-modal-close"
+          aria-label="Close Inventory form"
+          onClick={onClose}
+        >
           <Icon n="close" />
         </button>
         <h3>{item ? "Edit item" : "Add item"}</h3>
         <p>Enter the stock details. SKU is generated automatically.</p>
         <div className="inventory-form">
-          <Picker label="Type" required value={form.type} options={["CVD", "HP"]}
-            onChange={(value) => update("type", value)} onBlur={() => touch("type")}
-            error={visibleError("type")} />
-          <Picker label="Shape" required value={form.shape} options={shapes}
-            onChange={(value) => update("shape", value)} onBlur={() => touch("shape")}
-            error={visibleError("shape")} />
-          <label className={`inventory-field ${visibleError("size") ? "has-error" : ""}`}>
-            <span>Size (mm) <b className="inventory-required-star">*</b></span>
-            <input type="text" inputMode="decimal" value={form.size}
-              onBlur={() => { touch("size"); if (isValidSize(form.size, allowDimensions)) update("size", normalizeSize(form.size)); }}
+          <Picker
+            label="Type"
+            required
+            value={form.type}
+            options={["CVD", "HP"]}
+            onChange={(value) => update("type", value)}
+            onBlur={() => touch("type")}
+            error={visibleError("type")}
+          />
+          <Picker
+            label="Shape"
+            required
+            value={form.shape}
+            options={shapes}
+            onChange={(value) => update("shape", value)}
+            onBlur={() => touch("shape")}
+            error={visibleError("shape")}
+          />
+          <label
+            className={`inventory-field ${visibleError("size") ? "has-error" : ""}`}
+          >
+            <span>
+              Size (mm) <b className="inventory-required-star">*</b>
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={form.size}
+              onBlur={() => {
+                touch("size");
+                if (isValidSize(form.size, allowDimensions))
+                  update("size", normalizeSize(form.size));
+              }}
               onChange={(event) => update("size", event.target.value)}
-              placeholder={allowDimensions ? "4.3 or 4.3X2.0" : "4.3"} />
-            {visibleError("size") && <small className="inventory-field-error">{visibleError("size")}</small>}
+              placeholder={allowDimensions ? "4.3 or 4.3X2.0" : "4.3"}
+            />
+            {visibleError("size") && (
+              <small className="inventory-field-error">
+                {visibleError("size")}
+              </small>
+            )}
           </label>
-          <label className={`inventory-field ${visibleError("weight") ? "has-error" : ""}`}>
-            <span>Weight (ct) <b className="inventory-required-star">*</b></span>
-            <input type="text" inputMode="decimal" value={form.weight}
+          <label
+            className={`inventory-field ${visibleError("weight") ? "has-error" : ""}`}
+          >
+            <span>
+              Weight (ct) <b className="inventory-required-star">*</b>
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={form.weight}
               onBlur={() => touch("weight")}
-              onChange={(event) => update("weight", event.target.value)} />
-            {visibleError("weight") && <small className="inventory-field-error">{visibleError("weight")}</small>}
+              onChange={(event) => update("weight", event.target.value)}
+            />
+            {visibleError("weight") && (
+              <small className="inventory-field-error">
+                {visibleError("weight")}
+              </small>
+            )}
           </label>
-          <label className={`inventory-field ${visibleError("box") ? "has-error" : ""}`}>
-            <span>Box <small className="inventory-optional-label">Optional</small></span>
-            <input type="text" value={form.box} placeholder="B29"
+          <label
+            className={`inventory-field ${visibleError("box") ? "has-error" : ""}`}
+          >
+            <span>
+              Box <small className="inventory-optional-label">Optional</small>
+            </span>
+            <input
+              type="text"
+              value={form.box}
+              placeholder="B29"
               onBlur={() => touch("box")}
-              onChange={(event) => update("box", normalizeBox(event.target.value))} />
-            {visibleError("box") && <small className="inventory-field-error">{visibleError("box")}</small>}
+              onChange={(event) =>
+                update("box", normalizeBox(event.target.value))
+              }
+            />
+            {visibleError("box") && (
+              <small className="inventory-field-error">
+                {visibleError("box")}
+              </small>
+            )}
           </label>
           <div className="inventory-sku-field" aria-live="polite">
             <span>SKU · Generated automatically</span>
             <b>{candidateSku}</b>
           </div>
         </div>
-        {systemError && <p className="inventory-error inventory-system-error" role="alert">{systemError}</p>}
+        {systemError && (
+          <p className="inventory-error inventory-system-error" role="alert">
+            {systemError}
+          </p>
+        )}
         <footer>
-          <button type="button" className="inventory-button inventory-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="button" className="inventory-button inventory-primary"
-            disabled={saving || savedWithoutActivity} aria-busy={saving} onClick={save}>
+          <button
+            type="button"
+            className="inventory-button inventory-secondary"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="inventory-button inventory-primary"
+            disabled={saving || savedWithoutActivity}
+            aria-busy={saving}
+            onClick={save}
+          >
             {saving ? "Saving..." : item ? "Save changes" : "Add item"}
           </button>
         </footer>
@@ -425,8 +559,20 @@ function ImportPreview({ rows, onClose, onImport }) {
               <td>{row.weight}</td>
               <td>{normalizeSize(row.size)}</td>
               <td>{row.sku}</td>
-              <td className={row.box ? undefined : "inventory-import-placeholder"}>{row.box || "--"}</td>
-              <td className={row.errors.length ? "inventory-import-result-error" : "inventory-import-result-ready"}>{row.errors.join(" / ") || "Ready to import"}</td>
+              <td
+                className={row.box ? undefined : "inventory-import-placeholder"}
+              >
+                {row.box || "--"}
+              </td>
+              <td
+                className={
+                  row.errors.length
+                    ? "inventory-import-result-error"
+                    : "inventory-import-result-ready"
+                }
+              >
+                {row.errors.join(" / ") || "Ready to import"}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -561,7 +707,11 @@ export default function Inventory() {
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  const { rows: items, loading, error: inventoryError } = useInventoryDiscovery();
+  const {
+    rows: items,
+    loading,
+    error: inventoryError,
+  } = useInventoryDiscovery();
   useEffect(
     () =>
       onSnapshot(collection(db, SHAPES), (snap) =>
@@ -592,8 +742,14 @@ export default function Inventory() {
     if (!action && !sku && !age) return;
     queueMicrotask(() => {
       if (action === "add") setAdding(true);
-      if (sku) { setInput(sku); setDashboardAgeBucket(""); }
-      if (age) { setInput(""); setDashboardAgeBucket(age); }
+      if (sku) {
+        setInput(sku);
+        setDashboardAgeBucket("");
+      }
+      if (age) {
+        setInput("");
+        setDashboardAgeBucket(age);
+      }
       navigate(location.pathname, { replace: true, state: null });
     });
   }, [location.pathname, location.state, navigate]);
@@ -633,11 +789,18 @@ export default function Inventory() {
         (item) =>
           (filter === "All Groups" ||
             (item.group || "Uncategorized") === filter) &&
-          (!dashboardAgeBucket || (() => {
-            if (!item.createdAt && !item.createdAtMs) return false;
-            const days = getAgeingDays(item.createdAt, item.createdAtMs);
-            return dashboardAgeBucket === "0-30 days" ? days <= 30 : dashboardAgeBucket === "31-60 days" ? days >= 31 && days <= 60 : dashboardAgeBucket === "61-90 days" ? days >= 61 && days <= 90 : days > 90;
-          })()) &&
+          (!dashboardAgeBucket ||
+            (() => {
+              if (!item.createdAt && !item.createdAtMs) return false;
+              const days = getAgeingDays(item.createdAt, item.createdAtMs);
+              return dashboardAgeBucket === "0-30 days"
+                ? days <= 30
+                : dashboardAgeBucket === "31-60 days"
+                  ? days >= 31 && days <= 60
+                  : dashboardAgeBucket === "61-90 days"
+                    ? days >= 61 && days <= 90
+                    : days > 90;
+            })()) &&
           inventoryMatchesSearch(item, find),
       ),
     [items, filter, find, dashboardAgeBucket],
@@ -682,7 +845,10 @@ export default function Inventory() {
     all =
       filtered.length > 0 &&
       filtered.every((item) => selected.includes(item.id));
-  const collisionAudit = useMemo(() => auditDimensions({ inventory: items }), [items]);
+  const collisionAudit = useMemo(
+    () => auditDimensions({ inventory: items }),
+    [items],
+  );
   const isAdmin = user?.role === "superadmin";
   const canEditItem = (item) =>
     isAdmin ||
@@ -758,15 +924,37 @@ export default function Inventory() {
     let imported = 0;
     for (const row of rows) {
       const { index, errors, ...data } = row;
-      void index; void errors;
-      const item = { ...data, origin: "Import", createdBy: user?.uid ?? "pending-auth", createdAt: serverTimestamp() };
+      void index;
+      void errors;
+      const item = {
+        ...data,
+        origin: "Import",
+        createdBy: user?.uid ?? "pending-auth",
+        createdAt: serverTimestamp(),
+      };
       try {
-        const ref = await saveInventoryIdentity(db, doc(collection(db, INVENTORY)), item);
+        const ref = await saveInventoryIdentity(
+          db,
+          doc(collection(db, INVENTORY)),
+          item,
+        );
         imported++;
-        await writeInventoryActivity("created", { id: ref.id, ...item }, { origin: "Import", user });
-      } catch (error) { toast(inventorySaveErrorMessage(error, hasPermission("inventory")), "error"); }
+        await writeInventoryActivity(
+          "created",
+          { id: ref.id, ...item },
+          { origin: "Import", user },
+        );
+      } catch (error) {
+        toast(
+          inventorySaveErrorMessage(error, hasPermission("inventory")),
+          "error",
+        );
+      }
     }
-    toast(`${imported} of ${rows.length} items imported`, imported === rows.length ? "success" : "error");
+    toast(
+      `${imported} of ${rows.length} items imported`,
+      imported === rows.length ? "success" : "error",
+    );
   };
   return (
     <section className="inventory-module">
@@ -775,7 +963,25 @@ export default function Inventory() {
         <h2>Inventory</h2>
         <p>{formatDecimal(weight)} ct in stock</p>
       </header>
-      {collisionAudit.collisions.length > 0 && <details className="inventory-error"><summary>{collisionAudit.collisions.length} legacy canonical Size collision(s). Stock records remain separate.</summary>{collisionAudit.collisions.map((collision) => <p key={collision.canonicalSku}>{collision.canonicalSku}: {collision.records.map((record) => `${record.id} (${record.currentSku}, raw Size ${record.rawSize}, ${record.weight ?? "?"} ct)`).join("; ")}</p>)}</details>}
+      {collisionAudit.collisions.length > 0 && (
+        <details className="inventory-error">
+          <summary>
+            {collisionAudit.collisions.length} legacy canonical Size
+            collision(s). Stock records remain separate.
+          </summary>
+          {collisionAudit.collisions.map((collision) => (
+            <p key={collision.canonicalSku}>
+              {collision.canonicalSku}:{" "}
+              {collision.records
+                .map(
+                  (record) =>
+                    `${record.id} (${record.currentSku}, raw Size ${record.rawSize}, ${record.weight ?? "?"} ct)`,
+                )
+                .join("; ")}
+            </p>
+          ))}
+        </details>
+      )}
       <div className="inventory-metrics">
         {[
           ["TOTAL INVENTORY", items.length],
@@ -792,7 +998,15 @@ export default function Inventory() {
         ))}
       </div>
       <div className="inventory-toolbar">
-        {dashboardAgeBucket && <button type="button" className="inventory-button inventory-secondary" onClick={() => setDashboardAgeBucket("")}>Age: {dashboardAgeBucket} ×</button>}
+        {dashboardAgeBucket && (
+          <button
+            type="button"
+            className="inventory-button inventory-secondary"
+            onClick={() => setDashboardAgeBucket("")}
+          >
+            Age: {dashboardAgeBucket} ×
+          </button>
+        )}
         <label className="inventory-search">
           <Icon n="search" />
           <input

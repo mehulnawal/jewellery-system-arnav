@@ -1,5 +1,5 @@
 import { setDoc } from "../firebase/businessWrites.js";
-﻿import {
+import {
   createUserWithEmailAndPassword,
   getAuth,
   signOut,

@@ -767,8 +767,12 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
   return (
     <article className="import-templates">
       <h3>Import Templates</h3>
-      <p className="import-templates-intro">Choose a template to view its format and download the workbook.</p>
-      <section className={`import-template-card ${masterOpen ? "is-open" : ""}`}>
+      <p className="import-templates-intro">
+        Choose a template to view its format and download the workbook.
+      </p>
+      <section
+        className={`import-template-card ${masterOpen ? "is-open" : ""}`}
+      >
         <button
           type="button"
           className="import-template-toggle"
@@ -783,20 +787,30 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
           <span className="import-template-chevron" aria-hidden="true" />
         </button>
         {masterOpen && (
-          <div id="master-import-template-content" className="import-template-content">
-            <button type="button" className="settings-primary" onClick={() => exportMasterPrices([], true)}>
+          <div
+            id="master-import-template-content"
+            className="import-template-content"
+          >
+            <button
+              type="button"
+              className="settings-primary"
+              onClick={() => exportMasterPrices([], true)}
+            >
               Download Master Price Template
             </button>
             <div className="import-template-rules">
               <RuleSection title="Excel Columns">
                 <div className="import-header-chips">
-                  {["Type", "Shape", "Height", "Width", "Price"].map((header) => (
-                    <span key={header}>{header}</span>
-                  ))}
+                  {["Type", "Shape", "Height", "Width", "Price"].map(
+                    (header) => (
+                      <span key={header}>{header}</span>
+                    ),
+                  )}
                 </div>
                 <p className="import-rule-note">
                   Width is optional: leave it blank for a Height-only price.
-                  Existing normalized combinations are rejected, never overwritten.
+                  Existing normalized combinations are rejected, never
+                  overwritten.
                 </p>
               </RuleSection>
             </div>
@@ -834,7 +848,8 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
               Download Sample Excel
             </button>
             <p className="import-template-guidance">
-              Download the blank Excel template, fill it from row 2, then upload it using Inventory’s existing Import action.
+              Download the blank Excel template, fill it from row 2, then upload
+              it using Inventory’s existing Import action.
             </p>
             <div className="import-template-rules">
               <RuleSection title="Excel Columns">

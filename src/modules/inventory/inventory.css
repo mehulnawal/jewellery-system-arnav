@@ -1127,21 +1127,38 @@ html[data-theme="dark"] .inventory-import-card > p,
 html[data-theme="dark"] .inventory-import-card .inventory-import-table th {
   color: var(--import-text-secondary);
 }
-html[data-theme="dark"] .inventory-import-card .inventory-import-section > header b {
+html[data-theme="dark"]
+  .inventory-import-card
+  .inventory-import-section
+  > header
+  b {
   color: var(--import-text-primary);
 }
-html[data-theme="dark"] .inventory-import-card .inventory-import-section > header span,
+html[data-theme="dark"]
+  .inventory-import-card
+  .inventory-import-section
+  > header
+  span,
 html[data-theme="dark"] .inventory-import-card .inventory-import-table td {
   color: var(--import-text-body);
 }
-html[data-theme="dark"] .inventory-import-card .inventory-import-table td.inventory-import-placeholder,
+html[data-theme="dark"]
+  .inventory-import-card
+  .inventory-import-table
+  td.inventory-import-placeholder,
 html[data-theme="dark"] .inventory-import-card .inventory-import-empty {
   color: var(--import-text-muted);
 }
-html[data-theme="dark"] .inventory-import-card .inventory-import-table td.inventory-import-result-ready {
+html[data-theme="dark"]
+  .inventory-import-card
+  .inventory-import-table
+  td.inventory-import-result-ready {
   color: #85dcb1;
 }
-html[data-theme="dark"] .inventory-import-card .inventory-import-table td.inventory-import-result-error {
+html[data-theme="dark"]
+  .inventory-import-card
+  .inventory-import-table
+  td.inventory-import-result-error {
   color: #ffb4aa;
 }
 html[data-theme="dark"] .inventory-import-card .inventory-secondary,
@@ -1150,8 +1167,17 @@ html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
 }
 
 /* Inventory Add/Edit form states */
-.inventory-required-star { color: #c73535; font-size: 16px; margin-left: 2px; }
-.inventory-optional-label { color: #697789; font-size: 12px; font-weight: 500; margin-left: 5px; }
+.inventory-required-star {
+  color: #c73535;
+  font-size: 16px;
+  margin-left: 2px;
+}
+.inventory-optional-label {
+  color: #697789;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 5px;
+}
 .inventory-modal-card .inventory-field select {
   appearance: auto;
   background: #fff;
@@ -1175,8 +1201,14 @@ html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
   outline: 3px solid #59ad83;
   outline-offset: 2px;
 }
-.inventory-modal-card .inventory-button:active { transform: translateY(1px); }
-.inventory-modal-card .inventory-button:disabled { cursor: not-allowed; opacity: .65; transform: none; }
+.inventory-modal-card .inventory-button:active {
+  transform: translateY(1px);
+}
+.inventory-modal-card .inventory-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
 .inventory-modal-card footer .inventory-secondary {
   background: #eef2f6;
   border-color: #cbd4df;
@@ -1193,14 +1225,21 @@ html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
   padding: 9px 11px;
 }
 html[data-theme="dark"] .inventory-modal-card .inventory-field > span,
-html[data-theme="dark"] .inventory-modal-card .inventory-sku-field > span { color: #c9d6e5; }
-html[data-theme="dark"] .inventory-optional-label { color: #aebdd0; }
+html[data-theme="dark"] .inventory-modal-card .inventory-sku-field > span {
+  color: #c9d6e5;
+}
+html[data-theme="dark"] .inventory-optional-label {
+  color: #aebdd0;
+}
 html[data-theme="dark"] .inventory-modal-card footer .inventory-secondary {
   background: #273548 !important;
   border-color: #52647a !important;
   color: #ecf2f9 !important;
 }
-html[data-theme="dark"] .inventory-modal-card footer .inventory-secondary:hover:not(:disabled) {
+html[data-theme="dark"]
+  .inventory-modal-card
+  footer
+  .inventory-secondary:hover:not(:disabled) {
   background: #34475e !important;
 }
 html[data-theme="dark"] .inventory-system-error {

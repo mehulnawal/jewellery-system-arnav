@@ -43,19 +43,19 @@ Existing route/module permission predicates are preserved. Admin-only pages rema
 
 ## I. Files changed
 
-| File | Purpose |
-|---|---|
-| `src/layouts/BusinessGate.jsx` | Read/write/maintenance state separation, compact banner and recovery. |
-| `src/hooks/useBusinessAvailability.js` | Shared status context for Dashboard/Master Price presentation. |
-| `src/firebase/businessWrites.js` | Client writes fail closed while status is unverified; existing transactional reset fencing remains. |
-| `src/layouts/DashboardLayout.jsx` | Single branding/page context; preserve group/state/permission behavior. |
-| `src/layouts/dashboardLayout.css` | Consolidated shell/sidebar sizing, navigation, top bar and banner. |
-| `src/layouts/navigation.css` | Removed superseded duplicate navigation stylesheet. |
-| `src/modules/dashboard/BusinessDashboard.jsx` | Section order, top actions, compact empty states, reason tags and live/snapshot display. |
-| `src/modules/dashboard/businessDashboard.css` | Natural card heights, density, type scale, zero bars and responsive spacing. |
-| `src/modules/masterPrices/MasterPrices.jsx` | Avoid duplicate same-outage warnings; detailed form changes documented separately. |
-| `tests/ui.spec.mjs` | Availability, permissions, Dashboard, sidebar and regression checks. |
-| `docs/qa/dashboard-corrective/` | Expanded/collapsed dark/light and responsive/populated screenshots. |
+| File                                          | Purpose                                                                                             |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `src/layouts/BusinessGate.jsx`                | Read/write/maintenance state separation, compact banner and recovery.                               |
+| `src/hooks/useBusinessAvailability.js`        | Shared status context for Dashboard/Master Price presentation.                                      |
+| `src/firebase/businessWrites.js`              | Client writes fail closed while status is unverified; existing transactional reset fencing remains. |
+| `src/layouts/DashboardLayout.jsx`             | Single branding/page context; preserve group/state/permission behavior.                             |
+| `src/layouts/dashboardLayout.css`             | Consolidated shell/sidebar sizing, navigation, top bar and banner.                                  |
+| `src/layouts/navigation.css`                  | Removed superseded duplicate navigation stylesheet.                                                 |
+| `src/modules/dashboard/BusinessDashboard.jsx` | Section order, top actions, compact empty states, reason tags and live/snapshot display.            |
+| `src/modules/dashboard/businessDashboard.css` | Natural card heights, density, type scale, zero bars and responsive spacing.                        |
+| `src/modules/masterPrices/MasterPrices.jsx`   | Avoid duplicate same-outage warnings; detailed form changes documented separately.                  |
+| `tests/ui.spec.mjs`                           | Availability, permissions, Dashboard, sidebar and regression checks.                                |
+| `docs/qa/dashboard-corrective/`               | Expanded/collapsed dark/light and responsive/populated screenshots.                                 |
 
 `dashboardAnalytics.js` formulas were not changed in this corrective pass. Other dirty repository files include earlier feature work.
 

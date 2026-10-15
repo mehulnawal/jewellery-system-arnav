@@ -278,7 +278,16 @@ export default function BusinessDashboard() {
       )}
       <div className="business-live-strip">
         <span>
-          <i className={availability.phase === "ready" && !loading && !errors.length ? "" : "is-stale"} /> {availability.phase === "ready" && !loading && !errors.length ? "Live operational state" : "Operational snapshot"}
+          <i
+            className={
+              availability.phase === "ready" && !loading && !errors.length
+                ? ""
+                : "is-stale"
+            }
+          />{" "}
+          {availability.phase === "ready" && !loading && !errors.length
+            ? "Live operational state"
+            : "Operational snapshot"}
         </span>
         {inventoryReady && (
           <strong>{weight(analytics.currentStock)} available stock</strong>

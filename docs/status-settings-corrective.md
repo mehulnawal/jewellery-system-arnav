@@ -48,34 +48,34 @@ No Firestore rule was changed in this corrective task. Existing authenticated st
 
 ## K. Files changed in this task
 
-| File | Purpose |
-| --- | --- |
-| src/utils/businessStatus.js | Shared marker validation, error classification and diagnostics. |
-| src/components/ui/SystemStatusBanner.jsx | Compact global loading/offline/configuration banner. |
-| src/layouts/BusinessGate.jsx | Validated status lifecycle, maintenance protection, retries and shared availability signals. |
-| src/hooks/useBusinessAvailability.js | Fail-closed context default. |
-| src/firebase/businessWrites.js | Validate transaction marker before writes. |
-| src/hooks/useMasterPrices.jsx | Preserve cached rows, expose states/retry and recover terminated listeners. |
-| src/App.jsx | Admin-only Danger Zone route; move pricing provider into protected shell. |
-| src/layouts/DashboardLayout.jsx | Shared pricing/status wiring, subpage context, sidebar tooltips/accessibility. |
-| src/layouts/dashboardLayout.css | Compact sidebar geometry, hierarchy, collapsed targets/tooltips, reduced-motion chevrons. |
-| src/modules/admin/AdminSettings.jsx | URL-backed normal sections and compact Danger Zone link. |
-| src/modules/admin/DangerZone.jsx | Dedicated Settings subpage. |
-| src/modules/admin/BusinessReset.jsx | Connect availability, disable unavailable reset actions, avoid duplicate completion text. |
-| src/modules/admin/businessReset.css | Contained professional destructive card. |
-| src/modules/admin/adminSettings.css | Theme surfaces and distinct focus/selection styles. |
-| src/modules/masterPrices/MasterPrices.jsx | Write disabling, local/global warning ownership, local retry and honest missing timestamp. |
-| src/index.css | Shared dark tokens and scoped hover/focus/pressed/disabled/invalid treatments. |
-| tests/businessStatus.test.mjs | Missing/invalid markers and error classification. |
-| tests/masterPriceRules.test.mjs | Admin/Staff status reads, anonymous/control writes denied, maintenance protection. |
-| tests/statusSettings.ui.spec.mjs | State/recovery/routes/templates/sidebar/theme regression coverage. |
-| tests/masterPrices.ui.spec.mjs | Update expected permission-error copy. |
-| tests/playwright.config.mjs | Include new corrective suite. |
-| tests/reset.ui.spec.mjs | Exercise reset flow on dedicated route. |
-| .gitignore | Ignore isolated reset test output. |
-| tests/reset.playwright.config.mjs | Isolated reset test server/output to avoid other-suite conflicts. |
-| docs/status-settings-corrective.md | Evidence, architecture, results and limitations. |
-| docs/qa/status-settings/ | Local visual evidence. |
+| File                                      | Purpose                                                                                      |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| src/utils/businessStatus.js               | Shared marker validation, error classification and diagnostics.                              |
+| src/components/ui/SystemStatusBanner.jsx  | Compact global loading/offline/configuration banner.                                         |
+| src/layouts/BusinessGate.jsx              | Validated status lifecycle, maintenance protection, retries and shared availability signals. |
+| src/hooks/useBusinessAvailability.js      | Fail-closed context default.                                                                 |
+| src/firebase/businessWrites.js            | Validate transaction marker before writes.                                                   |
+| src/hooks/useMasterPrices.jsx             | Preserve cached rows, expose states/retry and recover terminated listeners.                  |
+| src/App.jsx                               | Admin-only Danger Zone route; move pricing provider into protected shell.                    |
+| src/layouts/DashboardLayout.jsx           | Shared pricing/status wiring, subpage context, sidebar tooltips/accessibility.               |
+| src/layouts/dashboardLayout.css           | Compact sidebar geometry, hierarchy, collapsed targets/tooltips, reduced-motion chevrons.    |
+| src/modules/admin/AdminSettings.jsx       | URL-backed normal sections and compact Danger Zone link.                                     |
+| src/modules/admin/DangerZone.jsx          | Dedicated Settings subpage.                                                                  |
+| src/modules/admin/BusinessReset.jsx       | Connect availability, disable unavailable reset actions, avoid duplicate completion text.    |
+| src/modules/admin/businessReset.css       | Contained professional destructive card.                                                     |
+| src/modules/admin/adminSettings.css       | Theme surfaces and distinct focus/selection styles.                                          |
+| src/modules/masterPrices/MasterPrices.jsx | Write disabling, local/global warning ownership, local retry and honest missing timestamp.   |
+| src/index.css                             | Shared dark tokens and scoped hover/focus/pressed/disabled/invalid treatments.               |
+| tests/businessStatus.test.mjs             | Missing/invalid markers and error classification.                                            |
+| tests/masterPriceRules.test.mjs           | Admin/Staff status reads, anonymous/control writes denied, maintenance protection.           |
+| tests/statusSettings.ui.spec.mjs          | State/recovery/routes/templates/sidebar/theme regression coverage.                           |
+| tests/masterPrices.ui.spec.mjs            | Update expected permission-error copy.                                                       |
+| tests/playwright.config.mjs               | Include new corrective suite.                                                                |
+| tests/reset.ui.spec.mjs                   | Exercise reset flow on dedicated route.                                                      |
+| .gitignore                                | Ignore isolated reset test output.                                                           |
+| tests/reset.playwright.config.mjs         | Isolated reset test server/output to avoid other-suite conflicts.                            |
+| docs/status-settings-corrective.md        | Evidence, architecture, results and limitations.                                             |
+| docs/qa/status-settings/                  | Local visual evidence.                                                                       |
 
 Pre-existing unrelated working-tree changes were preserved; git diff includes earlier work not authored in this task.
 
@@ -99,22 +99,22 @@ The current live Firestore release, live marker, live IAM/configuration and prod
 
 ## Final YES/NO checklist (local implementation and verification)
 
-| # | Requirement | Result |
-| --- | --- | --- |
-| 1 | System Status is global, not Settings content | YES |
-| 2 | Healthy sessions show no status warning | YES |
-| 3 | Offline/maintenance remain protected | YES |
-| 4 | Compact global warning | YES |
-| 5 | Separate Danger Zone page | YES |
-| 6 | No full destructive card on main Settings | YES |
-| 7 | Complete Delete All Records security flow intact | YES |
-| 8 | Master Price root cause addressed | YES locally: prepared permissions and recovery verified; NO claim of live deployment/resolution |
-| 9 | Shared failures avoid duplicate large warnings | YES |
-| 10 | Loading/Empty/Data/Error (and cached/stale) distinct | YES |
-| 11 | Master Price realtime recovery | YES |
-| 12 | Dark-theme hover styling | YES |
-| 13 | Light-theme hover styling | YES |
-| 14 | Sidebar hover/active styling and final compact polish | YES |
-| 15 | Button hover/focus/disabled states | YES |
-| 16 | No security rule weakened | YES |
-| 17 | Nothing deployed to production | YES |
+| #   | Requirement                                           | Result                                                                                          |
+| --- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 1   | System Status is global, not Settings content         | YES                                                                                             |
+| 2   | Healthy sessions show no status warning               | YES                                                                                             |
+| 3   | Offline/maintenance remain protected                  | YES                                                                                             |
+| 4   | Compact global warning                                | YES                                                                                             |
+| 5   | Separate Danger Zone page                             | YES                                                                                             |
+| 6   | No full destructive card on main Settings             | YES                                                                                             |
+| 7   | Complete Delete All Records security flow intact      | YES                                                                                             |
+| 8   | Master Price root cause addressed                     | YES locally: prepared permissions and recovery verified; NO claim of live deployment/resolution |
+| 9   | Shared failures avoid duplicate large warnings        | YES                                                                                             |
+| 10  | Loading/Empty/Data/Error (and cached/stale) distinct  | YES                                                                                             |
+| 11  | Master Price realtime recovery                        | YES                                                                                             |
+| 12  | Dark-theme hover styling                              | YES                                                                                             |
+| 13  | Light-theme hover styling                             | YES                                                                                             |
+| 14  | Sidebar hover/active styling and final compact polish | YES                                                                                             |
+| 15  | Button hover/focus/disabled states                    | YES                                                                                             |
+| 16  | No security rule weakened                             | YES                                                                                             |
+| 17  | Nothing deployed to production                        | YES                                                                                             |

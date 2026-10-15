@@ -1,6 +1,12 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Outlet,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import DashboardLayout from "../src/layouts/DashboardLayout";
 import "../src/index.css";
 
@@ -25,5 +31,5 @@ createRoot(document.getElementById("root")).render(
         <Route path="admin-settings" element={<Page />} />
       </Route>
     </Routes>
-  </MemoryRouter>
+  </MemoryRouter>,
 );

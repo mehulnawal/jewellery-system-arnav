@@ -20,9 +20,7 @@
           "weight": 2,
           "pieces": 2,
           "sourcePurchaseId": "p",
-          "purchaseReferences": [
-            "p"
-          ],
+          "purchaseReferences": ["p"],
           "challanReferences": [],
           "possibleSkuOnlyChallanReferences": []
         },
@@ -38,9 +36,7 @@
           "pieces": 3,
           "sourcePurchaseId": null,
           "purchaseReferences": [],
-          "challanReferences": [
-            "c"
-          ],
+          "challanReferences": ["c"],
           "possibleSkuOnlyChallanReferences": []
         }
       ]
@@ -54,10 +50,7 @@
     {
       "sku": "5_PR_CBD",
       "recordId": null,
-      "legacyRecordIds": [
-        "a",
-        "b"
-      ]
+      "legacyRecordIds": ["a", "b"]
     }
   ],
   "fingerprint": "26592d210a8f82396fe301de85886f731c1f4c1541b5778c0eafecc70013645f"

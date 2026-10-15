@@ -57,15 +57,13 @@ export async function resetAction(db, claims, data, now = Date.now()) {
   await authorizeReset(db, claims, now);
   if (data.action === "prepare") {
     const token = randomBytes(32).toString("hex");
-    await db
-      .doc(`resetAuthorizations/${digest(token)}`)
-      .set({
-        uid: claims.uid,
-        stage: "authenticated",
-        expiresAtMs: now + 180000,
-        createdAt: stamp(),
-        authTime: claims.auth_time,
-      });
+    await db.doc(`resetAuthorizations/${digest(token)}`).set({
+      uid: claims.uid,
+      stage: "authenticated",
+      expiresAtMs: now + 180000,
+      createdAt: stamp(),
+      authTime: claims.auth_time,
+    });
     return { token };
   }
   if (!/^[a-f0-9]{64}$/.test(data.token || ""))

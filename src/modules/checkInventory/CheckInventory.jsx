@@ -1,4 +1,4 @@
-import { useInventoryDiscovery } from '../../hooks/useInventoryDiscovery.js';
+import { useInventoryDiscovery } from "../../hooks/useInventoryDiscovery.js";
 import { normalizeSize } from "../../utils/dimensions.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
@@ -68,7 +68,11 @@ export default function CheckInventory() {
     [group, setGroup] = useState("All groups"),
     [ageing, setAgeing] = useState("Any ageing"),
     [sort, setSort] = useState("Newest first");
-  const { rows: items, loading, error: inventoryError } = useInventoryDiscovery();
+  const {
+    rows: items,
+    loading,
+    error: inventoryError,
+  } = useInventoryDiscovery();
   useEffect(() => {
     const off = onSnapshot(collection(db, "shapes"), (snap) =>
       setShapes(

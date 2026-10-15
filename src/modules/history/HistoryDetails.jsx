@@ -66,7 +66,10 @@ export function PurchaseHistoryDetails({ record, onClose }) {
           value={formatCurrency(record.discountAmount)}
         />
         <Detail label="Net Payable" value={formatCurrency(record.netPayable)} />
-        <Detail label="Payment Due Days" value={record.paymentDueDays ?? "--"} />
+        <Detail
+          label="Payment Due Days"
+          value={record.paymentDueDays ?? "--"}
+        />
         <Detail label="Due Date" value={formatDate(record.paymentDueDate)} />
       </div>
       <section className="history-detail-section">

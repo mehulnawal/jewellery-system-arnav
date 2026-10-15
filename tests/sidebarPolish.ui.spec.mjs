@@ -25,15 +25,13 @@ test.beforeEach(async ({ page }) => {
     ["purchase-only", ["purchase"]],
     ["no-purchase", ["inventory"]],
   ])
-    await db
-      .doc("employeeProfiles/" + uid)
-      .set({
-        uid,
-        accessId: uid,
-        role: uid === "admin" ? "superadmin" : "employee",
-        active: true,
-        permissions,
-      });
+    await db.doc("employeeProfiles/" + uid).set({
+      uid,
+      accessId: uid,
+      role: uid === "admin" ? "superadmin" : "employee",
+      active: true,
+      permissions,
+    });
   await page.route(/https:\/\/.*(?:googleapis\.com|firebaseio\.com)/, (route) =>
     route.abort(),
   );

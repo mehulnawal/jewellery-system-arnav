@@ -1,15 +1,24 @@
 import { runTransaction } from "../firebase/businessWrites.js";
 import { canonicalSku, canonicalInventoryIdentity } from "./dimensions.js";
-import { prepareInventoryClaims, prepareInventoryRelease } from "./inventoryIdentity.js";
-import { collection, doc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
-import { db } from "../firebase/config";
-import { purchaseItemErrors, validatePurchaseForm } from "./purchaseValidation.js";
-import { prepareNumberClaim, prepareNumberRelease } from "./numberRegistry.js";
 import {
-  normalizeBox,
-  normalizeSize,
-  sizeSortValue,
-} from "./inventoryRules";
+  prepareInventoryClaims,
+  prepareInventoryRelease,
+} from "./inventoryIdentity.js";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
+import { db } from "../firebase/config";
+import {
+  purchaseItemErrors,
+  validatePurchaseForm,
+} from "./purchaseValidation.js";
+import { prepareNumberClaim, prepareNumberRelease } from "./numberRegistry.js";
+import { normalizeBox, normalizeSize, sizeSortValue } from "./inventoryRules";
 
 export const PURCHASE_HEADERS = [
   "Import Ref",
@@ -71,7 +80,10 @@ export const normalizePurchaseItem = (raw) => ({
   box: normalizeBox(raw.box),
 });
 export const validatePurchaseItem = (raw, allowDimensions) => {
-  return { item: normalizePurchaseItem(raw), errors: Object.values(purchaseItemErrors(raw, allowDimensions)) };
+  return {
+    item: normalizePurchaseItem(raw),
+    errors: Object.values(purchaseItemErrors(raw, allowDimensions)),
+  };
 };
 export const purchaseLockedByChallan = (purchase, inventory, challans) => {
   const inventoryIds = new Set(
@@ -114,8 +126,18 @@ export async function savePurchase({
   edit = false,
   allowDimensions = false,
 }) {
-  const rows = items.map((item) => ({ ...item, id: item.id || crypto.randomUUID() }));
-  const check = validatePurchaseForm({ ...purchase, items: rows }, { original: edit ? purchase : null, inventory: existingInventory, allowDimensions });
+  const rows = items.map((item) => ({
+    ...item,
+    id: item.id || crypto.randomUUID(),
+  }));
+  const check = validatePurchaseForm(
+    { ...purchase, items: rows },
+    {
+      original: edit ? purchase : null,
+      inventory: existingInventory,
+      allowDimensions,
+    },
+  );
   if (Object.keys(check.errors).length) {
     const error = new Error("Correct the highlighted fields.");
     error.fields = check.errors;
@@ -135,12 +157,26 @@ export async function savePurchase({
       throw new Error("Purchase Number cannot be changed after creation.");
     // Refresh queries on retries. Read stock before querying Challans, so a
     // concurrent stock issue conflicts with these reads and triggers a retry.
-    const linkedDocs = edit ? await getDocs(linkedInventoryQuery(purchaseRef.id)) : null;
+    const linkedDocs = edit
+      ? await getDocs(linkedInventoryQuery(purchaseRef.id))
+      : null;
     const linkedInventory = edit
-      ? { docs: (await Promise.all(linkedDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) }
+      ? {
+          docs: (
+            await Promise.all(linkedDocs.docs.map((entry) => tx.get(entry.ref)))
+          ).filter((entry) => entry.exists()),
+        }
       : null;
     const challanDocs = edit ? await getDocs(collection(db, "challans")) : null;
-    const challans = edit ? { docs: (await Promise.all(challanDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) } : null;
+    const challans = edit
+      ? {
+          docs: (
+            await Promise.all(
+              challanDocs.docs.map((entry) => tx.get(entry.ref)),
+            )
+          ).filter((entry) => entry.exists()),
+        }
+      : null;
     if (edit)
       assertPurchaseIsUnlocked(
         purchaseRef.id,
@@ -159,7 +195,12 @@ export async function savePurchase({
     for (const item of normalized) {
       const duplicate = existingInventory.find(
         (entry) =>
-          canonicalInventoryIdentity(entry) === purchaseSku(item) && !allowedExisting.has(entry.id) && !(previous?.data()?.items || []).some((old) => old.id === item.id && canonicalSku(old) === purchaseSku(item)),
+          canonicalInventoryIdentity(entry) === purchaseSku(item) &&
+          !allowedExisting.has(entry.id) &&
+          !(previous?.data()?.items || []).some(
+            (old) =>
+              old.id === item.id && canonicalSku(old) === purchaseSku(item),
+          ),
       );
       if (duplicate)
         throw new Error(
@@ -171,9 +212,31 @@ export async function savePurchase({
       sku: purchaseSku(item),
       inventoryId: inventoryRefs[index].id,
     }));
-    const unchangedIds = new Set((linkedInventory?.docs || []).filter((old) => recordItems.some((item) => item.inventoryId === old.id && canonicalSku(item) === canonicalSku(old.data()))).map((old) => old.id));
-    const releaseInventory = await Promise.all((linkedInventory?.docs || []).filter((old) => !unchangedIds.has(old.id)).map((old) => prepareInventoryRelease(tx, db, { ...old.data(), id: old.id })));
-    const claimInventory = await prepareInventoryClaims(tx, db, recordItems.filter((item) => !unchangedIds.has(item.inventoryId)).map((item) => ({ ...item, id: item.inventoryId })));
+    const unchangedIds = new Set(
+      (linkedInventory?.docs || [])
+        .filter((old) =>
+          recordItems.some(
+            (item) =>
+              item.inventoryId === old.id &&
+              canonicalSku(item) === canonicalSku(old.data()),
+          ),
+        )
+        .map((old) => old.id),
+    );
+    const releaseInventory = await Promise.all(
+      (linkedInventory?.docs || [])
+        .filter((old) => !unchangedIds.has(old.id))
+        .map((old) =>
+          prepareInventoryRelease(tx, db, { ...old.data(), id: old.id }),
+        ),
+    );
+    const claimInventory = await prepareInventoryClaims(
+      tx,
+      db,
+      recordItems
+        .filter((item) => !unchangedIds.has(item.inventoryId))
+        .map((item) => ({ ...item, id: item.inventoryId })),
+    );
     const pricing = pricingFor(purchase.amount, check.discount);
     const payload = {
       id: purchaseRef.id,
@@ -223,11 +286,15 @@ export async function savePurchase({
         {
           shape: item.shape,
           type: item.type,
-          size: unchangedIds.has(item.inventoryId) ? existingInventoryByItemId.get(item.id).size : item.size,
+          size: unchangedIds.has(item.inventoryId)
+            ? existingInventoryByItemId.get(item.id).size
+            : item.size,
           weight: item.weight,
           pieces: item.pieces,
           box: item.box,
-          sku: unchangedIds.has(item.inventoryId) ? existingInventoryByItemId.get(item.id).sku : item.sku,
+          sku: unchangedIds.has(item.inventoryId)
+            ? existingInventoryByItemId.get(item.id).sku
+            : item.sku,
           group: inventoryGroup(item.size),
           origin: "Purchase",
           sourcePurchaseId: purchaseRef.id,
@@ -283,11 +350,25 @@ export async function deletePurchase({ purchaseId, user }) {
     if (!purchase.exists())
       throw new Error("This Purchase is no longer available.");
     const linkedDocs = await getDocs(linkedInventoryQuery(purchaseId));
-    const linkedInventory = { docs: (await Promise.all(linkedDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) };
+    const linkedInventory = {
+      docs: (
+        await Promise.all(linkedDocs.docs.map((entry) => tx.get(entry.ref)))
+      ).filter((entry) => entry.exists()),
+    };
     const challanDocs = await getDocs(collection(db, "challans"));
-    const challans = { docs: (await Promise.all(challanDocs.docs.map((entry) => tx.get(entry.ref)))).filter((entry) => entry.exists()) };
+    const challans = {
+      docs: (
+        await Promise.all(challanDocs.docs.map((entry) => tx.get(entry.ref)))
+      ).filter((entry) => entry.exists()),
+    };
     assertPurchaseIsUnlocked(purchaseId, linkedInventory.docs, challans.docs);
-    const releaseNumber = await prepareNumberRelease(tx, db, "purchase", purchase.data().purchaseId, purchaseId);
+    const releaseNumber = await prepareNumberRelease(
+      tx,
+      db,
+      "purchase",
+      purchase.data().purchaseId,
+      purchaseId,
+    );
     releaseNumber();
     linkedInventory.docs.forEach((entry) => tx.delete(entry.ref));
     tx.delete(purchaseRef);

@@ -14,7 +14,9 @@ export const MASTER_PRICE_HEADERS = [
   "Price",
 ];
 export const widthError = (value) =>
-  value == null || (typeof value === "string" && value.trim() === "") || isValidSize(value)
+  value == null ||
+  (typeof value === "string" && value.trim() === "") ||
+  isValidSize(value)
     ? ""
     : "Width must be a positive decimal number.";
 export function masterPriceErrors(row) {
@@ -84,11 +86,16 @@ export function masterPriceMap(rows) {
 }
 // Keep Firestore document IDs unchanged, while matching Inventory and Master
 // Price Type/Shape regardless of how an older entry was capitalized.
-export const masterPriceLookupKey = (row) => masterPriceKey({
-  ...row,
-  type: String(row.type ?? "").trim().toLowerCase(),
-  shape: String(row.shape ?? "").trim().toLowerCase(),
-});
+export const masterPriceLookupKey = (row) =>
+  masterPriceKey({
+    ...row,
+    type: String(row.type ?? "")
+      .trim()
+      .toLowerCase(),
+    shape: String(row.shape ?? "")
+      .trim()
+      .toLowerCase(),
+  });
 export const priceContext = (item) =>
   `${item.inventoryId || ""}|${item.sku || ""}|${masterPriceKey(item) || `invalid:${item.width}`}`;
 export function refreshItemPrice(item, prices) {
@@ -99,7 +106,9 @@ export function refreshItemPrice(item, prices) {
   )
     return item;
   const master =
-    item.inventoryId && item.sku ? prices.get(masterPriceLookupKey(item)) : null;
+    item.inventoryId && item.sku
+      ? prices.get(masterPriceLookupKey(item))
+      : null;
   const amount = master ? String(master.price) : "";
   if (
     item.priceContext === context &&

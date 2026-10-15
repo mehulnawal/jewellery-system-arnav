@@ -100,7 +100,9 @@ export function MasterPricesProvider({ children }) {
           const failure = listenerFailure(error);
           logListenerFailure(
             db,
-            user.role === "superadmin" ? "masterPrices collection listen" : "masterPrices where active == true",
+            user.role === "superadmin"
+              ? "masterPrices collection listen"
+              : "masterPrices where active == true",
             { uid: user?.uid, role: user?.role },
             error,
           );
@@ -144,8 +146,14 @@ export function MasterPricesProvider({ children }) {
       allowed && state.uid === user?.uid
         ? state
         : { ...initial, loading: Boolean(allowed) };
-    const rows = current.rows.filter(row => row.active === true);
-    return { ...current, rows, managementRows: current.rows, prices: masterPriceMap(rows), retry };
+    const rows = current.rows.filter((row) => row.active === true);
+    return {
+      ...current,
+      rows,
+      managementRows: current.rows,
+      prices: masterPriceMap(rows),
+      retry,
+    };
   }, [state, allowed, user?.uid, retry]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

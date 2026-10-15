@@ -36,25 +36,21 @@ test("real password authentication, cancel, typed phrase, backend worker, live e
     { method: "DELETE" },
   );
   for (const uid of ["admin", "staff"])
-    await db
-      .doc(`employeeProfiles/${uid}`)
-      .set({
-        uid,
-        accessId: uid,
-        role: uid === "admin" ? "superadmin" : "employee",
-        active: true,
-        permissions: ["inventory", "challan-stage-1"],
-      });
-  await db
-    .doc("inventory/legacy")
-    .set({
-      size: "5",
-      shape: "PR",
-      type: "CBD",
-      sku: "5_PR_CBD",
-      weight: 3,
-      pieces: 3,
+    await db.doc(`employeeProfiles/${uid}`).set({
+      uid,
+      accessId: uid,
+      role: uid === "admin" ? "superadmin" : "employee",
+      active: true,
+      permissions: ["inventory", "challan-stage-1"],
     });
+  await db.doc("inventory/legacy").set({
+    size: "5",
+    shape: "PR",
+    type: "CBD",
+    sku: "5_PR_CBD",
+    weight: 3,
+    pieces: 3,
+  });
   await db
     .doc("inventoryIdentities/5_PR_CBD")
     .set({ sku: "5_PR_CBD", recordId: "legacy" });

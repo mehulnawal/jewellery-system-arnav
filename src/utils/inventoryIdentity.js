@@ -9,33 +9,51 @@ export async function prepareInventoryClaims(tx, db, rows) {
 
   const markerRef = doc(db, "inventoryIdentityMigrations", "v1");
   let ready;
-  try { ready = await tx.get(markerRef); }
-  catch (error) {
-    if (import.meta.env?.DEV) console.info("[Inventory identity read denied]", {
-      operation: "get", path: markerRef.path, code: error?.code, message: error?.message,
-    });
+  try {
+    ready = await tx.get(markerRef);
+  } catch (error) {
+    if (import.meta.env?.DEV)
+      console.info("[Inventory identity read denied]", {
+        operation: "get",
+        path: markerRef.path,
+        code: error?.code,
+        message: error?.message,
+      });
     throw error;
   }
   if (!ready.exists() || ready.data().ready !== true)
-    throw new Error("Inventory identity index is not ready. An administrator must review the legacy Size audit and initialize the index before saving Inventory identities.");
+    throw new Error(
+      "Inventory identity index is not ready. An administrator must review the legacy Size audit and initialize the index before saving Inventory identities.",
+    );
   const keys = rows.map(canonicalSku);
-  if (new Set(keys).size !== keys.length) throw new Error("Duplicate Type, Shape and Size in this save.");
+  if (new Set(keys).size !== keys.length)
+    throw new Error("Duplicate Type, Shape and Size in this save.");
   const writes = [];
   for (let i = 0; i < rows.length; i++) {
-    const key = keys[i], row = rows[i];
-    if (key === "--" || key.includes("/")) throw new Error("Invalid Inventory Size identity.");
+    const key = keys[i],
+      row = rows[i];
+    if (key === "--" || key.includes("/"))
+      throw new Error("Invalid Inventory Size identity.");
     const ref = doc(db, "inventoryIdentities", key);
     let claim;
-    try { claim = await tx.get(ref); }
-    catch (error) {
-      if (import.meta.env?.DEV) console.info("[Inventory identity read denied]", {
-        operation: "get", path: ref.path, code: error?.code, message: error?.message,
-      });
+    try {
+      claim = await tx.get(ref);
+    } catch (error) {
+      if (import.meta.env?.DEV)
+        console.info("[Inventory identity read denied]", {
+          operation: "get",
+          path: ref.path,
+          code: error?.code,
+          message: error?.message,
+        });
       throw error;
     }
     if (claim.exists()) {
       const owner = claim.data().recordId;
-      if (!owner) throw new Error(`Legacy canonical collision for ${key}. Review the audit; records have not been merged.`);
+      if (!owner)
+        throw new Error(
+          `Legacy canonical collision for ${key}. Review the audit; records have not been merged.`,
+        );
       if (owner !== row.id) {
         const source = await tx.get(doc(db, "inventory", owner));
         if (source.exists() && canonicalSku(source.data()) === key)
@@ -48,24 +66,44 @@ export async function prepareInventoryClaims(tx, db, rows) {
 }
 
 export async function saveInventoryIdentity(db, ref, payload, edit = false) {
-  const canonical = { ...payload, size: normalizeSize(payload.size), sku: canonicalSku(payload) };
-  if (import.meta.env?.DEV) console.info("[Inventory identity save attempt]", {
-    inventoryPath: ref.path,
-    identityPath: `inventoryIdentities/${canonical.sku}`,
-    markerPath: "inventoryIdentityMigrations/v1",
-    operation: edit ? "update" : "create",
-  });
+  const canonical = {
+    ...payload,
+    size: normalizeSize(payload.size),
+    sku: canonicalSku(payload),
+  };
+  if (import.meta.env?.DEV)
+    console.info("[Inventory identity save attempt]", {
+      inventoryPath: ref.path,
+      identityPath: `inventoryIdentities/${canonical.sku}`,
+      markerPath: "inventoryIdentityMigrations/v1",
+      operation: edit ? "update" : "create",
+    });
   await runTransaction(db, async (tx) => {
     const previous = await tx.get(ref);
-    if (edit && !previous.exists()) throw new Error("This Inventory item is no longer available.");
+    if (edit && !previous.exists())
+      throw new Error("This Inventory item is no longer available.");
     // Legacy collisions may still edit stock/nonidentity fields independently.
-    const sameIdentity = previous.exists() && canonicalSku(previous.data()) === canonical.sku;
-    const release = previous.exists() && !sameIdentity
-      ? await prepareInventoryRelease(tx, db, { ...previous.data(), id: ref.id }) : () => {};
-    const claim = sameIdentity ? () => {} : await prepareInventoryClaims(tx, db, [{ ...canonical, id: ref.id }]);
+    const sameIdentity =
+      previous.exists() && canonicalSku(previous.data()) === canonical.sku;
+    const release =
+      previous.exists() && !sameIdentity
+        ? await prepareInventoryRelease(tx, db, {
+            ...previous.data(),
+            id: ref.id,
+          })
+        : () => {};
+    const claim = sameIdentity
+      ? () => {}
+      : await prepareInventoryClaims(tx, db, [{ ...canonical, id: ref.id }]);
     release();
     claim();
-    tx.set(ref, sameIdentity ? { ...canonical, size: previous.data().size, sku: previous.data().sku } : canonical, { merge: edit });
+    tx.set(
+      ref,
+      sameIdentity
+        ? { ...canonical, size: previous.data().size, sku: previous.data().sku }
+        : canonical,
+      { merge: edit },
+    );
   });
   return ref;
 }
@@ -73,7 +111,10 @@ export async function saveInventoryIdentity(db, ref, payload, edit = false) {
 export async function prepareInventoryRelease(tx, db, row) {
   const key = canonicalSku(row);
   if (key === "--" || key.includes("/")) return () => {};
-  const ref = doc(db, "inventoryIdentities", key), claim = await tx.get(ref);
+  const ref = doc(db, "inventoryIdentities", key),
+    claim = await tx.get(ref);
   // Collision reservations are retained for a separately reviewed migration.
-  return claim.exists() && claim.data().recordId === row.id ? () => tx.delete(ref) : () => {};
+  return claim.exists() && claim.data().recordId === row.id
+    ? () => tx.delete(ref)
+    : () => {};
 }
