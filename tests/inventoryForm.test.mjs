@@ -14,6 +14,11 @@ test("Inventory Add/Edit fields distinguish required, invalid and corrected inpu
   ])
     assert.equal(inventoryFieldError(field, ""), emptyMessage);
   assert.equal(inventoryFieldError("box", ""), "");
+  assert.equal(inventoryFieldError("pieces", ""), "");
+  for (const value of ["0", "1", "25", " 10 "])
+    assert.equal(inventoryFieldError("pieces", value), "");
+  for (const value of ["1.5", "-1", "abc", "9007199254740992"])
+    assert.match(inventoryFieldError("pieces", value), /^Pieces must /);
   assert.equal(inventoryFieldError("box", "B29"), "");
   assert.equal(
     inventoryFieldError("box", "B-29"),

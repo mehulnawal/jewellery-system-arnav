@@ -9,6 +9,7 @@ const item = new URLSearchParams(location.search).has("edit")
       shape: "Marquise",
       size: "5.00",
       weight: 100,
+      pieces: 4,
       box: "B29",
       sku: "5.00_Marquise_HP",
     }

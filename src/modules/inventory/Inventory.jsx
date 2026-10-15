@@ -5,10 +5,12 @@ import {
   canonicalInventoryIdentity,
 } from "../../utils/dimensions.js";
 import { saveInventoryIdentity } from "../../utils/inventoryIdentity.js";
+import { wholePieces } from "../../utils/challanCalculations.js";
 import { auditDimensions } from "../../utils/dimensionAudit.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
+  deleteField,
   doc,
   getDocFromServer,
   onSnapshot,
@@ -26,7 +28,10 @@ import {
 } from "../../utils/inventoryForm.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import {
-  DEFAULT_SHAPES,
+  inventoryPiecesText,
+  inventoryGroupPiecesText,
+} from "../../utils/inventoryTablePieces.js";
+import {
   INVENTORY_SHAPES,
   INVENTORY_IMPORT_FIELD_HEADERS,
   formatDecimal,
@@ -208,6 +213,7 @@ export function AddModal({
     size: normalizeSize(item?.size),
     weight: item?.weight ?? "",
     box: item?.box ?? "",
+    pieces: item?.pieces ?? "",
   });
   const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
@@ -232,7 +238,7 @@ export function AddModal({
         (!item || canonicalInventoryIdentity(item) !== candidateSku),
     );
   const fieldErrors = Object.fromEntries(
-    ["type", "shape", "size", "weight", "box"].map((key) => [
+    ["type", "shape", "size", "weight", "box", "pieces"].map((key) => [
       key,
       inventoryFieldError(key, normalized[key], allowDimensions),
     ]),
@@ -263,12 +269,18 @@ export function AddModal({
     let operation = "Inventory and identity transaction",
       stockSaved = false;
     try {
+      const pieces = norm(form.pieces);
       const payload = {
         shape: normalized.shape,
         type: normalized.type,
         size: normalized.size,
         weight: Number(normalized.weight),
         box: normalized.box,
+        ...(pieces
+          ? { pieces: wholePieces(pieces) }
+          : item && Object.hasOwn(item, "pieces")
+            ? { pieces: deleteField() }
+            : {}),
         group: group(normalized.size),
         sku: candidateSku,
         updatedAt: serverTimestamp(),
@@ -428,6 +440,26 @@ export function AddModal({
             {visibleError("box") && (
               <small className="inventory-field-error">
                 {visibleError("box")}
+              </small>
+            )}
+          </label>
+          <label
+            className={`inventory-field ${visibleError("pieces") ? "has-error" : ""}`}
+          >
+            <span>
+              Pieces{" "}
+              <small className="inventory-optional-label">Optional</small>
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.pieces}
+              onBlur={() => touch("pieces")}
+              onChange={(event) => update("pieces", event.target.value)}
+            />
+            {visibleError("pieces") && (
+              <small className="inventory-field-error">
+                {visibleError("pieces")}
               </small>
             )}
           </label>
@@ -1139,6 +1171,7 @@ export default function Inventory() {
                 "SHAPE",
                 "SIZE (MM)",
                 "WEIGHT (CT)",
+                "PIECES",
                 "AGEING",
                 "BOX",
                 "SKU",
@@ -1171,12 +1204,12 @@ export default function Inventory() {
             ))}
             {loading && (
               <tr className="inventory-empty-row">
-                <td colSpan="10">Loading inventory...</td>
+                <td colSpan="11">Loading inventory...</td>
               </tr>
             )}
             {!loading && !parents.length && (
               <tr className="inventory-empty-row">
-                <td colSpan="10">No items match your search or filter.</td>
+                <td colSpan="11">No items match your search or filter.</td>
               </tr>
             )}
           </tbody>
@@ -1305,6 +1338,9 @@ function Group({
         <td>
           <b>{formatDecimal(total)} ct</b>
         </td>
+        <td>
+          <b>{inventoryGroupPiecesText(parent.items)}</b>
+        </td>
         <td>--</td>
         <td>--</td>
         <td>{parent.items.length} items</td>
@@ -1329,6 +1365,7 @@ function Group({
             <td>
               <b>{formatDecimal(item.weight)} ct</b>
             </td>
+            <td>{inventoryPiecesText(item.pieces)}</td>
             <td>
               <Age item={item} />
             </td>

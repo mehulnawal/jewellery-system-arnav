@@ -1,4 +1,5 @@
 import { isValidBox, isValidSize, normalizeBox } from "./inventoryRules.js";
+import { wholePieces } from "./challanCalculations.js";
 
 export const inventoryFieldError = (field, value, allowDimensions = false) => {
   const text = String(value ?? "").trim();
@@ -27,6 +28,15 @@ export const inventoryFieldError = (field, value, allowDimensions = false) => {
     return isValidBox(normalizeBox(text))
       ? ""
       : "Enter a valid Box, for example B29.";
+  if (field === "pieces") {
+    if (!text) return "";
+    try {
+      wholePieces(text);
+      return "";
+    } catch (error) {
+      return error.message;
+    }
+  }
   return "";
 };
 

@@ -10,6 +10,7 @@ import {
 } from "@firebase/rules-unit-testing";
 import {
   collection,
+  deleteField,
   doc,
   getDocs,
   getDoc,
@@ -151,6 +152,58 @@ test("pasted production rules: Admin and Inventory Staff create safely, duplicat
   );
   assert.equal((await server.collection("inventory").get()).size, 3);
   assert.equal((await server.collection("activityLog").get()).size, 2);
+});
+
+test("optional Inventory Pieces save as numbers and clear on Edit", async () => {
+  const db = client("admin");
+  for (const [id, size, pieces] of [
+    ["blank-pieces", "6", undefined],
+    ["zero-pieces", "7", 0],
+    ["filled-pieces", "8", 25],
+  ]) {
+    const ref = doc(db, "inventory", id);
+    await assertSucceeds(
+      saveInventoryIdentity(
+        db,
+        ref,
+        pieces === undefined
+          ? payload("admin", size)
+          : { ...payload("admin", size), pieces },
+      ),
+    );
+    const stored = (await server.doc(`inventory/${id}`).get()).data();
+    if (pieces === undefined)
+      assert.equal(Object.hasOwn(stored, "pieces"), false);
+    else assert.equal(stored.pieces, pieces);
+  }
+  const ref = doc(db, "inventory", "filled-pieces");
+  await assertSucceeds(
+    saveInventoryIdentity(
+      db,
+      ref,
+      { ...payload("admin", "8"), pieces: 1 },
+      true,
+    ),
+  );
+  assert.equal(
+    (await server.doc("inventory/filled-pieces").get()).data().pieces,
+    1,
+  );
+  await assertSucceeds(
+    saveInventoryIdentity(
+      db,
+      ref,
+      { ...payload("admin", "8"), pieces: deleteField() },
+      true,
+    ),
+  );
+  assert.equal(
+    Object.hasOwn(
+      (await server.doc("inventory/filled-pieces").get()).data(),
+      "pieces",
+    ),
+    false,
+  );
 });
 
 test("missing READY marker stops Admin Add before any Inventory or reservation write", async () => {

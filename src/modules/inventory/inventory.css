@@ -328,7 +328,7 @@
 }
 .inventory-item td:nth-child(2),
 .inventory-item td:nth-child(4),
-.inventory-item td:nth-child(6) {
+.inventory-item td:nth-child(7) {
   color: #354152;
 }
 .inventory-check {
