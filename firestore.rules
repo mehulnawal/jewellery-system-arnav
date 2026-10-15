@@ -235,6 +235,11 @@ service cloud.firestore {
               ? history.stage4.enteredAt
               : timestamp.value(history.get('stage4', {}).get('enteredAtMs', data.get('finalSettlement', {}).get('completedAtMs', 0))));
     }
+    function legacyChallanTransitionTime(value) {
+      return value is int
+        && value >= request.time.toMillis() - 120000
+        && value <= request.time.toMillis() + 30000;
+    }
     function challanEditAllowed() {
       let data = resource.data;
       let stage = data.stage;
@@ -260,20 +265,29 @@ service cloud.firestore {
           && changed.hasOnly(['stage', 'stage2Return', 'stageHistory'])
           && after.stage2Return.items is list
           && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
-          && newHistory.stage2.enteredAt == request.time)
+          && (newHistory.get('stage2', {}).get('enteredAt', null) == request.time
+            || (newHistory.get('stage2', {}).get('enteredAt', null) == null
+              && legacyChallanTransitionTime(newHistory.stage2.enteredAtMs)
+              && after.stage2Return.transitionedAtMs == newHistory.stage2.enteredAtMs)))
         || (before.stage == 2 && after.stage == 3
           && (admin() || profile().permissions.hasAny(['challan-stage-3']))
           && changed.hasOnly(['stage', 'finalInvoice', 'stageHistory'])
           && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
           && newHistory.get('stage2', {}) == oldHistory.get('stage2', {})
-          && newHistory.stage3.enteredAt == request.time)
+          && (newHistory.get('stage3', {}).get('enteredAt', null) == request.time
+            || (newHistory.get('stage3', {}).get('enteredAt', null) == null
+              && legacyChallanTransitionTime(newHistory.stage3.enteredAtMs)
+              && after.finalInvoice.confirmedAtMs == newHistory.stage3.enteredAtMs)))
         || (before.stage == 3 && after.stage == 4
           && (admin() || profile().permissions.hasAny(['challan-stage-4']))
           && changed.hasOnly(['stage', 'finalSettlement', 'stageHistory'])
           && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
           && newHistory.get('stage2', {}) == oldHistory.get('stage2', {})
           && newHistory.get('stage3', {}) == oldHistory.get('stage3', {})
-          && newHistory.stage4.enteredAt == request.time));
+          && (newHistory.get('stage4', {}).get('enteredAt', null) == request.time
+            || (newHistory.get('stage4', {}).get('enteredAt', null) == null
+              && legacyChallanTransitionTime(newHistory.stage4.enteredAtMs)
+              && after.finalSettlement.completedAtMs == newHistory.stage4.enteredAtMs))));
     }
     match /challans/{entry} {
       allow read: if admin() || challanEmployee() || purchaseEmployee();
