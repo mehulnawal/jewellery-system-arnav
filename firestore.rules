@@ -220,13 +220,68 @@ service cloud.firestore {
       allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() || activeOrGraceEmployee());
       allow update, delete: if businessUnlocked() && currentBusinessGeneration() && (admin());
     }
+    function challanStageStart(data) {
+      let history = data.get('stageHistory', {});
+      return data.stage == 1 ? data.createdAt
+        : data.stage == 2
+          ? (history.get('stage2', {}).get('enteredAt', null) is timestamp
+            ? history.stage2.enteredAt
+            : timestamp.value(history.get('stage2', {}).get('enteredAtMs', data.get('stage2Return', {}).get('transitionedAtMs', 0))))
+          : data.stage == 3
+            ? (history.get('stage3', {}).get('enteredAt', null) is timestamp
+              ? history.stage3.enteredAt
+              : timestamp.value(history.get('stage3', {}).get('enteredAtMs', data.get('finalInvoice', {}).get('confirmedAtMs', 0))))
+            : (history.get('stage4', {}).get('enteredAt', null) is timestamp
+              ? history.stage4.enteredAt
+              : timestamp.value(history.get('stage4', {}).get('enteredAtMs', data.get('finalSettlement', {}).get('completedAtMs', 0))));
+    }
+    function challanEditAllowed() {
+      let data = resource.data;
+      let stage = data.stage;
+      let fields = request.resource.data.diff(data).affectedKeys();
+      return stage in [1, 2, 3, 4] && request.resource.data.stage == stage
+        && fields.hasOnly(['number', 'party', 'date', 'notes', 'items', 'amount', 'discount', 'discountAmount', 'netAmount', 'stage1Images', 'stage2Images', 'updatedAt'])
+        && (admin()
+          ? (stage == 1 || request.time < challanStageStart(data) + duration.value(60, 'm'))
+          : (activeOrGraceEmployee() && data.createdBy == request.auth.uid
+            && data.get('createdByRole', '') != 'superadmin'
+            && ((stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))
+            && request.time < challanStageStart(data) + duration.value(60, 'm')));
+    }
+    function challanStageTransition() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      let oldHistory = before.get('stageHistory', {});
+      let newHistory = after.get('stageHistory', {});
+      return (admin() || activeOrGraceEmployee())
+        && ((before.stage == 1 && after.stage == 2
+          && (admin() || profile().permissions.hasAny(['challan-stage-2']))
+          && changed.hasOnly(['stage', 'stage2Return', 'stageHistory'])
+          && after.stage2Return.items is list
+          && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
+          && newHistory.stage2.enteredAt == request.time)
+        || (before.stage == 2 && after.stage == 3
+          && (admin() || profile().permissions.hasAny(['challan-stage-3']))
+          && changed.hasOnly(['stage', 'finalInvoice', 'stageHistory'])
+          && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
+          && newHistory.get('stage2', {}) == oldHistory.get('stage2', {})
+          && newHistory.stage3.enteredAt == request.time)
+        || (before.stage == 3 && after.stage == 4
+          && (admin() || profile().permissions.hasAny(['challan-stage-4']))
+          && changed.hasOnly(['stage', 'finalSettlement', 'stageHistory'])
+          && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
+          && newHistory.get('stage2', {}) == oldHistory.get('stage2', {})
+          && newHistory.get('stage3', {}) == oldHistory.get('stage3', {})
+          && newHistory.stage4.enteredAt == request.time));
+    }
     match /challans/{entry} {
       allow read: if admin() || challanEmployee() || purchaseEmployee();
-      allow create: if businessUnlocked() && currentBusinessGeneration() && ((admin() || challanStageOneEmployee()) && claimedChallanNumber(entry));
-      // Staff may only edit their own Challan during its server-timestamped 60-minute window.
-      // Stage-only updates remain available for the normal Challan workflow.
-      allow update: if businessUnlocked() && currentBusinessGeneration() && ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
-        && (admin() || (activeOrGraceEmployee() && ((resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && ((resource.data.stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))) || (resource.data.stage == 1 && request.resource.data.stage == 2 && profile().permissions.hasAny(['challan-stage-2']) && request.resource.data.stage2Return.items is list && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "stage2Return", "stageHistory"])) || (resource.data.stage == 2 && request.resource.data.stage == 3 && profile().permissions.hasAny(['challan-stage-3']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalInvoice", "stageHistory"])) || (resource.data.stage == 3 && request.resource.data.stage == 4 && profile().permissions.hasAny(['challan-stage-4']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stage", "finalSettlement", "stageHistory"])) ))));
+      allow create: if businessUnlocked() && currentBusinessGeneration() && ((admin() || challanStageOneEmployee()) && claimedChallanNumber(entry)
+        && request.resource.data.createdAt == request.time);
+      allow update: if businessUnlocked() && currentBusinessGeneration()
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
+        && (challanEditAllowed() || challanStageTransition());
       allow delete: if businessUnlocked() && (admin());
     }
     match /purchases/{entry} {

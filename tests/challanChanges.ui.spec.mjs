@@ -57,6 +57,10 @@ async function seed(stage, createdBy = "admin", id = "challan-" + stage) {
   };
   if (stage >= 2) {
     row.stage1Images = [image];
+    row.stageHistory.stage2 = {
+      enteredAt: Timestamp.now(),
+      enteredAtMs: Date.now(),
+    };
     row.stage2Return = {
       items: [
         {
@@ -71,7 +75,11 @@ async function seed(stage, createdBy = "admin", id = "challan-" + stage) {
       ],
     };
   }
-  if (stage >= 3)
+  if (stage >= 3) {
+    row.stageHistory.stage3 = {
+      enteredAt: Timestamp.now(),
+      enteredAtMs: Date.now(),
+    };
     row.finalInvoice = {
       items: [
         {
@@ -87,7 +95,12 @@ async function seed(stage, createdBy = "admin", id = "challan-" + stage) {
       finalInvoiceAmount: 1000,
       confirmedAtMs: Date.now(),
     };
-  if (stage === 4)
+  }
+  if (stage === 4) {
+    row.stageHistory.stage4 = {
+      enteredAt: Timestamp.now(),
+      enteredAtMs: Date.now(),
+    };
     row.finalSettlement = {
       amountPaid: 1000,
       settlementDiscountAmount: 0,
@@ -95,6 +108,7 @@ async function seed(stage, createdBy = "admin", id = "challan-" + stage) {
       remaining: 0,
       completedAtMs: Date.now(),
     };
+  }
   await db.doc("challans/" + id).set(row);
   return id;
 }
@@ -327,6 +341,100 @@ for (const stage of [1, 2, 3, 4]) {
     );
   });
 }
+
+test("old Stage 1 keeps Admin Edit and expires Staff Edit", async ({
+  page,
+}) => {
+  await seed(1, "staff", "old-stage-one");
+  await db.doc("challans/old-stage-one").update({
+    createdAt: Timestamp.fromMillis(Date.now() - 2 * 60 * 60 * 1000),
+  });
+  await asRole(page, "staff");
+  await expect(page.locator(".challan-row .challan-edit")).toHaveCount(0);
+  await expect(page.locator(".challan-row .challan-edit-timer")).toHaveText(
+    "Edit time ended",
+  );
+  await expect(page.locator(".challan-row .challan-delete")).toHaveCount(0);
+});
+
+for (const stage of [2, 3, 4]) {
+  test(
+    "Stage " +
+      stage +
+      " fresh window survives refresh and expires from its own timestamp",
+    async ({ page }) => {
+      const id = "edit-window-" + stage;
+      await seed(stage, "staff", id);
+      await db.doc("challans/" + id).update({
+        createdAt: Timestamp.fromMillis(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      });
+      await asRole(page, "staff");
+      await expect(page.locator(".challan-row .challan-edit")).toBeVisible();
+      await expect(
+        page.locator(".challan-row .challan-edit-timer"),
+      ).toContainText("Edit available:");
+      await page.reload();
+      await expect(page.locator(".challan-row .challan-edit")).toBeVisible();
+      await db.doc("challans/" + id).update({
+        ["stageHistory.stage" + stage + ".enteredAt"]: Timestamp.fromMillis(
+          Date.now() - 2 * 60 * 60 * 1000,
+        ),
+      });
+      await expect(page.locator(".challan-row .challan-edit")).toHaveCount(0);
+      await expect(page.locator(".challan-row .challan-edit-timer")).toHaveText(
+        "Edit time ended",
+      );
+    },
+  );
+}
+
+for (const change of ["expire", "finalize"]) {
+  test("stale Stage 2 edit cannot save after " + change, async ({ page }) => {
+    const id = "stale-edit-" + change;
+    await seed(2, "staff", id);
+    await asRole(page, "staff");
+    await page.locator(".challan-row .challan-edit").click();
+    await page.locator(".challan-create textarea").fill("Stale edit");
+    if (change === "expire") {
+      await db.doc("challans/" + id).update({
+        "stageHistory.stage2.enteredAt": Timestamp.fromMillis(
+          Date.now() - 2 * 60 * 60 * 1000,
+        ),
+      });
+    } else {
+      await db.doc("challans/" + id).update({
+        stage: 4,
+        finalSettlement: {
+          amountPaid: 1000,
+          settlementDiscountAmount: 0,
+          actualReceivedAmount: 1000,
+          remaining: 0,
+          completedAtMs: Date.now(),
+        },
+      });
+    }
+    await page.getByRole("button", { name: "Save Changes" }).click();
+    await expect(page.locator(".challan-form-error")).toContainText(
+      change === "expire"
+        ? "no longer editable"
+        : "changed while you were editing",
+    );
+    expect((await db.doc("challans/" + id).get()).data().notes).toBe(
+      "Saved note",
+    );
+  });
+}
+
+test("Admin Stage 1 remains editable after several days", async ({ page }) => {
+  await seed(1, "admin", "admin-old-stage-one");
+  await db.doc("challans/admin-old-stage-one").update({
+    createdAt: Timestamp.fromMillis(Date.now() - 5 * 24 * 60 * 60 * 1000),
+  });
+  await asRole(page, "admin");
+  await expect(page.locator(".challan-row .challan-edit")).toBeVisible();
+  await expect(page.locator(".challan-row .challan-edit-timer")).toHaveCount(0);
+  await expect(page.locator(".challan-row .challan-delete")).toBeVisible();
+});
 
 test("Final Settlement recalculates blank discount and exact remaining while typing", async ({
   page,

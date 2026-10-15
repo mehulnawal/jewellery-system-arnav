@@ -16,6 +16,7 @@ import "./challan.css";
 import {
   collection,
   doc,
+  getDocFromServer,
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
@@ -48,6 +49,10 @@ import {
 } from "../../utils/challanCalculations.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
 import { challanAging, timestampMs } from "../../utils/challanAging";
+import {
+  canEditChallan as editAllowed,
+  challanEditRemaining,
+} from "../../utils/challanEditWindow.js";
 import { uploadChallanImage } from "../../utils/cloudinary";
 import {
   CHALLAN_NUMBER_HELP,
@@ -214,7 +219,18 @@ const challanSnapshot = (record) => ({
     netAmount: Number(item.netAmount ?? item.amount ?? 0),
   })),
 });
-const STAFF_EDIT_WINDOW_MS = 60 * 60 * 1000;
+const readServerClock = async () => {
+  const response = await fetch(window.location.origin, {
+    method: "HEAD",
+    cache: "no-store",
+  });
+  const time = Date.parse(response.headers.get("date") || "");
+  if (!response.ok || !Number.isFinite(time))
+    throw new Error("Server time is unavailable.");
+  return time;
+};
+const anchoredNow = (anchor) =>
+  anchor ? anchor.time + performance.now() - anchor.tick : Date.now();
 const formatEditCountdown = (milliseconds) => {
   const seconds = Math.max(0, Math.ceil(milliseconds / 1000));
   return (
@@ -1769,6 +1785,7 @@ export default function Challan() {
   }, [inventory, editingId, page, prices]);
   const [saving, setSaving] = useState(false);
   const [clock, setClock] = useState(() => Date.now());
+  const clockAnchor = useRef(null);
   const [partyOptions, setPartyOptions] = useState([]);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
   const [stageTwoCandidate, setStageTwoCandidate] = useState(null);
@@ -1779,8 +1796,29 @@ export default function Challan() {
   const [uploadingStage, setUploadingStage] = useState(null);
   const uploadInProgress = useRef(false);
   useEffect(() => {
-    const timer = window.setInterval(() => setClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
+    let active = true;
+    clockAnchor.current = { time: Date.now(), tick: performance.now() };
+    const sync = async () => {
+      try {
+        const time = await readServerClock();
+        if (!active) return;
+        clockAnchor.current = { time, tick: performance.now() };
+        setClock(time);
+      } catch {
+        // Firestore rules still enforce the server deadline if the host omits Date.
+      }
+    };
+    void sync();
+    const timer = window.setInterval(
+      () => setClock(anchoredNow(clockAnchor.current)),
+      1000,
+    );
+    const refresh = window.setInterval(() => void sync(), 60000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.clearInterval(refresh);
+    };
   }, []);
   useEffect(() => {
     const action = location.state?.dashboardAction;
@@ -2106,8 +2144,11 @@ export default function Challan() {
       pricing.discount = pricing.amount
         ? Number(((pricing.discountAmount * 100) / pricing.amount).toFixed(2))
         : 0;
-      if (previous && !canEditChallan(previous)) {
-        setFormError("Your 60-minute staff edit window has ended.");
+      if (
+        previous &&
+        !editAllowed(previous, user, anchoredNow(clockAnchor.current))
+      ) {
+        setFormError("This Challan is no longer editable.");
         return;
       }
       if (
@@ -2167,6 +2208,8 @@ export default function Challan() {
           if (!snapshot.exists())
             throw new Error("This Challan is no longer available.");
           const latest = snapshot.data();
+          if (!editAllowed(latest, user, anchoredNow(clockAnchor.current)))
+            throw new Error("This Challan is no longer editable.");
           if (
             latest.stage !== previous.stage ||
             latest.number !== previous.number ||
@@ -2407,7 +2450,7 @@ export default function Challan() {
         stage: 2,
         stageHistory: {
           ...(current.stageHistory || {}),
-          stage2: current.stageHistory?.stage2 || { enteredAtMs: now },
+          stage2: { enteredAtMs: now, enteredAt: serverTimestamp() },
         },
         stage2Return: {
           items: transitionItems,
@@ -2481,7 +2524,7 @@ export default function Challan() {
         finalInvoice: { ...invoice, confirmedAtMs: now },
         stageHistory: {
           ...(current.stageHistory || {}),
-          stage3: current.stageHistory?.stage3 || { enteredAtMs: now },
+          stage3: { enteredAtMs: now, enteredAt: serverTimestamp() },
         },
       };
       tx.set(challanRef, savedRecord);
@@ -2544,7 +2587,7 @@ export default function Challan() {
         finalSettlement: { ...calculation, completedAtMs: now },
         stageHistory: {
           ...(current.stageHistory || {}),
-          stage4: current.stageHistory?.stage4 || { enteredAtMs: now },
+          stage4: { enteredAtMs: now, enteredAt: serverTimestamp() },
         },
       };
       tx.set(challanRef, savedRecord);
@@ -2564,16 +2607,8 @@ export default function Challan() {
       console.warn("Final settlement activity could not be saved.", error),
     );
   };
-  const staffEditRemaining = (record) =>
-    record.createdByRole === "superadmin" || record.createdBy !== user?.uid
-      ? 0
-      : Math.max(
-          0,
-          timestampMs(record.createdAt) + STAFF_EDIT_WINDOW_MS - clock,
-        );
-  const canEditChallan = (record) =>
-    isAdmin ||
-    (hasStagePermission(record.stage) && staffEditRemaining(record) > 0);
+  const stageEditRemaining = (record) => challanEditRemaining(record, clock);
+  const canEditChallan = (record) => editAllowed(record, user, clock);
   const closeEditor = () => {
     setEditingId(null);
     setForm({
@@ -2587,8 +2622,23 @@ export default function Challan() {
     setChallanFieldErrors({});
     setPage("list");
   };
-  const editChallan = (record) => {
+  const editChallan = async (record) => {
     if (!canEditChallan(record)) return;
+    try {
+      const snapshot = await getDocFromServer(doc(db, "challans", record.id));
+      const checkedAt = await readServerClock().catch(() =>
+        anchoredNow(clockAnchor.current),
+      );
+      clockAnchor.current = { time: checkedAt, tick: performance.now() };
+      if (!snapshot.exists() || !editAllowed(snapshot.data(), user, checkedAt))
+        throw new Error("This Challan is no longer editable.");
+      record = { id: snapshot.id, ...snapshot.data() };
+    } catch (error) {
+      window.alert(
+        error.message || "This Challan could not be opened for editing.",
+      );
+      return;
+    }
     setEditingId(record.id);
     setFormError("");
     setChallanFieldErrors({});
@@ -4309,15 +4359,18 @@ export default function Challan() {
                 )}{" "}
                 <span className="challan-row-actions">
                   {" "}
-                  {!isAdmin &&
-                    row.createdBy === user?.uid &&
-                    row.createdByRole !== "superadmin" && (
+                  {Number(row.stage) <= 4 &&
+                    !(isAdmin && Number(row.stage) === 1) &&
+                    (isAdmin ||
+                      (row.createdBy === user?.uid &&
+                        row.createdByRole !== "superadmin" &&
+                        hasStagePermission(Number(row.stage)))) && (
                       <small
-                        className={`challan-edit-timer ${staffEditRemaining(row) ? "" : "expired"}`}
+                        className={`challan-edit-timer ${stageEditRemaining(row) ? "" : "expired"}`}
                       >
                         {" "}
-                        {staffEditRemaining(row)
-                          ? `Edit available: ${formatEditCountdown(staffEditRemaining(row))}`
+                        {stageEditRemaining(row)
+                          ? `Edit available: ${formatEditCountdown(stageEditRemaining(row))}`
                           : "Edit time ended"}{" "}
                       </small>
                     )}{" "}
