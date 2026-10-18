@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   priceItem,
+  priceWeightedItem,
+  stageOneFinancials,
+  savableStageOneRows,
   normalizeWeight,
   strictWeight,
   wholePieces,
@@ -169,17 +172,17 @@ test("Stage 1 totals count only selected rows", () => {
     itemCount: 2,
     pieces: 17,
     weight: 7.5,
-    amount: 3500,
-    discountAmount: 260,
-    netAmount: 3240,
+    amount: 11062.5,
+    discountAmount: 782.5,
+    netAmount: 10280,
   });
   assert.deepEqual(stageOneTotals([{ ...rows[0], pieces: 0 }]), {
     itemCount: 1,
     pieces: 0,
     weight: 5.125,
-    amount: 1000,
-    discountAmount: 60,
-    netAmount: 940,
+    amount: 5125,
+    discountAmount: 307.5,
+    netAmount: 4817.5,
   });
   assert.throws(
     () => stageOneTotals([{ ...rows[0], weight: 0 }]),
@@ -399,8 +402,12 @@ test("independent integer reference matches 10, 50, 100, 250 rows", () => {
       expectedPieces += 10;
       expectedMillis += BigInt(issuedMillis);
       const deduction = (BigInt(amountCents * discount) * 2n + 100n) / 200n;
-      expectedStageOneCents += BigInt(amountCents);
-      expectedStageOneDiscountCents += deduction;
+      const weightedGross =
+        (BigInt(issuedMillis) * BigInt(amountCents) * 2n + 1000n) / 2000n;
+      const weightedDiscount =
+        (weightedGross * BigInt(discount) * 2n + 100n) / 200n;
+      expectedStageOneCents += weightedGross;
+      expectedStageOneDiscountCents += weightedDiscount;
       expectedGrossCents += BigInt(amountCents);
       expectedDiscountCents += deduction;
       const manualCents = 50000 + i;
@@ -647,4 +654,116 @@ test("Stage 3 review comparison ignores harmless metadata and formatting but det
       false,
     );
   assert.equal(sameStageTwoInvoiceSource(review, []), false);
+});
+
+test("Stage 1 Price is per carat and discounts apply to weighted net", () => {
+  for (const [weight, rate, discount, gross, deduction, net] of [
+    ["0.010", "1000", "", 10, 0, 10],
+    ["0.010", "1000", "7", 10, 0.7, 9.3],
+    ["2.500", "4000", "0", 10000, 0, 10000],
+    ["4.580", "5800", "7", 26564, 1859.48, 24704.52],
+  ]) {
+    const row = priceWeightedItem(weight, rate, discount);
+    assert.deepEqual(
+      [row.amount, row.grossAmount, row.discountAmount, row.netAmount],
+      [Number(rate), gross, deduction, net],
+    );
+  }
+  assert.equal(priceWeightedItem("9.4565", "1000", 0).grossAmount, 9457);
+});
+
+test("live totals use only individually savable rows and keep zero visible", () => {
+  const a = {
+    sku: "A",
+    inventoryId: "a",
+    weight: "1.000",
+    amount: "1000",
+    discount: "7",
+    pieces: "0",
+  };
+  const b = {
+    sku: "B",
+    inventoryId: "b",
+    weight: "2.000",
+    amount: "500",
+    discount: "",
+    pieces: "3",
+  };
+  const draft = {
+    sku: "C",
+    inventoryId: "c",
+    weight: "",
+    amount: "100",
+    discount: "",
+    pieces: "1",
+  };
+  assert.deepEqual(stageOneTotals(savableStageOneRows([a, b, draft])), {
+    itemCount: 2,
+    pieces: 3,
+    weight: 3,
+    amount: 2000,
+    discountAmount: 70,
+    netAmount: 1930,
+  });
+  assert.deepEqual(stageOneTotals(savableStageOneRows([draft])), {
+    itemCount: 0,
+    pieces: 0,
+    weight: 0,
+    amount: 0,
+    discountAmount: 0,
+    netAmount: 0,
+  });
+  for (const count of [1, 2, 10, 50]) {
+    const rows = Array.from({ length: count }, (_, i) => ({
+      ...a,
+      sku: String(i),
+      inventoryId: String(i),
+    }));
+    const totals = stageOneTotals(savableStageOneRows(rows));
+    assert.deepEqual(
+      [
+        totals.itemCount,
+        totals.weight,
+        totals.pieces,
+        totals.amount,
+        totals.discountAmount,
+        totals.netAmount,
+      ],
+      [count, count, 0, count * 1000, count * 70, count * 930],
+    );
+  }
+});
+
+test("new Stage 1 snapshot survives Stage 2, invoice modes, and settlement", () => {
+  const priced = priceWeightedItem("1.000", "1000", "7");
+  const base = {
+    sku: "A",
+    issuedPieces: 0,
+    issuedWeight: 1,
+    returnPieces: 0,
+    returnWeight: 0,
+    soldPieces: 0,
+    soldWeight: 1,
+    ...priced,
+  };
+  assert.deepEqual(
+    [stageOneFinancials(base).grossAmount, stageOneFinancials(base).netAmount],
+    [1000, 930],
+  );
+  const sold = invoiceFromStageTwo([base]);
+  assert.equal(sold.finalInvoiceAmount, 930);
+  assert.equal(settlementFor(sold.finalInvoiceAmount, "930", "").remaining, 0);
+  const full = invoiceFromStageTwo([
+    { ...base, returnWeight: 1, soldWeight: 0 },
+  ]);
+  assert.equal(full.finalInvoiceAmount, 0);
+  const partial = invoiceFromStageTwo(
+    [{ ...base, returnWeight: 0.5, soldWeight: 0.5 }],
+    ["400"],
+  );
+  assert.equal(partial.finalInvoiceAmount, 400);
+  assert.equal(
+    invoiceFromStageTwo([invoiceRow(1000, 7, 0, 1, 0, 0)]).finalInvoiceAmount,
+    930,
+  );
 });

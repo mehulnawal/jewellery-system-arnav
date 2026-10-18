@@ -18,6 +18,12 @@ import {
 } from "../../utils/accessAccounts";
 import { INVENTORY_IMPORT_HEADERS } from "../../utils/inventoryRules";
 import { PURCHASE_HEADERS, PURCHASE_ITEM_HEADERS } from "../../utils/purchase";
+import {
+  CHALLAN_IMPORT_HEADERS,
+  CHALLAN_IMPORT_FILENAME,
+  CHALLAN_IMPORT_SHEET,
+} from "../../utils/challanImport.js";
+import { createChallanImportWorkbook } from "../../utils/challanImportTemplate.js";
 import { registerExistingNumbers } from "../../utils/registerExistingNumbers.js";
 import "./adminSettings.css";
 
@@ -250,6 +256,10 @@ export default function AdminSettings() {
       book = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(book, sheet, "Inventory");
     XLSX.writeFile(book, "inventory-import-template.xlsx");
+  };
+  const downloadChallanTemplate = async () => {
+    const XLSX = await import("xlsx");
+    XLSX.writeFile(createChallanImportWorkbook(XLSX), CHALLAN_IMPORT_FILENAME);
   };
   const downloadPurchaseTemplate = async () => {
     const XLSX = await import("xlsx"),
@@ -493,6 +503,7 @@ export default function AdminSettings() {
         <ImportTemplates
           onDownload={downloadInventoryTemplate}
           onDownloadPurchase={downloadPurchaseTemplate}
+          onDownloadChallan={downloadChallanTemplate}
         />
       ) : (
         <article className="sku-settings">
@@ -760,10 +771,15 @@ function PermissionsEditor({ account, onSave }) {
     </button>
   );
 }
-function ImportTemplates({ onDownload, onDownloadPurchase }) {
+function ImportTemplates({
+  onDownload,
+  onDownloadPurchase,
+  onDownloadChallan,
+}) {
   const [masterOpen, setMasterOpen] = useState(false),
     [inventoryOpen, setInventoryOpen] = useState(false),
-    [purchaseOpen, setPurchaseOpen] = useState(false);
+    [purchaseOpen, setPurchaseOpen] = useState(false),
+    [challanOpen, setChallanOpen] = useState(false);
   return (
     <article className="import-templates">
       <h3>Import Templates</h3>
@@ -946,6 +962,65 @@ function ImportTemplates({ onDownload, onDownloadPurchase }) {
           </div>
         )}
       </section>
+      <section
+        className={"import-template-card " + (challanOpen ? "is-open" : "")}
+      >
+        <button
+          type="button"
+          className="import-template-toggle"
+          aria-expanded={challanOpen}
+          aria-controls="challan-import-template-content"
+          onClick={() => setChallanOpen((open) => !open)}
+        >
+          <span>
+            <h4>Challan Import Template</h4>
+            <p>Blank workbook for multiple Stage 1 Challans.</p>
+          </span>
+          <span className="import-template-chevron" aria-hidden="true" />
+        </button>
+        {challanOpen && (
+          <div
+            id="challan-import-template-content"
+            className="import-template-content"
+          >
+            <button
+              type="button"
+              className="settings-primary"
+              onClick={onDownloadChallan}
+            >
+              Download Challan Import Template
+            </button>
+            <p className="import-template-guidance">
+              Use the {CHALLAN_IMPORT_SHEET} worksheet. Repeat Challan Ref on
+              every item row of one Challan. A different Challan Ref starts
+              another Challan. The application assigns each real Challan number.
+            </p>
+            <div className="import-template-rules">
+              <RuleSection title="Excel Columns">
+                <div className="import-header-chips">
+                  {CHALLAN_IMPORT_HEADERS.map((header) => (
+                    <span key={header}>{header}</span>
+                  ))}
+                </div>
+              </RuleSection>
+              <RuleSection title="Required Fields">
+                <p>
+                  Challan Ref, Party, Date, Inventory SKU, Weight and Pieces.
+                  Date uses YYYY-MM-DD. Pieces may be 0 for a weight-only item.
+                </p>
+              </RuleSection>
+              <RuleSection title="Optional Fields">
+                <p>
+                  Notes, Width, Price and Discount %. Shape, Size and Type are
+                  resolved from Inventory SKU. Blank Price uses an exact
+                  available Master Price; otherwise enter a per-carat rate.
+                  Blank Discount % means 0.
+                </p>
+              </RuleSection>
+            </div>
+          </div>
+        )}
+      </section>{" "}
       <section
         className={`import-template-card ${purchaseOpen ? "is-open" : ""}`}
       >

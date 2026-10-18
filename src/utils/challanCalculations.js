@@ -90,6 +90,59 @@ export function priceItem(amount, discount = 0) {
     netAmount: fromCents(gross - deduction),
   };
 }
+export const WEIGHT_RATE_PRICING = "weight-rate-v1";
+export function priceWeightedItem(weight, rate, discount = 0) {
+  const millis = weightMillis(weight, "Weight");
+  if (millis <= 0n) throw new Error("Issued Weight must be greater than zero.");
+  const rateCents = moneyCents(rate, "Price", { strict: true });
+  const gross = roundRatio(millis * rateCents, 1000n);
+  const percent = percentParts(discount);
+  const deduction = discountCents(gross, percent);
+  return {
+    amount: fromCents(rateCents),
+    grossAmount: fromCents(gross),
+    discount: Number(discount || 0),
+    discountAmount: fromCents(deduction),
+    netAmount: fromCents(gross - deduction),
+    pricingVersion: WEIGHT_RATE_PRICING,
+  };
+}
+// Unmarked historical rows retain their original Price-as-Amount invoice history.
+export function stageOneFinancials(item) {
+  if (item.pricingVersion !== WEIGHT_RATE_PRICING) {
+    const legacy = priceItem(item.amount, item.discount);
+    return { ...legacy, grossAmount: legacy.amount };
+  }
+  const gross = strictMoney(item.grossAmount, "Stage 1 Net Amount");
+  const deduction = strictMoney(item.discountAmount, "Stage 1 Discount Amount");
+  const net = strictMoney(item.netAmount, "Stage 1 Net Amount After Discount");
+  if (moneyCents(gross) - moneyCents(deduction) !== moneyCents(net))
+    throw new Error("Saved Stage 1 financial values disagree.");
+  return {
+    amount: strictMoney(item.amount, "Price"),
+    grossAmount: gross,
+    discount: Number(item.discount || 0),
+    discountAmount: deduction,
+    netAmount: net,
+    pricingVersion: WEIGHT_RATE_PRICING,
+  };
+}
+export function savableStageOneRows(items) {
+  return items.filter((item) => {
+    if (
+      !String(item.sku || "").trim() ||
+      !(item.inventoryId || item.sourceInventoryId)
+    )
+      return false;
+    try {
+      wholePieces(item.pieces === "" ? 0 : item.pieces);
+      priceWeightedItem(item.weight, item.amount, item.discount);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
 export function stageOneTotals(items) {
   let pieces = 0,
     weight = 0n,
@@ -107,8 +160,8 @@ export function stageOneTotals(items) {
       throw new Error("Issued Weight must be greater than zero.");
     pieces += rowPieces;
     weight += rowWeight;
-    const priced = priceItem(item.amount, item.discount);
-    amount += moneyCents(priced.amount);
+    const priced = priceWeightedItem(item.weight, item.amount, item.discount);
+    amount += moneyCents(priced.grossAmount);
     discountAmount += moneyCents(priced.discountAmount);
     netAmount += moneyCents(priced.netAmount);
   }
@@ -138,6 +191,8 @@ export function unchangedAdvancedStageOne(previousItems, nextItems) {
         Number(item.discount || 0) === next.discount &&
         (item.discountAmount == null ||
           Number(item.discountAmount) === next.discountAmount) &&
+        (item.grossAmount == null ||
+          Number(item.grossAmount) === next.grossAmount) &&
         (item.netAmount == null || Number(item.netAmount) === next.netAmount)
       );
     })
@@ -165,6 +220,7 @@ export function sameStageOneReturnSource(reviewItems, liveItems) {
         weightMillis(review.weight) === weightMillis(live.weight) &&
         moneyCents(review.amount, "Amount", { strict: true }) ===
           moneyCents(live.amount, "Amount", { strict: true }) &&
+        review.pricingVersion === live.pricingVersion &&
         reviewDiscount.numerator * liveDiscount.scale ===
           liveDiscount.numerator * reviewDiscount.scale
       );
@@ -265,7 +321,7 @@ export function invoiceReviewRows(items) {
     throw new Error("This Stage 2 Challan has no return/sale item history.");
   return items.map((item) => {
     const movement = verifiedSavedMovement(item);
-    const pricing = priceItem(item.amount, item.discount);
+    const pricing = stageOneFinancials(item);
     const billingMode =
       movement.soldWeight === 0
         ? "full-return"
@@ -281,6 +337,7 @@ export function invoiceReviewRows(items) {
       stage1DiscountPercent: pricing.discount,
       stage1DiscountAmount: pricing.discountAmount,
       stage1NetAmount: pricing.netAmount,
+      stage1GrossAmount: pricing.grossAmount,
     };
   });
 }
@@ -303,12 +360,12 @@ export function invoiceFromStageTwo(items, partialFinalAmounts = []) {
           "Final Billed Amount cannot exceed the Stage 1 Net Amount.",
         );
     }
-    originalTotal += moneyCents(item.amount);
+    originalTotal += moneyCents(item.stage1GrossAmount);
     discountTotal += moneyCents(item.stage1DiscountAmount);
     finalTotal += finalCents;
     return {
       ...item,
-      grossAmount: item.amount,
+      grossAmount: item.stage1GrossAmount,
       finalAmount: fromCents(finalCents),
     };
   });
@@ -345,6 +402,12 @@ export function sameStageTwoInvoiceSource(reviewItems, liveItems) {
         weightMillis(a.returnWeight) === weightMillis(b.returnWeight) &&
         moneyCents(review.amount, "Amount", { strict: true }) ===
           moneyCents(live.amount, "Amount", { strict: true }) &&
+        review.pricingVersion === live.pricingVersion &&
+        (review.pricingVersion !== WEIGHT_RATE_PRICING ||
+          (moneyCents(review.grossAmount) === moneyCents(live.grossAmount) &&
+            moneyCents(review.discountAmount) ===
+              moneyCents(live.discountAmount) &&
+            moneyCents(review.netAmount) === moneyCents(live.netAmount))) &&
         aDiscount.numerator * bDiscount.scale ===
           bDiscount.numerator * aDiscount.scale
       );

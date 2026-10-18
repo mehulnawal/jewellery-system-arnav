@@ -32,12 +32,14 @@ import {
   movementFor,
   normalizeMoney,
   normalizeWeight,
-  priceItem,
+  priceWeightedItem,
+  stageOneFinancials,
+  savableStageOneRows,
+  WEIGHT_RATE_PRICING,
   settlementFor,
   stageOneTotals,
   stageTwoTotals,
   strictMoney,
-  strictWeight,
   updateReturnRows,
   weightMillis,
   wholePieces,
@@ -48,6 +50,15 @@ import {
   challanStockRestoration,
 } from "../../utils/challanCalculations.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
+import { createStageOneChallan } from "../../utils/challanStageOneCreate.js";
+import {
+  parseChallanImport,
+  validateImportedStageOneRows,
+  canImportChallan,
+  nextBulkChallanNumber,
+  prepareImportedStageOneRecord,
+  CHALLAN_IMPORT_HEADERS,
+} from "../../utils/challanImport.js";
 import { challanAging, timestampMs } from "../../utils/challanAging";
 import {
   canEditChallan as editAllowed,
@@ -77,9 +88,9 @@ const stageActionLabel = (stage) =>
     4: "Completed",
   })[stage] || "";
 const today = () => new Date().toISOString().slice(0, 10);
-const pricingFor = (amount, discount) => {
+const pricingFor = (weight, amount, discount) => {
   try {
-    return priceItem(amount, discount);
+    return priceWeightedItem(weight, amount, discount);
   } catch {
     return null;
   }
@@ -185,6 +196,18 @@ const sumStoredBy = (items, read) => {
     return undefined;
   }
 };
+const stageOneGross = (item) =>
+  item.pricingVersion === WEIGHT_RATE_PRICING ? item.grossAmount : item.amount;
+const hasWeightedPricing = (items) =>
+  items.some((item) => item.pricingVersion === WEIGHT_RATE_PRICING);
+const stageOneNet = (item) => {
+  if (item.pricingVersion === WEIGHT_RATE_PRICING) return item.netAmount;
+  try {
+    return item.stage1NetAmount ?? stageOneFinancials(item).netAmount;
+  } catch {
+    return item.netAmount;
+  }
+};
 const viewPercent = (value) =>
   hasStoredNumber(value) ? `${Number(value)}%` : "--";
 const soldKeptText = (item) =>
@@ -214,6 +237,9 @@ const challanSnapshot = (record) => ({
     weight: Number(item.weight || 0),
     pieces: pieceValue(item.pieces),
     amount: Number(item.amount || 0),
+    ...(item.pricingVersion === WEIGHT_RATE_PRICING
+      ? { grossAmount: Number(item.grossAmount || 0) }
+      : {}),
     discount: Number(item.discount || 0),
     discountAmount: Number(item.discountAmount || 0),
     netAmount: Number(item.netAmount ?? item.amount ?? 0),
@@ -569,7 +595,10 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
                 {" "}
                 SOLD <br /> WEIGHT{" "}
               </span>{" "}
-              <span>PRICE</span> <span>DISCOUNT</span>{" "}
+              <span>
+                {hasWeightedPricing(record.items) ? "PRICE / CARAT" : "PRICE"}
+              </span>{" "}
+              <span>DISCOUNT</span>{" "}
             </div>{" "}
             {record.items.map((item, index) => {
               const row = rows[index],
@@ -798,8 +827,10 @@ export const FinalInvoiceModal = ({
               <span>ISSUED</span>
               <span>RETURN</span>
               <span>SOLD / KEPT</span>
-              <span>STAGE 1 PRICE / DISCOUNT</span>
-              <span>STAGE 1 NET</span>
+              <span>PRICE / CARAT</span>
+              <span>STAGE 1 NET AMOUNT</span>
+              <span>STAGE 1 DISCOUNT</span>
+              <span>STAGE 1 NET AFTER DISCOUNT</span>
               <span>FINAL BILLED AMOUNT</span>
             </div>
             {rows.map((item, index) => (
@@ -828,8 +859,10 @@ export const FinalInvoiceModal = ({
                 <span>
                   {item.soldPieces} pcs / {weightText(item.soldWeight)} ct
                 </span>
+                <span>₹{moneyText(item.amount)}</span>
+                <span>₹{moneyText(item.stage1GrossAmount)}</span>
                 <span>
-                  ₹{moneyText(item.amount)} · {item.stage1DiscountPercent}% (₹
+                  {item.stage1DiscountPercent}% (₹
                   {moneyText(item.stage1DiscountAmount)})
                 </span>
                 <span>₹{moneyText(item.stage1NetAmount)}</span>
@@ -875,11 +908,11 @@ export const FinalInvoiceModal = ({
         </div>
         <div className="stage-two-totals">
           <strong>
-            <small>Original Stage 1 Amount</small>₹
+            <small>Stage 1 Net Amount</small>₹
             {moneyText(invoice?.grossAmount ?? record.amount)}
           </strong>
           <strong>
-            <small>Original Stage 1 Net</small>₹
+            <small>Stage 1 Net Amount After Discount</small>₹
             {moneyText(invoice?.stage1NetAmount ?? record.netAmount)}
           </strong>
           <strong>
@@ -1205,8 +1238,12 @@ export const StageOneView = ({ items }) => (
           <th>Width</th>
           <th>Pieces</th>
           <th>Weight</th>
-          <th>Price</th>
+          <th>{hasWeightedPricing(items) ? "Price / Carat" : "Price"}</th>
           <th>Discount %</th>
+          <th>
+            {hasWeightedPricing(items) ? "Net Amount" : "Original Amount"}
+          </th>
+          <th>Net Amount After Discount</th>
         </tr>
       </thead>
       <tbody>
@@ -1220,6 +1257,8 @@ export const StageOneView = ({ items }) => (
             <td>{viewWeight(item.weight)}</td>
             <td>{viewCurrency(item.amount)}</td>
             <td>{viewPercent(item.discount)}</td>
+            <td>{viewCurrency(stageOneGross(item))}</td>
+            <td>{viewCurrency(stageOneNet(item))}</td>
           </tr>
         ))}
       </tbody>
@@ -1234,10 +1273,14 @@ export const StageOneView = ({ items }) => (
           <td>
             <strong>{viewWeight(sumStored(items, "weight"))}</strong>
           </td>
-          <td>
-            <strong>{viewCurrency(sumStored(items, "amount"))}</strong>
-          </td>
           <td />
+          <td />
+          <td>
+            <strong>{viewCurrency(sumStoredBy(items, stageOneGross))}</strong>
+          </td>
+          <td>
+            <strong>{viewCurrency(sumStoredBy(items, stageOneNet))}</strong>
+          </td>
         </tr>
       </tfoot>
     </ViewTable>
@@ -1260,8 +1303,12 @@ export const StageTwoView = ({ items }) => (
             <th>Return Weight</th>
             <th>Sold / Kept Pieces</th>
             <th>Sold / Kept Weight</th>
-            <th>Price</th>
+            <th>{hasWeightedPricing(items) ? "Price / Carat" : "Price"}</th>
             <th>Discount %</th>
+            <th>
+              {hasWeightedPricing(items) ? "Net Amount" : "Original Amount"}
+            </th>
+            <th>Net Amount After Discount</th>
           </tr>
         </thead>
         <tbody>
@@ -1279,6 +1326,8 @@ export const StageTwoView = ({ items }) => (
               <td>{viewWeight(item.soldWeight)}</td>
               <td>{viewCurrency(item.amount)}</td>
               <td>{viewPercent(item.discount)}</td>
+              <td>{viewCurrency(stageOneGross(item))}</td>
+              <td>{viewCurrency(stageOneNet(item))}</td>
             </tr>
           ))}
         </tbody>
@@ -1305,10 +1354,14 @@ export const StageTwoView = ({ items }) => (
             <td>
               <strong>{viewWeight(sumStored(items, "soldWeight"))}</strong>
             </td>
-            <td>
-              <strong>{viewCurrency(sumStored(items, "amount"))}</strong>
-            </td>
             <td />
+            <td />
+            <td>
+              <strong>{viewCurrency(sumStoredBy(items, stageOneGross))}</strong>
+            </td>
+            <td>
+              <strong>{viewCurrency(sumStoredBy(items, stageOneNet))}</strong>
+            </td>
           </tr>
         </tfoot>
       </ViewTable>
@@ -1333,7 +1386,15 @@ export const StageThreeView = ({ invoice }) => {
               <th>Size</th>
               <th>Width</th>
               <th>Sold / Kept</th>
-              <th>Original Stage 1 Amount</th>
+              <th>
+                {hasWeightedPricing(items) ? "Price / Carat" : "Original Price"}
+              </th>
+              <th>
+                {hasWeightedPricing(items)
+                  ? "Stage 1 Net Amount"
+                  : "Original Stage 1 Amount"}
+              </th>
+              <th>Stage 1 Net Amount After Discount</th>
               <th>Stage 1 Discount</th>
               <th>Discount Amount</th>
               <th>Final Billed Amount</th>
@@ -1348,6 +1409,8 @@ export const StageThreeView = ({ invoice }) => {
                 <td>{normalizeSize(item.width) || "--"}</td>
                 <td>{soldKeptText(item)}</td>
                 <td>{viewCurrency(item.amount)}</td>
+                <td>{viewCurrency(stageOneGross(item))}</td>
+                <td>{viewCurrency(stageOneNet(item))}</td>
                 <td>{viewPercent(item.stage1DiscountPercent)}</td>
                 <td>{viewCurrency(item.stage1DiscountAmount)}</td>
                 <td>{viewCurrency(item.finalAmount)}</td>
@@ -1387,7 +1450,15 @@ export const StageFourView = ({ items, invoice, settlement }) => (
             <th>Return Weight</th>
             <th>Sold / Kept Pieces</th>
             <th>Sold / Kept Weight</th>
-            <th>Original Stage 1 Amount</th>
+            <th>
+              {hasWeightedPricing(items) ? "Price / Carat" : "Original Price"}
+            </th>
+            <th>
+              {hasWeightedPricing(items)
+                ? "Stage 1 Net Amount"
+                : "Original Stage 1 Amount"}
+            </th>
+            <th>Stage 1 Net Amount After Discount</th>
             <th>Stage 1 Discount</th>
             <th>Discount Amount</th>
             <th>Final Billed Amount</th>
@@ -1407,6 +1478,8 @@ export const StageFourView = ({ items, invoice, settlement }) => (
               <td>{viewPieces(item.soldPieces)}</td>
               <td>{viewWeight(item.soldWeight)}</td>
               <td>{viewCurrency(item.amount)}</td>
+              <td>{viewCurrency(stageOneGross(item))}</td>
+              <td>{viewCurrency(stageOneNet(item))}</td>
               <td>
                 {viewPercent(item.stage1DiscountPercent ?? item.discount)}
               </td>
@@ -1438,12 +1511,12 @@ export const StageFourView = ({ items, invoice, settlement }) => (
             <td>
               <strong>{viewWeight(sumStored(items, "soldWeight"))}</strong>
             </td>
+            <td />
             <td>
-              <strong>
-                {viewCurrency(
-                  sumStoredBy(items, (item) => item.grossAmount ?? item.amount),
-                )}
-              </strong>
+              <strong>{viewCurrency(sumStoredBy(items, stageOneGross))}</strong>
+            </td>
+            <td>
+              <strong>{viewCurrency(sumStoredBy(items, stageOneNet))}</strong>
             </td>
             <td />
             <td>
@@ -1487,7 +1560,9 @@ const InvoiceSummary = ({ invoice }) => (
     <div className="challan-financial-cell">
       <span className="challan-financial-label">
         {invoice?.calculationVersion === "manual-partial-v1"
-          ? "Original Stage 1 Amount"
+          ? hasWeightedPricing(invoice?.items || [])
+            ? "Stage 1 Net Amount"
+            : "Original Stage 1 Amount"
           : "Gross Amount"}
       </span>
       <strong className="challan-financial-value">
@@ -1522,7 +1597,9 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
     <div className="challan-financial-cell">
       <span className="challan-financial-label">
         {invoice?.calculationVersion === "manual-partial-v1"
-          ? "Original Stage 1 Amount"
+          ? hasWeightedPricing(invoice?.items || [])
+            ? "Stage 1 Net Amount"
+            : "Original Stage 1 Amount"
           : "Gross Amount"}
       </span>
       <strong className="challan-financial-value">
@@ -1704,6 +1781,304 @@ const ChallanImageSection = ({
   );
 };
 
+export const ChallanImportReviewModal = ({
+  review,
+  preview,
+  result,
+  saving,
+  onImport,
+  onClose,
+}) => {
+  const dialogRef = useRef(null);
+  const [activeTab, setActiveTab] = useState(
+    preview.validCount > 0 ? "VALID" : "INVALID",
+  );
+  usePageFreeze(true);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!saving) onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const focusable = [
+        ...dialog.querySelectorAll(
+          'button:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((element) => element.getClientRects().length);
+      if (!focusable.length) return;
+      const first = focusable[0],
+        last = focusable.at(-1);
+      if (document.activeElement === dialog) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [onClose, saving]);
+
+  const visibleGroups = preview.groups.filter(
+    (group) => group.status === activeTab,
+  );
+
+  return (
+    <div className="challan-bulk-overlay">
+      <div
+        ref={dialogRef}
+        className="challan-bulk-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Import Challans"
+        tabIndex={-1}
+      >
+        <header className="challan-bulk-header">
+          <div className="challan-bulk-heading">
+            <h2>Import Challans</h2>
+            <p>{review.filename}</p>
+          </div>
+          <button
+            type="button"
+            className="challan-bulk-close"
+            disabled={saving}
+            onClick={onClose}
+            aria-label="Close Import Challans"
+          >
+            ×
+          </button>
+        </header>
+        <div className="challan-bulk-summary" aria-label="Import summary">
+          <div className="challan-bulk-summary-card">
+            <strong>{preview.groups.length}</strong>
+            <span>Total Challans</span>
+          </div>
+          <div className="challan-bulk-summary-card is-valid">
+            <strong>{preview.validCount}</strong>
+            <span>Valid</span>
+          </div>
+          <div className="challan-bulk-summary-card is-invalid">
+            <strong>{preview.invalidCount}</strong>
+            <span>Invalid</span>
+          </div>
+        </div>
+        <div
+          className="challan-bulk-tabs"
+          role="tablist"
+          aria-label="Challan status"
+        >
+          {["VALID", "INVALID"].map((status) => (
+            <button
+              key={status}
+              type="button"
+              role="tab"
+              id={"challan-bulk-tab-" + status.toLowerCase()}
+              aria-controls="challan-bulk-panel"
+              aria-selected={activeTab === status}
+              className={
+                "challan-bulk-tab is-" +
+                status.toLowerCase() +
+                (activeTab === status ? " is-active" : "")
+              }
+              onClick={() => setActiveTab(status)}
+            >
+              {status === "VALID" ? "Valid Challans" : "Invalid Challans"}
+              <span>
+                {status === "VALID" ? preview.validCount : preview.invalidCount}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div
+          className="challan-bulk-scroll"
+          id="challan-bulk-panel"
+          role="tabpanel"
+          aria-labelledby={"challan-bulk-tab-" + activeTab.toLowerCase()}
+          key={activeTab}
+        >
+          {visibleGroups.length === 0 ? (
+            <p className="challan-bulk-empty">
+              No {activeTab.toLowerCase()} Challans.
+            </p>
+          ) : (
+            <div className="challan-bulk-list">
+              {visibleGroups.map((group, index) => (
+                <details
+                  key={group.ref || index}
+                  className={"challan-bulk-group is-" + activeTab.toLowerCase()}
+                >
+                  <summary>
+                    <span className="challan-bulk-summary-field challan-bulk-ref">
+                      <small>Challan Ref</small>
+                      <strong>{group.ref || "Missing Challan Ref"}</strong>
+                    </span>
+                    <span className="challan-bulk-summary-field">
+                      <small>Party</small>
+                      <b>{group.party || "Missing"}</b>
+                    </span>
+                    <span className="challan-bulk-summary-field">
+                      <small>Date</small>
+                      <b>{group.date || "Missing"}</b>
+                    </span>
+                    <span className="challan-bulk-summary-field">
+                      <small>Items</small>
+                      <b>{group.items.length}</b>
+                    </span>
+                    <span className="challan-bulk-summary-field">
+                      <small>Weight</small>
+                      <b>
+                        {group.totals
+                          ? group.totals.weight.toFixed(3) + " ct"
+                          : "--"}
+                      </b>
+                    </span>
+                    <span className="challan-bulk-summary-field">
+                      <small>Pieces</small>
+                      <b>{group.totals?.pieces ?? "--"}</b>
+                    </span>
+                    <span className="challan-bulk-badge">{activeTab}</span>
+                    <span className="challan-bulk-chevron" aria-hidden="true">
+                      ⌄
+                    </span>
+                  </summary>
+                  <div className="challan-bulk-group-body">
+                    <div className="challan-bulk-items-heading">
+                      <h3>Item details</h3>
+                      <span>Inventory details resolved from SKU</span>
+                    </div>
+                    <table className="challan-bulk-items-table">
+                      <thead>
+                        <tr>
+                          <th>SKU</th>
+                          <th>Width</th>
+                          <th>Shape</th>
+                          <th>Size</th>
+                          <th>Type</th>
+                          <th>Weight / Carat</th>
+                          <th>Pieces</th>
+                          <th>Price</th>
+                          <th>Discount %</th>
+                          <th>Net Amount</th>
+                          <th>Net Amount After Discount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.items.map((item, itemIndex) => {
+                          const priced = pricingFor(
+                            item.weight,
+                            item.amount,
+                            item.discount,
+                          );
+                          const fields = [
+                            ["SKU", item.sku || "--"],
+                            ["Width", item.width || "--"],
+                            ["Shape", item.shape || "--"],
+                            ["Size", item.size || "--"],
+                            ["Type", item.type || "--"],
+                            ["Weight / Carat", viewWeight(item.weight)],
+                            ["Pieces", item.pieces === "" ? "0" : item.pieces],
+                            ["Price", viewCurrency(item.amount)],
+                            [
+                              "Discount %",
+                              item.discount === "" ? "0%" : item.discount + "%",
+                            ],
+                            ["Net Amount", viewCurrency(priced?.grossAmount)],
+                            [
+                              "Net Amount After Discount",
+                              viewCurrency(priced?.netAmount),
+                            ],
+                          ];
+                          return (
+                            <tr key={item.importRowNumber || itemIndex}>
+                              {fields.map(([label, value]) => (
+                                <td key={label} data-label={label}>
+                                  {value}
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {group.reasons.length > 0 && (
+                      <div className="challan-bulk-reasons">
+                        <strong>Validation issues</strong>
+                        <ol>
+                          {group.reasons.map((reason, reasonIndex) => (
+                            <li key={reasonIndex}>
+                              Row {reason.rowNumber}: {reason.message}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+          {result && (
+            <div className="challan-bulk-result" role="status">
+              <strong>
+                {result.successes.length} Challans imported successfully.{" "}
+                {result.failures.length + result.skipped} skipped or failed.
+              </strong>
+              {result.successes.map((entry) => (
+                <p key={entry.ref}>
+                  {entry.ref} → {entry.number}
+                </p>
+              ))}
+              {result.failures.map((entry, index) => (
+                <div key={index}>
+                  <strong>{entry.ref} failed:</strong>
+                  <ul>
+                    {entry.reasons.map((reason, reasonIndex) => (
+                      <li key={reasonIndex}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <footer className="challan-bulk-actions">
+          <button
+            type="button"
+            className="challan-bulk-secondary"
+            disabled={saving}
+            onClick={onClose}
+          >
+            {result ? "Close" : "Cancel"}
+          </button>
+          <button
+            type="button"
+            className="challan-bulk-primary"
+            onClick={onImport}
+            disabled={saving || Boolean(result) || preview.validCount === 0}
+          >
+            {saving
+              ? "Importing Challans..."
+              : "IMPORT " + preview.validCount + " VALID CHALLANS"}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
 export default function Challan() {
   const { user } = useAuth();
   const {
@@ -1745,11 +2120,32 @@ export default function Challan() {
     notes: "",
     items: [blank()],
   });
-  const { rows: inventory, error: inventoryError } = useInventoryDiscovery();
+  const {
+    rows: inventory,
+    error: inventoryError,
+    loading: inventoryLoading,
+  } = useInventoryDiscovery();
   const [focusSkuId, setFocusSkuId] = useState(null);
   const [formError, setFormError] = useState("");
   const [challanFieldErrors, setChallanFieldErrors] = useState({});
   const [editingId, setEditingId] = useState(null);
+  const importFileRef = useRef(null);
+  const [importStatus, setImportStatus] = useState("");
+  const [importFileError, setImportFileError] = useState("");
+  const [bulkReview, setBulkReview] = useState(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
+  const bulkPreview = useMemo(
+    () =>
+      bulkReview
+        ? parseChallanImport(bulkReview.matrix, inventory, prices)
+        : null,
+    [bulkReview, inventory, prices],
+  );
+  const importDraftIssues = useMemo(
+    () => validateImportedStageOneRows(form.items, inventory),
+    [form.items, inventory],
+  );
   // Reconcile incoming Firestore snapshots with the open draft, retaining
   // manual/saved prices. Stable dependencies and unchanged-object returns make
   // this a bounded update, never a write-back or subscription loop.
@@ -2004,7 +2400,13 @@ export default function Challan() {
                   ? { priceSource: "manual", priceContext: priceContext(item) }
                   : {}),
                 ...(key === "sku"
-                  ? { inventoryId: "", type: "", shape: "", size: "" }
+                  ? {
+                      inventoryId: "",
+                      type: "",
+                      shape: "",
+                      size: "",
+                      importIdentityError: "",
+                    }
                   : {}),
               },
               prices,
@@ -2024,6 +2426,7 @@ export default function Challan() {
                 ...item,
                 inventoryId: selected.id || "",
                 sku: selected.sku || "",
+                importIdentityError: "",
                 shape: selected.shape || "",
                 size: normalizeSize(selected.size),
                 type: selected.type || "",
@@ -2037,6 +2440,147 @@ export default function Challan() {
       setFormError(stockError(items, inventory));
       return { ...state, items };
     });
+  };
+  const readChallanImport = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !canImportChallan(page, editingId, hasStagePermission(1)))
+      return;
+    if (inventoryLoading || inventoryError) {
+      setImportFileError(
+        "Inventory is not available yet. Try again after it loads.",
+      );
+      return;
+    }
+    if (!/\.(xlsx|csv)$/i.test(file.name)) {
+      setImportFileError("Choose an .xlsx or .csv file.");
+      return;
+    }
+    try {
+      const XLSX = await import("xlsx");
+      const book = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const sheet = book.Sheets[book.SheetNames[0]];
+      const matrix = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: "",
+        blankrows: true,
+        raw: true,
+      });
+      const parsed = parseChallanImport(matrix, inventory, prices);
+      setBulkReview({
+        filename: file.name,
+        matrix,
+        initiallyValid: parsed.groups
+          .filter((group) => group.status === "VALID")
+          .map((group) => group.ref),
+      });
+      setBulkResult(null);
+      setImportFileError("");
+    } catch (error) {
+      setImportFileError(error.message || "Could not read the import file.");
+    }
+  };
+  const importValidChallans = async () => {
+    if (
+      bulkSaving ||
+      !bulkReview ||
+      !canImportChallan(page, editingId, hasStagePermission(1))
+    )
+      return;
+    setBulkSaving(true);
+    const successes = [],
+      failures = [];
+    try {
+      // Rebuild the review against the newest live Inventory and Master Price data.
+      const latest = parseChallanImport(bulkReview.matrix, inventory, prices);
+      const used = new Set(records.map((record) => record.number));
+      for (const group of latest.groups) {
+        if (group.status !== "VALID") {
+          if (bulkReview.initiallyValid.includes(group.ref))
+            failures.push({
+              ref: group.ref,
+              reasons: group.reasons.map(
+                (reason) => "Row " + reason.rowNumber + ": " + reason.message,
+              ),
+            });
+          continue;
+        }
+        let saved = null,
+          lastError = null;
+        for (let attempt = 0; attempt < 1000; attempt++) {
+          const number = nextBulkChallanNumber(used);
+          used.add(number);
+          const record = prepareImportedStageOneRecord(
+            group,
+            number,
+            user,
+            crypto.randomUUID(),
+          );
+          try {
+            // Same atomic number claim, latest Inventory reads, deduction and
+            // Challan write used by manual Stage 1 creation.
+            saved = await createStageOneChallan(db, record);
+            break;
+          } catch (error) {
+            lastError = error;
+            if (!/Challan Number .*already exists/.test(error.message || ""))
+              break;
+          }
+        }
+        if (!saved) {
+          failures.push({
+            ref: group.ref,
+            reasons: [lastError?.message || "Could not create this Challan."],
+          });
+          continue;
+        }
+        successes.push({ ref: group.ref, number: saved.number });
+        void writeActivity({
+          panel: "challan",
+          stage: "Stage 1",
+          action: "created",
+          recordId: saved.id,
+          snapshot: challanSnapshot(saved),
+          user,
+        }).catch((error) =>
+          console.warn("Challan activity could not be saved.", error),
+        );
+        const partyExists = parties.some(
+          (name) =>
+            name.toLocaleLowerCase() === group.party.toLocaleLowerCase(),
+        );
+        if (!partyExists)
+          void saveParty(group.party).catch((error) =>
+            console.warn("Party name could not be saved.", error),
+          );
+      }
+      const skipped = latest.groups.filter(
+        (group) =>
+          group.status !== "VALID" &&
+          !bulkReview.initiallyValid.includes(group.ref),
+      ).length;
+      setBulkResult({ successes, failures, skipped });
+      setImportStatus(
+        successes.length +
+          " Challans imported successfully. " +
+          (failures.length + skipped) +
+          " Challans skipped or failed.",
+      );
+    } catch (error) {
+      setBulkResult({
+        successes,
+        failures: [
+          ...failures,
+          {
+            ref: "Batch",
+            reasons: [error.message || "Bulk import stopped unexpectedly."],
+          },
+        ],
+        skipped: 0,
+      });
+    } finally {
+      setBulkSaving(false);
+    }
   };
   const saveParty = async (name) => {
     const partyName = name.trim();
@@ -2060,6 +2604,12 @@ export default function Challan() {
     try {
       if (!hasStagePermission(1)) {
         setFormError("Your account does not have Challan Stage 1 permission.");
+        return;
+      }
+      if (importDraftIssues.length) {
+        setFormError(
+          "Resolve every imported row error before creating this Challan.",
+        );
         return;
       }
       const items = form.items.filter((item) => item.sku.trim());
@@ -2127,15 +2677,27 @@ export default function Challan() {
         const weight = normalizeWeight(item.weight, "Weight");
         if (weight <= 0)
           throw new Error("Issued Weight must be greater than zero.");
+        const cleanItem = { ...item };
+        delete cleanItem.importRowNumber;
+        delete cleanItem.importIdentityError;
         return {
-          ...item,
+          ...cleanItem,
           width: normalizeSize(item.width),
           pieces,
           weight,
-          ...priceItem(item.amount, item.discount),
+          ...(previous?.stage > 1
+            ? stageOneFinancials(item)
+            : priceWeightedItem(weight, item.amount, item.discount)),
         };
       });
-      const totals = stageOneTotals(pricedItems);
+      const totals =
+        previous?.stage > 1
+          ? {
+              amount: previous.amount,
+              discountAmount: previous.discountAmount,
+              netAmount: previous.netAmount,
+            }
+          : stageOneTotals(pricedItems);
       const pricing = {
         amount: totals.amount,
         discountAmount: totals.discountAmount,
@@ -2241,75 +2803,7 @@ export default function Challan() {
           });
         });
       } else {
-        const saved = await runTransaction(db, async (tx) => {
-          const now = Date.now();
-          const claimNumber = await prepareNumberClaim(
-            tx,
-            db,
-            "challan",
-            record.number,
-            record.id,
-          );
-          const inventorySnapshots = await Promise.all(
-            pricedItems.map((item) => {
-              if (!item.inventoryId)
-                throw new Error(`Select an Inventory item for ${item.sku}.`);
-              return tx.get(doc(db, "inventory", item.inventoryId));
-            }),
-          );
-          if (
-            new Set(pricedItems.map((item) => item.inventoryId)).size !==
-            pricedItems.length
-          )
-            throw new Error(
-              "Each Challan line must use a different Inventory item. Combine quantities for the same item into one line.",
-            );
-          const issuedItems = [];
-          for (const [index, item] of pricedItems.entries()) {
-            const inventoryRef = doc(db, "inventory", item.inventoryId);
-            const inventorySnapshot = inventorySnapshots[index];
-            if (!inventorySnapshot.exists())
-              throw new Error(
-                `Inventory item ${item.sku} is no longer available.`,
-              );
-            const stock = inventorySnapshot.data();
-            const requestedWeight = strictWeight(item.weight, "Issued Weight");
-            const requestedPieces = wholePieces(item.pieces, "Issued Pieces");
-            if (
-              requestedWeight < 0 ||
-              requestedPieces < 0 ||
-              requestedWeight > normalizeWeight(stock.weight || 0) ||
-              requestedPieces >
-                wholePieces(
-                  stock.pieces ?? stock.quantity ?? stock.qty ?? 0,
-                  "Inventory Pieces",
-                )
-            )
-              throw new Error(`Insufficient available stock for ${item.sku}.`);
-            tx.update(inventoryRef, {
-              weight: fromMillis(
-                weightMillis(stock.weight || 0) - weightMillis(requestedWeight),
-              ),
-              pieces:
-                wholePieces(
-                  stock.pieces ?? stock.quantity ?? stock.qty ?? 0,
-                  "Inventory Pieces",
-                ) - requestedPieces,
-              updatedAt: serverTimestamp(),
-            });
-            issuedItems.push({ ...item, sourceInventoryId: item.inventoryId });
-          }
-          const savedRecord = {
-            ...record,
-            items: issuedItems,
-            createdAt: serverTimestamp(),
-            createdAtMs: now,
-            stageHistory: { stage1: { enteredAtMs: now } },
-          };
-          claimNumber();
-          tx.set(doc(db, "challans", record.id), savedRecord);
-          return { ...savedRecord, createdAt: now };
-        });
+        const saved = await createStageOneChallan(db, record);
         Object.assign(record, saved);
       }
       void writeActivity({
@@ -2390,7 +2884,7 @@ export default function Challan() {
         input.returnPieces,
         input.returnWeight,
       );
-      const priced = priceItem(item.amount, item.discount);
+      const priced = stageOneFinancials(item);
       return {
         inventoryId: item.sourceInventoryId || item.inventoryId || "",
         sourceInventoryId: item.sourceInventoryId || item.inventoryId || "",
@@ -2402,6 +2896,12 @@ export default function Challan() {
         ...movement,
         amount: priced.amount,
         discount: priced.discount,
+        grossAmount: priced.grossAmount,
+        discountAmount: priced.discountAmount,
+        netAmount: priced.netAmount,
+        ...(priced.pricingVersion
+          ? { pricingVersion: priced.pricingVersion }
+          : {}),
       };
     });
     const record = { ...previous, stage: 2 };
@@ -2640,6 +3140,8 @@ export default function Challan() {
       return;
     }
     setEditingId(record.id);
+    setImportStatus("");
+    setImportFileError("");
     setFormError("");
     setChallanFieldErrors({});
     setForm({
@@ -2757,12 +3259,9 @@ export default function Challan() {
     setRecords((state) => state.filter((entry) => entry.id !== id));
     setDeleteCandidate(null);
   };
-  let pricing = null;
-  try {
-    pricing = stageOneTotals(form.items);
-  } catch {
-    /* Draft or invalid rows are not counted as savable totals. */
-  }
+  const pricing = stageOneTotals(
+    savableStageOneRows(form.items.filter((item) => !widthError(item.width))),
+  );
   const exportList = async () => {
     const XLSX = await import("xlsx");
     const rows = shown.map((row) => ({
@@ -2830,7 +3329,15 @@ export default function Challan() {
           row.stage >= 2 && item.soldWeight !== undefined
             ? Number(item.soldWeight)
             : "",
-        "Original Price": Number(item.amount || 0),
+        ...(item.pricingVersion === WEIGHT_RATE_PRICING
+          ? {
+              "Price / Rate": Number(item.amount || 0),
+              "Stage 1 Net Amount": exportMoney(stageOneGross(item)),
+              "Stage 1 Net Amount After Discount": exportMoney(
+                stageOneNet(item),
+              ),
+            }
+          : { "Original Price": Number(item.amount || 0) }),
         "Stage 1 Discount %": Number(
           item.stage1DiscountPercent ?? item.discount ?? 0,
         ),
@@ -2927,7 +3434,12 @@ export default function Challan() {
       .map((item) => item.type)
       .filter(Boolean)
       .join(", ");
-    const totalAmount = moneyText(sumStored(items, "amount"));
+    const weightedPricing = hasWeightedPricing(items);
+    const totalAmount = moneyText(
+      weightedPricing
+        ? sumStoredBy(items, stageOneGross)
+        : sumStored(items, "amount"),
+    );
     const sumPiecesForPrint = (key) => sumStored(items, key) ?? "Unavailable";
     const sumWeightForPrint = (key) => weightText(sumStored(items, key));
     const totalDetails =
@@ -2973,7 +3485,16 @@ export default function Challan() {
         "Sold / Kept Weight",
       );
     if (stage === 3) headers.push("Sold / Kept");
-    headers.push("Original Stage 1 Amount", "Stage 1 Discount %");
+    headers.push(
+      ...(weightedPricing
+        ? [
+            "Price / Carat",
+            "Net Amount",
+            "Stage 1 Discount %",
+            "Net Amount After Discount",
+          ]
+        : ["Original Stage 1 Amount", "Stage 1 Discount %"]),
+    );
     if (stage >= 3) headers.push("Discount Amount", "Final Billed Amount");
     const itemRows = items
       .map((item) => {
@@ -3012,7 +3533,13 @@ export default function Challan() {
           );
         cells.push(
           "&#8377;" + moneyText(item.amount),
+          ...(weightedPricing
+            ? ["&#8377;" + moneyText(stageOneGross(item))]
+            : []),
           viewPercent(item.stage1DiscountPercent ?? item.discount),
+          ...(weightedPricing
+            ? ["&#8377;" + moneyText(stageOneNet(item))]
+            : []),
         );
         if (stage >= 3)
           cells.push(
@@ -3029,7 +3556,9 @@ export default function Challan() {
     const invoiceDetails = invoice
       ? '<p class="total">' +
         (invoice.calculationVersion === "manual-partial-v1"
-          ? "Original Stage 1 Amount"
+          ? hasWeightedPricing(items)
+            ? "Stage 1 Net Amount"
+            : "Original Stage 1 Amount"
           : "Gross Amount") +
         ": &#8377;" +
         moneyText(invoice.grossAmount) +
@@ -3131,15 +3660,25 @@ export default function Challan() {
       ["Date", record.date || ""],
       ["Stage", "Stage " + stage + " - " + STAGES[stage]],
       ["Notes", record.notes || ""],
-      ["Original Amount", exportMoney(record.amount)],
+      [
+        hasWeightedPricing(items) ? "Stage 1 Net Amount" : "Original Amount",
+        exportMoney(record.amount),
+      ],
       ["Stage 1 Discount Amount", exportMoney(record.discountAmount)],
-      ["Stage 1 Net Amount", exportMoney(record.netAmount)],
+      [
+        hasWeightedPricing(items)
+          ? "Stage 1 Net Amount After Discount"
+          : "Stage 1 Net Amount",
+        exportMoney(record.netAmount),
+      ],
     ];
     if (stage >= 3 && invoice)
       details.push(
         [
           invoice.calculationVersion === "manual-partial-v1"
-            ? "Original Stage 1 Amount"
+            ? hasWeightedPricing(items)
+              ? "Stage 1 Net Amount"
+              : "Original Stage 1 Amount"
             : "Gross Amount",
           exportMoney(invoice.grossAmount),
         ],
@@ -3193,9 +3732,18 @@ export default function Challan() {
       "Return Weight": stage >= 2 ? exportWeight(item.returnWeight) : "",
       "Sold / Kept Pieces": stage >= 2 ? exportPieces(item.soldPieces) : "",
       "Sold / Kept Weight": stage >= 2 ? exportWeight(item.soldWeight) : "",
-      "Original Price": exportMoney(item.amount),
-      "Original Stage 1 Amount": exportMoney(item.amount),
-      "Stage 1 Net Amount": stage >= 3 ? exportMoney(item.stage1NetAmount) : "",
+      ...(item.pricingVersion === WEIGHT_RATE_PRICING
+        ? {
+            "Price / Rate": exportMoney(item.amount),
+            "Stage 1 Net Amount": exportMoney(stageOneGross(item)),
+            "Stage 1 Net Amount After Discount": exportMoney(stageOneNet(item)),
+          }
+        : {
+            "Original Price": exportMoney(item.amount),
+            "Original Stage 1 Amount": exportMoney(item.amount),
+            "Stage 1 Net Amount":
+              stage >= 3 ? exportMoney(item.stage1NetAmount) : "",
+          }),
       "Stage 1 Discount %": item.stage1DiscountPercent ?? item.discount ?? "",
       "Billable Gross":
         stage >= 3 && invoice?.calculationVersion !== "manual-partial-v1"
@@ -3776,8 +4324,40 @@ export default function Challan() {
                 ? "Update challan details"
                 : "Stage 1 - Goods Out"}{" "}
             </span>{" "}
+            {canImportChallan(page, editingId, hasStagePermission(1)) && (
+              <>
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".xlsx,.csv"
+                  className="challan-import-file"
+                  aria-label="Choose Challan import file"
+                  onChange={readChallanImport}
+                />
+                <button
+                  type="button"
+                  disabled={inventoryLoading || Boolean(inventoryError)}
+                  onClick={() => importFileRef.current?.click()}
+                >
+                  Import Challan
+                </button>
+              </>
+            )}{" "}
           </div>{" "}
         </header>{" "}
+        {bulkReview && bulkPreview && (
+          <ChallanImportReviewModal
+            review={bulkReview}
+            preview={bulkPreview}
+            result={bulkResult}
+            saving={bulkSaving}
+            onImport={importValidChallans}
+            onClose={() => {
+              setBulkReview(null);
+              setBulkResult(null);
+            }}
+          />
+        )}{" "}
         <form
           onSubmit={create}
           onKeyDown={(event) => {
@@ -3891,6 +4471,36 @@ export default function Challan() {
           <article>
             {" "}
             <h3>Inventory Items</h3>{" "}
+            {canImportChallan(page, editingId, hasStagePermission(1)) && (
+              <p className="challan-import-help">
+                Import one .xlsx or .csv file containing multiple Stage 1
+                Challans. Exact headers: {CHALLAN_IMPORT_HEADERS.join(", ")}.
+                Challan Ref groups items; the application assigns real Challan
+                numbers.
+              </p>
+            )}{" "}
+            {importStatus && (
+              <p className="challan-import-status" role="status">
+                {importStatus}
+              </p>
+            )}
+            {importFileError && (
+              <p className="challan-form-error" role="alert">
+                {importFileError}
+              </p>
+            )}
+            {importDraftIssues.length > 0 && (
+              <div className="challan-import-errors" role="alert">
+                <strong>Imported rows need attention before save:</strong>
+                <ul>
+                  {importDraftIssues.map((entry, index) => (
+                    <li key={index}>
+                      Row {entry.rowNumber}: {entry.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}{" "}
             {(masterPriceError || masterPricesLoading) && (
               <p role="status">
                 {masterPriceError ||
@@ -3919,7 +4529,8 @@ export default function Challan() {
               <span>Width</span>
               <span>Shape</span> <span>Size</span> <span>Type</span>{" "}
               <span>Weight / Carat</span> <span>Pieces</span> <span>Price</span>{" "}
-              <span>Discount %</span> <span>Discount / Net</span> <span />{" "}
+              <span>Discount %</span> <span>Net Amount</span>{" "}
+              <span>Net Amount After Discount</span> <span />{" "}
             </div>{" "}
             {form.items.map((item) => (
               <div className="challan-item" key={item.id}>
@@ -4014,16 +4625,16 @@ export default function Challan() {
                   placeholder="Discount %"
                 />{" "}
                 <span className="item-price-summary">
-                  {" "}
-                  ₹{" "}
-                  {pricingFor(
-                    item.amount,
-                    item.discount,
-                  )?.discountAmount.toFixed(2) ?? "--"}{" "}
-                  / ₹{" "}
-                  {pricingFor(item.amount, item.discount)?.netAmount.toFixed(
-                    2,
-                  ) ?? "--"}{" "}
+                  {viewCurrency(
+                    pricingFor(item.weight, item.amount, item.discount)
+                      ?.grossAmount,
+                  )}
+                </span>{" "}
+                <span className="item-price-summary">
+                  {viewCurrency(
+                    pricingFor(item.weight, item.amount, item.discount)
+                      ?.netAmount,
+                  )}
                 </span>{" "}
                 <button
                   className="remove-item"
@@ -4045,27 +4656,17 @@ export default function Challan() {
               className="challan-item-totals"
               aria-label="Challan item totals"
             >
-              {" "}
+              <strong>Total Items: {pricing.itemCount}</strong>
+              <strong>Total Weight: {pricing.weight.toFixed(3)} ct</strong>
+              <strong>Total Pieces: {pricing.pieces} pcs</strong>
+              <strong>Total Net Amount: {viewCurrency(pricing.amount)}</strong>
               <strong>
-                {" "}
-                Total Items: {pricing ? pricing.itemCount : "--"}{" "}
-              </strong>{" "}
-              <span /> <span /> <span />{" "}
+                Total Discount Amount: {viewCurrency(pricing.discountAmount)}
+              </strong>
               <strong>
-                {" "}
-                Total: {pricing ? pricing.weight.toFixed(3) : "--"} ct{" "}
-              </strong>{" "}
-              <strong> Total: {pricing ? pricing.pieces : "--"} pcs </strong>{" "}
-              <strong>
-                Amount: ₹{pricing ? pricing.amount.toFixed(2) : "--"}
-              </strong>{" "}
-              <strong>
-                Discount: ₹{pricing ? pricing.discountAmount.toFixed(2) : "--"}
-              </strong>{" "}
-              <strong>
-                Net: ₹{pricing ? pricing.netAmount.toFixed(2) : "--"}
-              </strong>{" "}
-              <span />{" "}
+                Total Net Amount After Discount:{" "}
+                {viewCurrency(pricing.netAmount)}
+              </strong>
             </div>{" "}
             <button type="button" className="add" onClick={addItem}>
               {" "}
@@ -4125,6 +4726,8 @@ export default function Challan() {
             disabled={!hasStagePermission(1)}
             onClick={() => {
               setEditingId(null);
+              setImportStatus("");
+              setImportFileError("");
               setFormError("");
               setChallanFieldErrors({});
               setForm({
