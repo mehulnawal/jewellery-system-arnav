@@ -674,19 +674,17 @@ test("harmless Stage 1 item metadata change does not block the return", async ({
   await seedIssuedStock(id);
   await asRole(page, "admin");
   await page.locator(".challan-row .challan-workflow-button").click();
-  await db
-    .doc("challans/" + id)
-    .update({
-      items: [
-        {
-          ...item,
-          priceSource: "manual",
-          priceContext: { width: "", height: "1" },
-          discountAmount: 1,
-          netAmount: 999,
-        },
-      ],
-    });
+  await db.doc("challans/" + id).update({
+    items: [
+      {
+        ...item,
+        priceSource: "manual",
+        priceContext: { width: "", height: "1" },
+        discountAmount: 1,
+        netAmount: 999,
+      },
+    ],
+  });
   const modal = await submitReturn(page, "1", "1.000");
   await expect(modal).toHaveCount(0);
   expect((await db.doc("challans/" + id).get()).data().stage).toBe(2);
@@ -741,16 +739,14 @@ async function seedDeleteCase(
       ],
     };
   await db.doc("challans/" + id).update(update);
-  await db
-    .doc("inventory/stock")
-    .set({
-      sku: item.sku,
-      size: "1",
-      shape: "Round",
-      type: "CVD",
-      pieces: stage === 1 ? 0 : returnPieces,
-      weight: stage === 1 ? 0 : returnWeight,
-    });
+  await db.doc("inventory/stock").set({
+    sku: item.sku,
+    size: "1",
+    shape: "Round",
+    type: "CVD",
+    pieces: stage === 1 ? 0 : returnPieces,
+    weight: stage === 1 ? 0 : returnWeight,
+  });
 }
 for (const stage of [1, 2, 3, 4]) {
   test(
@@ -965,20 +961,95 @@ test("multiple linked Inventory documents restore together or not at all", async
   expect((await db.doc("challans/delete-multiple").get()).exists).toBe(true);
   expect((await db.doc("inventory/stock").get()).data().weight).toBe(2);
 
-  await db
-    .doc("inventory/stock-2")
-    .set({
-      sku: "2_Round_CVD",
-      size: "2",
-      shape: "Round",
-      type: "CVD",
-      pieces: 0,
-      weight: 0,
-    });
+  await db.doc("inventory/stock-2").set({
+    sku: "2_Round_CVD",
+    size: "2",
+    shape: "Round",
+    type: "CVD",
+    pieces: 0,
+    weight: 0,
+  });
   await page.getByRole("button", { name: "Delete Challan" }).click();
   await expect
     .poll(async () => (await db.doc("challans/delete-multiple").get()).exists)
     .toBe(false);
   expect((await db.doc("inventory/stock").get()).data().weight).toBe(5);
   expect((await db.doc("inventory/stock-2").get()).data().weight).toBe(1.25);
+});
+
+for (const field of ["notes", "price", "discount"]) {
+  test(
+    "Stage 1 " + field + " edit saves without a false stale conflict",
+    async ({ page }) => {
+      const id = "stage-one-save-" + field;
+      await seed(1, "admin", id);
+      await asRole(page, "admin");
+      await page.locator(".challan-row .challan-edit").click();
+      if (field === "notes")
+        await page.locator(".challan-create textarea").fill("Edited note");
+      if (field === "price")
+        await page
+          .locator('.challan-create input[placeholder="Price"]')
+          .fill("1200");
+      if (field === "discount")
+        await page
+          .locator('.challan-create input[placeholder="Discount %"]')
+          .fill("5");
+      await page.getByRole("button", { name: "Save Changes" }).click();
+      await expect(page.locator(".challan-form-error")).toHaveCount(0);
+      await expect
+        .poll(async () => (await db.doc("challans/" + id).get()).data())
+        .toMatchObject(
+          field === "notes"
+            ? { notes: "Edited note" }
+            : field === "price"
+              ? { items: [{ amount: 1200 }] }
+              : { items: [{ discount: 5 }] },
+        );
+    },
+  );
+}
+
+test("Stage 1 metadata-only write permits Save, but a concurrent Price change blocks it", async ({
+  page,
+}) => {
+  const id = "stage-one-metadata-and-price";
+  await seed(1, "admin", id);
+  await asRole(page, "admin");
+  await page.locator(".challan-row .challan-edit").click();
+  await page.locator(".challan-create textarea").fill("After metadata");
+  await db.doc("challans/" + id).update({ updatedAt: Timestamp.now() });
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect
+    .poll(async () => (await db.doc("challans/" + id).get()).data().notes)
+    .toBe("After metadata");
+  await page.locator(".challan-row .challan-edit").click();
+  await page.locator(".challan-create textarea").fill("Should not save");
+  const latest = (await db.doc("challans/" + id).get()).data();
+  await db
+    .doc("challans/" + id)
+    .update({ items: [{ ...latest.items[0], amount: 1300 }] });
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.locator(".challan-form-error")).toContainText(
+    "changed while you were editing",
+  );
+  expect((await db.doc("challans/" + id).get()).data().notes).toBe(
+    "After metadata",
+  );
+});
+
+test("Stage 1 edit blocks a concurrent Stage 2 advance", async ({ page }) => {
+  const id = "stage-one-advanced-while-editing";
+  await seed(1, "admin", id);
+  await asRole(page, "admin");
+  await page.locator(".challan-row .challan-edit").click();
+  await page.locator(".challan-create textarea").fill("Should not save");
+  await db.doc("challans/" + id).update({ stage: 2 });
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.locator(".challan-form-error")).toContainText(
+    "changed while you were editing",
+  );
+  expect((await db.doc("challans/" + id).get()).data().notes).toBe(
+    "Saved note",
+  );
 });

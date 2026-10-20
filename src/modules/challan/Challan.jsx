@@ -50,6 +50,10 @@ import {
   challanStockRestoration,
 } from "../../utils/challanCalculations.js";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
+import {
+  stageOneEditSnapshot,
+  sameStageOneEditSnapshot,
+} from "../../utils/challanEditSnapshot.js";
 import { createStageOneChallan } from "../../utils/challanStageOneCreate.js";
 import {
   parseChallanImport,
@@ -2129,6 +2133,7 @@ export default function Challan() {
   const [formError, setFormError] = useState("");
   const [challanFieldErrors, setChallanFieldErrors] = useState({});
   const [editingId, setEditingId] = useState(null);
+  const editOriginal = useRef(null);
   const importFileRef = useRef(null);
   const [importStatus, setImportStatus] = useState("");
   const [importFileError, setImportFileError] = useState("");
@@ -2638,9 +2643,11 @@ export default function Challan() {
       );
       const party = existingParty || typedParty;
       const fieldErrors = {};
-      const previous = editingId
-        ? records.find((record) => record.id === editingId)
-        : null;
+      const originalSnapshot = editOriginal.current?.snapshot;
+      const previous =
+        editingId === editOriginal.current?.record.id
+          ? editOriginal.current.record
+          : null;
       if (editingId && !previous)
         throw new Error("This Challan is no longer available.");
       if (!previous || form.number !== previous.number) {
@@ -2770,16 +2777,12 @@ export default function Challan() {
           if (!snapshot.exists())
             throw new Error("This Challan is no longer available.");
           const latest = snapshot.data();
-          if (!editAllowed(latest, user, anchoredNow(clockAnchor.current)))
-            throw new Error("This Challan is no longer editable.");
-          if (
-            latest.stage !== previous.stage ||
-            latest.number !== previous.number ||
-            JSON.stringify(latest.items) !== JSON.stringify(previous.items)
-          )
+          if (!sameStageOneEditSnapshot(originalSnapshot, latest))
             throw new Error(
               "This Challan changed while you were editing. Reopen it and try again.",
             );
+          if (!editAllowed(latest, user, anchoredNow(clockAnchor.current)))
+            throw new Error("This Challan is no longer editable.");
           const claimNumber =
             record.number !== latest.number
               ? await prepareNumberClaim(
@@ -2818,6 +2821,7 @@ export default function Challan() {
         console.warn("Challan activity could not be saved.", error),
       );
       if (!editingId && !existingParty) await saveParty(party);
+      editOriginal.current = null;
       setEditingId(null);
       setForm({
         number: "",
@@ -3110,6 +3114,7 @@ export default function Challan() {
   const stageEditRemaining = (record) => challanEditRemaining(record, clock);
   const canEditChallan = (record) => editAllowed(record, user, clock);
   const closeEditor = () => {
+    editOriginal.current = null;
     setEditingId(null);
     setForm({
       number: "",
@@ -3139,6 +3144,7 @@ export default function Challan() {
       );
       return;
     }
+    editOriginal.current = { record, snapshot: stageOneEditSnapshot(record) };
     setEditingId(record.id);
     setImportStatus("");
     setImportFileError("");
