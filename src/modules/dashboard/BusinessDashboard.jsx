@@ -9,6 +9,7 @@ import {
   dayKey,
 } from "../../utils/dashboardAnalytics";
 import "./businessDashboard.css";
+import GoodsWithCustomers from "./GoodsWithCustomers.jsx";
 
 const CHALLAN_KEYS = [1, 2, 3, 4];
 const EMPTY_RESULT = { rows: [], loading: false, error: "" };
@@ -300,6 +301,13 @@ export default function BusinessDashboard() {
         )}
       </div>
 
+      {permittedStages.includes(1) && (
+        <GoodsWithCustomers
+          records={visibleChallans}
+          loading={challans.loading}
+          error={challans.error}
+        />
+      )}
       {(historyReady || inventoryReady) && (
         <div
           className={`business-grid ${historyReady && inventoryReady ? "business-primary-grid" : ""}`}

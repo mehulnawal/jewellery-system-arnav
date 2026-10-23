@@ -586,3 +586,93 @@
   background: color-mix(in srgb, var(--ui-border) 35%, transparent);
   height: 4px;
 }
+.customer-goods {
+  min-width: 0;
+}
+.customer-goods-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 12px 0;
+}
+.customer-goods-controls label {
+  display: grid;
+  gap: 4px;
+  color: var(--ui-muted);
+  font-size: 12px;
+  min-width: 0;
+}
+.customer-goods-controls input,
+.customer-goods-controls select {
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 8px;
+  font: inherit;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.customer-goods-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.customer-goods-table th,
+.customer-goods-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--ui-border);
+  overflow-wrap: anywhere;
+}
+.customer-goods-table th {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.customer-goods-dialog {
+  box-sizing: border-box;
+  margin: auto;
+  width: min(960px, calc(100vw - 32px));
+  max-height: 85vh;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-xl, 12px);
+  padding: 24px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.customer-goods-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+.customer-goods-dialog h3 {
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .customer-goods-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .customer-goods-controls label:first-child {
+    grid-column: 1 / -1;
+  }
+  .customer-goods-table thead {
+    display: none;
+  }
+  .customer-goods-table tr {
+    display: block;
+    border-bottom: 1px solid var(--ui-border);
+    padding: 8px 0;
+  }
+  .customer-goods-table td {
+    display: block;
+    border: 0;
+    padding: 4px 0;
+  }
+  .customer-goods-table td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--ui-muted);
+  }
+  .customer-goods-dialog {
+    padding: 16px;
+  }
+}

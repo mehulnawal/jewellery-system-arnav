@@ -3,6 +3,7 @@ import { runTransaction, setDoc } from "../../firebase/businessWrites.js";
 import InventoryPicker from "./InventoryPicker";
 import { inventoryMatchesSearch } from "../../utils/inventoryRules.js";
 import { normalizeSize } from "../../utils/dimensions.js";
+import { dayKey } from "../../utils/dashboardAnalytics.js";
 import { useMasterPrices } from "../../hooks/useMasterPrices";
 import {
   refreshItemPrice,
@@ -91,7 +92,7 @@ const stageActionLabel = (stage) =>
     3: "Record Payment / Complete",
     4: "Completed",
   })[stage] || "";
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => dayKey(Date.now());
 const pricingFor = (weight, amount, discount) => {
   try {
     return priceWeightedItem(weight, amount, discount);
