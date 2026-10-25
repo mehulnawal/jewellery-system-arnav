@@ -180,6 +180,7 @@ test("same-Size Shape order, Type and physical ID ties are deterministic", () =>
     discoverInventory(rows).matches.map((row) => row.shape),
     [
       "Pan",
+      "Pear",
       "Marquise",
       "Oval",
       "Emerlad",
@@ -190,7 +191,6 @@ test("same-Size Shape order, Type and physical ID ties are deterministic", () =>
       "Taper (Choki)",
       "Buget (Choki)",
       "Trillion",
-      "Pear",
       "Round",
     ],
   );

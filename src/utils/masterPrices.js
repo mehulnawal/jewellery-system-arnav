@@ -5,6 +5,7 @@ import {
   inventoryIdentityErrors,
   sizeMatchesSearch,
 } from "./dimensions.js";
+import { shapeName } from "./shapes.js";
 
 export const MASTER_PRICE_HEADERS = [
   "Type",
@@ -57,14 +58,18 @@ export function masterPriceErrors(row) {
 // Numeric canonicalization lives exclusively in dimensions.js. The explicit
 // width sentinel distinguishes a height-only price from every numeric width.
 export function masterPriceKey({ type, shape, height, size, width }) {
-  const sku = canonicalSku({ type, shape, size: height ?? size });
+  const sku = canonicalSku({
+    type,
+    shape: shapeName(shape),
+    size: height ?? size,
+  });
   if (sku === "--" || widthError(width)) return "";
   const key = `${sku}__${normalizeSize(width) || "default"}`;
   return new TextEncoder().encode(key).length <= 1500 ? key : "";
 }
 export const canonicalMasterPrice = (row) => ({
   type: row.type,
-  shape: row.shape,
+  shape: shapeName(row.shape),
   height: normalizeSize(row.height),
   width: normalizeSize(row.width),
   price: Number(row.price),

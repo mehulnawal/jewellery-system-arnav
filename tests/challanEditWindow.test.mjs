@@ -53,7 +53,7 @@ for (const stage of [2, 3, 4]) {
     assert.equal(canEditChallan(row, staff, now), true);
     assert.equal(canEditChallan(row, admin, now), true);
     assert.equal(canEditChallan(row, staff, now + 29 * 60 * 1000), true);
-    assert.equal(canEditChallan(row, admin, now + 30 * 60 * 1000), false);
+    assert.equal(canEditChallan(row, admin, now + 30 * 60 * 1000), stage === 4);
     assert.equal(canEditChallan(row, staff, now + 30 * 60 * 1000), false);
   });
 }

@@ -119,6 +119,20 @@ async function asRole(page, role) {
   );
   await page.goto("/dashboard/challan");
   await expect(page.locator(".availability-banner")).toHaveCount(0);
+  if (role !== "admin") {
+    const stages = [
+      ...new Set(
+        (await db.collection("challans").get()).docs.map(
+          (doc) => doc.data().stage,
+        ),
+      ),
+    ];
+    if (stages.length === 1)
+      await page
+        .locator(".challan-page nav button")
+        .filter({ hasText: `Stage ${stages[0]}` })
+        .click();
+  }
 }
 const photo = (name, mimeType = "image/png") => ({
   name,
@@ -286,7 +300,14 @@ for (const stage of [1, 2, 3, 4]) {
         .locator(".challan-create-actions")
         .getByRole("button", { name: "Export" }),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "Back to Challans" }).click();
+    if (stage === 4) {
+      await page
+        .getByRole("dialog", { name: "Edit Stage 4 Settlement" })
+        .getByRole("button", { name: "Cancel" })
+        .click();
+    } else {
+      await page.getByRole("button", { name: "Back to Challans" }).click();
+    }
     await page.locator(".challan-row .challan-view-button").click();
     const toolbar = page.locator(".challan-view-toolbar");
     await expect(toolbar.getByRole("button", { name: "Print" })).toBeVisible();
@@ -309,7 +330,7 @@ for (const stage of [1, 2, 3, 4]) {
           1: "Goods Out",
           2: "Return / Sale",
           3: "Final Invoice / Payment Pending",
-          4: "Completed",
+          4: "Settlement",
         }[stage],
     ]);
     expect(XLSX.utils.sheet_to_json(book.Sheets.Items)[0].SKU).toBe(
@@ -339,6 +360,17 @@ for (const stage of [1, 2, 3, 4]) {
     expect(await page.evaluate(() => window.__challanPrintHtml)).toContain(
       "B40/" + stage,
     );
+    expect(
+      await page.evaluate(() => {
+        const html = new DOMParser().parseFromString(
+          window.__challanPrintHtml,
+          "text/html",
+        );
+        return [...html.querySelectorAll(".copy")].map((copy) =>
+          copy.querySelector(".copy-ending .signature")?.textContent.trim(),
+        );
+      }),
+    ).toEqual(["Customer Signature", "Customer Signature"]);
   });
 }
 
@@ -374,6 +406,10 @@ for (const stage of [2, 3, 4]) {
         page.locator(".challan-row .challan-edit-timer"),
       ).toContainText("Edit available:");
       await page.reload();
+      await page
+        .locator(".challan-page nav button")
+        .filter({ hasText: `Stage ${stage}` })
+        .click();
       await expect(page.locator(".challan-row .challan-edit")).toBeVisible();
       await db.doc("challans/" + id).update({
         ["stageHistory.stage" + stage + ".enteredAt"]: Timestamp.fromMillis(
@@ -451,7 +487,7 @@ test("Final Settlement recalculates blank discount and exact remaining while typ
   });
   await paid.fill("900");
   await expect(remaining).toContainText("₹100.00");
-  await expect(complete).toBeDisabled();
+  await expect(complete).toBeEnabled();
   await discount.fill("100");
   await expect(remaining).toContainText("₹0.00");
   await expect(complete).toBeEnabled();
@@ -462,7 +498,9 @@ test("Final Settlement recalculates blank discount and exact remaining while typ
   await expect(discount).toHaveValue("");
   await expect(complete).toBeEnabled();
   await discount.fill("50");
-  await expect(remaining).toContainText("₹-50.00");
+  await expect(modal.locator(".stage-two-error")).toContainText(
+    "cannot exceed the outstanding amount",
+  );
   await expect(complete).toBeDisabled();
   await discount.fill("");
   await expect(remaining).toContainText("₹0.00");
@@ -590,9 +628,20 @@ for (const [name, movement, expected] of [
       await expect
         .poll(() => page.evaluate(() => window.__challanPrinted))
         .toBe(true);
-      expect(await page.evaluate(() => window.__challanPrintHtml)).toContain(
-        "Final Invoice Amount: &#8377;" + expected.toFixed(2),
-      );
+      expect(
+        await page.evaluate(() => {
+          const printed = new DOMParser().parseFromString(
+            window.__challanPrintHtml,
+            "text/html",
+          );
+          return [...printed.querySelectorAll(".copy tfoot tr")].map((row) =>
+            row.lastElementChild.textContent.trim(),
+          );
+        }),
+      ).toEqual([
+        "₹" + Math.ceil(expected).toLocaleString("en-IN"),
+        "₹" + Math.ceil(expected).toLocaleString("en-IN"),
+      ]);
       if (name === "partial") {
         await toolbar.getByRole("button", { name: "Back to Challans" }).click();
         await page.locator(".challan-row .challan-workflow-button").click();
@@ -901,6 +950,7 @@ test("weight-only Stage 2 delete restores sold Weight and keeps Pieces at zero",
   });
   await expect(modal).toContainText("0 pcs / 3.000 ct");
   await modal.getByRole("button", { name: "Delete Challan" }).click();
+  await expect(modal).not.toBeVisible();
   const stock = (await db.doc("inventory/stock").get()).data();
   expect(stock.pieces).toBe(0);
   expect(stock.weight).toBe(5);

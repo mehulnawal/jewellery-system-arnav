@@ -1257,11 +1257,27 @@ html[data-theme="dark"] .challan-aging-badge.red {
 .final-invoice-modal .stage-two-row {
   grid-template-columns: minmax(180px, 1.35fr) repeat(6, minmax(125px, 0.85fr));
 }
+.final-invoice-modal .stage-two-head > span:first-child {
+  justify-content: flex-start;
+  text-align: left;
+}
+.final-invoice-modal .stage-two-row > * {
+  min-width: 0;
+}
+.final-invoice-modal .stage-two-row > span {
+  justify-content: center;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.final-invoice-modal .stage-two-row input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .final-invoice-modal .stage-two-totals {
   background: var(--ui-surface-subtle, #f8fafc);
   border: 1px solid var(--ui-border, #dfe4e8);
   border-radius: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   margin: 20px 24px;
 }
 .final-invoice-modal .stage-two-totals > * {
@@ -1278,8 +1294,37 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-left: 1px solid var(--ui-border, #dfe4e8);
 }
 .final-invoice-modal .stage-two-totals small {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   color: var(--ui-muted, #64748b);
   font-size: 11px;
+  padding: 0;
+}
+.final-invoice-modal .stage-two-totals {
+  overflow: hidden;
+}
+.final-invoice-modal .final-invoice-total-value {
+  line-height: 1.4;
+}
+.final-invoice-modal .final-invoice-total-value.is-pending {
+  color: var(--ui-muted, #64748b);
+  font-size: 16px;
+  font-weight: 500;
+}
+.final-invoice-modal .stage-two-row > label {
+  align-content: center;
+  gap: 6px;
+}
+.final-invoice-modal .stage-two-row .final-invoice-amount-hint {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--ui-muted, #64748b);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 0;
 }
 .final-invoice-modal .stage-two-totals > :last-child {
   font-size: 22px;
@@ -1390,8 +1435,12 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-left: 1px solid var(--ui-border, #dfe4e8);
 }
 .settlement-modal .settlement-summary-grid small {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   color: var(--ui-muted, #64748b);
   font-size: 10px;
+  padding: 0;
 }
 .settlement-modal .settlement-summary-grid > :last-child {
   color: var(--ui-emerald, #15803d);
@@ -3657,10 +3706,6 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   min-width: 1490px;
 }
 
-.final-invoice-modal .stage-two-head,
-.final-invoice-modal .stage-two-row {
-  grid-template-columns: minmax(180px, 1.35fr) repeat(8, minmax(125px, 0.85fr));
-}
 .challan-import-file {
   display: none;
 }
@@ -4268,3 +4313,109 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
     font-size: 11px;
   }
 }
+.stage-two-movement-modal .stage-two-row > *,
+.stage-two-movement-modal .stage-two-totals > * {
+  justify-content: center;
+  text-align: center;
+}
+.stage-two-movement-modal .stage-two-row > b {
+  justify-content: start;
+  text-align: left;
+}
+.stage-two-movement-modal .stage-two-totals strong {
+  display: flex;
+}
+.stage-two-movement-modal .stage-two-totals {
+  align-items: stretch;
+}
+.stage-two-movement-modal .stage-two-head,
+.stage-two-movement-modal .stage-two-row,
+.stage-two-movement-modal .stage-two-totals {
+  grid-template-columns: 1.35fr 0.85fr 0.8fr 0.9fr 0.9fr 0.95fr 0.8fr 0.9fr 1fr 0.75fr;
+}
+.stage-two-movement-modal .stage-two-row small {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+.stage-two-prices-modal {
+  max-width: 680px;
+}
+.stage-two-price-note {
+  margin: 16px 24px;
+  color: var(--ui-muted);
+}
+.stage-two-price-fields {
+  display: grid;
+  gap: 12px;
+  margin: 16px 24px;
+}
+.stage-two-price-fields label {
+  display: grid;
+  gap: 6px;
+}
+.stage-two-price-fields input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+}
+.settlement-previous-payment {
+  margin: 12px 26px;
+  color: var(--ui-muted);
+  font-size: 13px;
+}
+.settlement-payment-history {
+  margin: 16px 26px;
+}
+.settlement-payment-history h4 {
+  margin: 0 0 8px;
+}
+.settlement-payment-history-table {
+  overflow-x: auto;
+}
+.settlement-payment-history table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.settlement-payment-history th,
+.settlement-payment-history td {
+  border-bottom: 1px solid var(--ui-border);
+  padding: 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+.settlement-payment-history th {
+  color: var(--ui-muted);
+}
+
+.challan-view-stage-four .challan-outstanding-cell {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--ui-border);
+  border-left: 0;
+  background: var(--ui-surface);
+}
+.challan-view-stage-four .challan-outstanding-cell .challan-financial-value,
+.challan-row .challan-payment-status {
+  color: var(--ui-text);
+  font-weight: 700;
+}
+.stage-four-edit-body { padding: 20px 26px; }
+.stage-two-modal.stage-four-edit-modal { display: flex; flex-direction: column; overflow: hidden; }
+.stage-four-edit-modal > header { flex-shrink: 0; }
+.stage-four-edit-modal form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.stage-four-edit-modal .stage-four-edit-body { min-height: 0; overflow-y: auto; }
+.stage-four-edit-modal form > footer { display: flex; flex-shrink: 0; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--ui-border); }
+.stage-four-edit-modal form > footer button { border: 1px solid var(--ui-border); border-radius: 8px; padding: 10px 14px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer; }
+.stage-four-edit-modal form > footer button.primary { background: #2563eb; border-color: #2563eb; color: white; }
+.stage-four-edit-body > p { color: var(--ui-muted); }
+.stage-four-edit-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.stage-four-edit-fields label { display: grid; gap: 7px; }
+.stage-four-edit-fields input { width: 100%; min-width: 0; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface); color: var(--ui-text); padding: 12px; }
+.stage-four-edit-balance { margin: 18px 0; padding: 14px; border: 1px solid var(--ui-border); border-radius: 8px; font-weight: 700; }
+.challan-clear-payment-filters { min-height: 40px; padding: 8px 12px; border: 1px solid var(--ui-border); border-radius: 7px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer; }
+.settlement-corrections { font-size: 12px; color: var(--ui-muted); overflow-wrap: anywhere; }
+@media (max-width: 520px) { .stage-four-edit-fields { grid-template-columns: minmax(0, 1fr); } .stage-four-edit-body { padding: 14px; } }

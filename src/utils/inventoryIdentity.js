@@ -1,6 +1,7 @@
 import { runTransaction } from "../firebase/businessWrites.js";
 import { doc } from "firebase/firestore";
 import { canonicalSku, normalizeSize } from "./dimensions.js";
+import { shapeName } from "./shapes.js";
 
 // Read all claims before any writes. Firestore retries concurrent claimants;
 // rules require the claim and the Inventory write to agree atomically.
@@ -97,6 +98,13 @@ export async function saveInventoryIdentity(db, ref, payload, edit = false) {
       : await prepareInventoryClaims(tx, db, [{ ...canonical, id: ref.id }]);
     release();
     claim();
+    const shape = shapeName(canonical.shape);
+    if (shape && shape.toLowerCase() !== "heart")
+      tx.set(
+        doc(db, "shapes", encodeURIComponent(shape)),
+        { value: shape },
+        { merge: true },
+      );
     tx.set(
       ref,
       sameIdentity

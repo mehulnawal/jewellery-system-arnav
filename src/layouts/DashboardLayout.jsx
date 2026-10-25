@@ -124,6 +124,7 @@ const operations = [
       "challan-stage-4",
     ],
   },
+  { label: "Order List", to: "/dashboard/order-list", icon: "challan" },
 ];
 const reportLinks = [
   { label: "Activity Log", to: "/dashboard/activity-log", icon: "activity" },

@@ -1,9 +1,14 @@
 import "../src/index.css";
 import { createRoot } from "react-dom/client";
+import { useState } from "react";
+import { recordSettlementPayment } from "../src/utils/settlementPayments.js";
+import { buildChallanPrint } from "../src/utils/challanPrint.js";
+import StageTwoPricesModal from "../src/modules/challan/StageTwoPricesModal.jsx";
 import {
   StageTwoModal,
   FinalInvoiceModal,
   FinalSettlementModal,
+  SettlementPaymentHistory,
   ChallanDeleteModal,
   StageOneView,
   StageTwoView,
@@ -81,6 +86,49 @@ const settlementRecord = {
   stage: 3,
   finalInvoice: { finalInvoiceAmount: 1000 },
 };
+function PartialPaymentHarness() {
+  const [current, setCurrent] = useState({
+    ...settlementRecord,
+    number: "A1/1",
+    party: "Rohan",
+    finalInvoice: { finalInvoiceAmount: 15000 },
+  });
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="challan-page">
+      <output aria-label="Current Stage">Stage {current.stage}</output>
+      <output aria-label="Saved Outstanding">
+        ₹{current.paymentSummary?.remaining ?? 15000}
+      </output>
+      {(current.stage === 3 || current.paymentSummary?.remaining > 0) && (
+        <button onClick={() => setOpen(true)}>Record Next Payment</button>
+      )}
+      <SettlementPaymentHistory record={current} />
+      {open && (
+        <FinalSettlementModal
+          record={current}
+          onClose={() => setOpen(false)}
+          onConfirm={async (paid, discount, id) => {
+            const next = {
+              ...current,
+              ...recordSettlementPayment(
+                current,
+                paid,
+                discount,
+                id,
+                Date.now(),
+                { uid: "admin", accessId: "Admin", role: "superadmin" },
+              ),
+            };
+            window.__paymentRecord = next;
+            setCurrent(next);
+            setOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
 const savedInvoice = {
   items: [
     {
@@ -309,6 +357,18 @@ const modal = mode?.startsWith("bulk-review") ? (
       }}
     />
   </>
+) : mode === "view-partial-payment" ? (
+  <StageFourView
+    items={savedInvoice.items}
+    invoice={{ ...savedInvoice, finalInvoiceAmount: 15000 }}
+    settlement={{
+      amountPaid: 10000,
+      settlementDiscountAmount: 0,
+      actualReceivedAmount: 10000,
+      remaining: 5000,
+      completedAtMs: Date.now(),
+    }}
+  />
 ) : mode === "views-new" ? (
   <>
     <StageThreeView invoice={savedManualInvoice} />
@@ -335,23 +395,69 @@ const modal = mode?.startsWith("bulk-review") ? (
       }}
     />
   </>
-) : mode?.startsWith("invoice") ? (
-  <FinalInvoiceModal
+) : mode?.startsWith("print") ? (
+  <iframe
+    title="Challan print"
+    srcDoc={buildChallanPrint({
+      ...record,
+      items: Array.from({ length: mode === "print-many" ? 45 : 1 }, (_, i) => ({
+        ...weightedItem,
+        sku: "SKU_" + i,
+      })),
+      stage: mode === "print-stage4" ? 4 : 1,
+      notes:
+        mode === "print-many"
+          ? "Customer note with long details\n".repeat(45)
+          : "",
+      ...(mode === "print-stage4"
+        ? {
+            finalInvoice: {
+              finalInvoiceAmount: 5000,
+              items: [{ ...weightedItem, weight: 5, discount: 0, discountAmount: 0, grossAmount: 5000, netAmount: 5000,
+                issuedPieces: 0, issuedWeight: 5, returnPieces: 0, returnWeight: 0, soldPieces: 0, soldWeight: 5,
+                stage1GrossAmount: 5000, stage1DiscountPercent: 0, stage1DiscountAmount: 0, stage1NetAmount: 5000, finalAmount: 5000 }],
+            },
+            finalSettlement: {
+              amountPaid: 3000,
+              settlementDiscountAmount: 350,
+              remaining: 0,
+            },
+          }
+        : {}),
+    })}
+    style={{ width: "100%", height: "1500px", border: 0 }}
+  />
+) : mode === "stage2-prices" ? (
+  <StageTwoPricesModal
     record={invoiceRecord}
     onClose={() => {}}
-    canEnterPartial={mode !== "invoice-staff"}
-    onConfirm={async (amounts) => {
-      window.__invoiceConfirmed = amounts;
+    onConfirm={async (prices) => {
+      window.__stage2Prices = prices;
     }}
   />
+) : mode?.startsWith("invoice") ? (
+  <div className="challan-page">
+    <FinalInvoiceModal
+      record={invoiceRecord}
+      onClose={() => {}}
+      canEnterPartial={mode !== "invoice-staff"}
+      onConfirm={async (amounts) => {
+        window.__invoiceConfirmed = amounts;
+      }}
+    />
+  </div>
+) : mode === "settlement-partial" ? (
+  <PartialPaymentHarness />
 ) : mode === "settlement" ? (
-  <FinalSettlementModal
-    record={settlementRecord}
-    onClose={() => {}}
-    onConfirm={async (paid, discount) => {
-      window.__settlement = { paid, discount };
-    }}
-  />
+  <div className="challan-page">
+    <FinalSettlementModal
+      record={settlementRecord}
+      onClose={() => {}}
+      onConfirm={async (paid, discount) => {
+        window.__settlement = { paid, discount };
+      }}
+    />
+  </div>
 ) : (
   <StageTwoModal
     record={returnRecord}

@@ -41,6 +41,7 @@ import {
   normalizeBox,
   normalizeSize,
   orderShapes,
+  shapeName,
   sizeSortValue,
 } from "../../utils/inventoryRules";
 import "./inventory.css";
@@ -150,7 +151,7 @@ async function excel(rows) {
   const XLSX = await import("xlsx");
   const sheet = XLSX.utils.json_to_sheet(
     rows.map((item) => ({
-      Shape: item.shape,
+      Shape: shapeName(item.shape),
       Type: item.type,
       "Weight (ct)": formatDecimal(item.weight),
       "Size (mm)": normalizeSize(item.size),
@@ -190,7 +191,14 @@ function Picker({
       >
         <option value="">Select {label.toLowerCase()}</option>
         {options.map((option) => (
-          <option key={option}>{option}</option>
+          <option
+            key={option}
+            value={
+              label === "Shape" && shapeName(value) === option ? value : option
+            }
+          >
+            {option}
+          </option>
         ))}
       </select>
       {error && <small className="inventory-field-error">{error}</small>}
@@ -586,7 +594,7 @@ function ImportPreview({ rows, onClose, onImport }) {
         <tbody>
           {entries.map((row) => (
             <tr key={row.index}>
-              <td>{row.shape}</td>
+              <td>{shapeName(row.shape)}</td>
               <td>{row.type}</td>
               <td>{row.weight}</td>
               <td>{normalizeSize(row.size)}</td>
@@ -841,10 +849,10 @@ export default function Inventory() {
     () =>
       Object.values(
         filtered.reduce((all, item) => {
-          const key = `${item.shape}__${item.type}`;
+          const key = `${shapeName(item.shape)}__${item.type}`;
           (all[key] ??= {
             key,
-            shape: item.shape,
+            shape: shapeName(item.shape),
             type: item.type,
             items: [],
           }).items.push(item);
@@ -1242,7 +1250,7 @@ export default function Inventory() {
             .map((item) => (
               <tr key={item.id}>
                 <td>{item.type}</td>
-                <td>{item.shape}</td>
+                <td>{shapeName(item.shape)}</td>
                 <td>{normalizeSize(item.size)}</td>
                 <td>{formatDecimal(item.weight)}</td>
                 <td>{age(item)}d</td>
@@ -1360,7 +1368,7 @@ function Group({
             <td>
               <Type value={item.type} />
             </td>
-            <td>{item.shape}</td>
+            <td>{shapeName(item.shape)}</td>
             <td>{normalizeSize(item.size)} mm</td>
             <td>
               <b>{formatDecimal(item.weight)} ct</b>

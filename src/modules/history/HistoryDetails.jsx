@@ -1,4 +1,6 @@
+import { settlementForRecord } from "../../utils/challanCalculations.js";
 import { normalizeSize } from "../../utils/dimensions.js";
+import { shapeName } from "../../utils/shapes.js";
 import { useEffect } from "react";
 import {
   StageFourView,
@@ -90,7 +92,7 @@ export function PurchaseHistoryDetails({ record, onClose }) {
               {(record.items || []).map((item, index) => (
                 <tr key={item.id || index}>
                   <td>{item.type || "--"}</td>
-                  <td>{item.shape || "--"}</td>
+                  <td>{shapeName(item.shape) || "--"}</td>
                   <td>{normalizeSize(item.size) || "--"}</td>
                   <td>{formatWeight(item.weight)}</td>
                   <td>{item.pieces ?? "--"}</td>
@@ -153,7 +155,7 @@ export function ChallanHistoryDetails({ record, onClose }) {
         <StageFourView
           items={stageFourItems}
           invoice={invoice}
-          settlement={record.finalSettlement}
+          settlement={settlementForRecord(record)}
         />
       )}
       <section className="history-detail-notes">

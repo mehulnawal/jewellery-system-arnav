@@ -15,6 +15,7 @@ export const setBusinessGeneration = (value) => {
   generation = Number(value || 0);
 };
 const dataCollections = new Set([
+  "orderList",
   "inventory",
   "purchases",
   "challans",

@@ -1,7 +1,21 @@
 import { useInventoryDiscovery } from "../../hooks/useInventoryDiscovery.js";
 import { runTransaction, setDoc } from "../../firebase/businessWrites.js";
 import InventoryPicker from "./InventoryPicker";
-import { inventoryMatchesSearch } from "../../utils/inventoryRules.js";
+import {
+  inventoryMatchesSearch,
+  shapeName,
+} from "../../utils/inventoryRules.js";
+import StageFourSettlementModal from "./StageFourSettlementModal.jsx";
+import StageTwoPricesModal from "./StageTwoPricesModal.jsx";
+import { buildChallanPrint } from "../../utils/challanPrint.js";
+import {
+  paymentProgress,
+  recordSettlementPayment,
+  correctSettlement,
+  initializeSettlement,
+  settlementOutstanding,
+  settlementStatus,
+} from "../../utils/settlementPayments.js";
 import { normalizeSize } from "../../utils/dimensions.js";
 import { dayKey } from "../../utils/dashboardAnalytics.js";
 import { useMasterPrices } from "../../hooks/useMasterPrices";
@@ -19,6 +33,8 @@ import {
   doc,
   getDocFromServer,
   onSnapshot,
+  query,
+  where,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../firebase/config";
@@ -37,9 +53,12 @@ import {
   stageOneFinancials,
   savableStageOneRows,
   WEIGHT_RATE_PRICING,
-  settlementFor,
   stageOneTotals,
   stageTwoTotals,
+  stageTwoPriceItem,
+  stageTwoPricedItems,
+  settlementForRecord,
+  matchesSettlementFilter,
   strictMoney,
   updateReturnRows,
   weightMillis,
@@ -83,7 +102,7 @@ const STAGES = {
   1: "Goods Out",
   2: "Return / Sale",
   3: "Final Invoice / Payment Pending",
-  4: "Completed",
+  4: "Settlement",
 };
 const stageActionLabel = (stage) =>
   ({
@@ -225,7 +244,7 @@ const historicalItemsFor = (record) => {
   if (stage >= 3 && Array.isArray(record.finalInvoice?.items))
     return record.finalInvoice.items;
   if (stage >= 2 && Array.isArray(record.stage2Return?.items))
-    return record.stage2Return.items;
+    return stageTwoPricedItems(record);
   return record.items || [];
 };
 const challanSnapshot = (record) => ({
@@ -447,6 +466,7 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
       id: item.id || item.sku,
       returnPieces: "",
       returnWeight: "",
+      price: String(item.amount ?? ""),
     })),
   );
   const rowsRef = useRef(rows);
@@ -456,6 +476,12 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
   const issuedPieces = (item) => pieceValue(item.pieces);
   const issuedWeight = (item) => normalizeWeight(item.weight || 0);
   const update = (id, key, value) => {
+    if (key === "price") {
+      rowsRef.current = updateReturnRows(rowsRef.current, id, key, value);
+      setRows((current) => updateReturnRows(current, id, key, value));
+      setErrors((current) => ({ ...current, [id + key]: "" }));
+      return;
+    }
     if (key === "returnPieces" && !/^\d*$/.test(value)) return;
     if (key === "returnWeight" && !/^\d*(?:\.\d*)?$/.test(value)) return;
     const item = record.items.find((entry) => (entry.id || entry.sku) === id);
@@ -490,6 +516,11 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
         weight = issuedWeight(item),
         rp = row.returnPieces,
         rw = row.returnWeight;
+      try {
+        strictMoney(row.price, "Price / Carat");
+      } catch (reason) {
+        next[row.id + "price"] = reason.message;
+      }
       if (!isWholePieces(rp) || pieceValue(rp) > pieces)
         next[row.id + "returnPieces"] = "Enter 0 to " + pieces;
       if (
@@ -540,7 +571,7 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
     >
       {" "}
       <section
-        className="stage-two-modal"
+        className="stage-two-modal stage-two-movement-modal"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {" "}
@@ -623,7 +654,9 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
                 <div className="stage-two-row" key={item.id || item.sku}>
                   {" "}
                   <b>{item.sku}</b>{" "}
-                  <span className="divider">{item.shape || "-"}</span>{" "}
+                  <span className="divider">
+                    {shapeName(item.shape) || "-"}
+                  </span>{" "}
                   <span>{pieces}</span>{" "}
                   <span className="divider">{weight.toFixed(3)}</span>{" "}
                   <label
@@ -665,42 +698,41 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
                   <span className="divider">
                     {movement ? weightText(movement.soldWeight) : "--"}
                   </span>{" "}
-                  <span>{viewCurrency(item.amount)}</span>{" "}
+                  <label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      aria-label={`${item.sku} Price / Carat`}
+                      value={row.price}
+                      onChange={(event) =>
+                        update(row.id, "price", event.target.value)
+                      }
+                    />
+                    {errors[row.id + "price"] && (
+                      <small>{errors[row.id + "price"]}</small>
+                    )}
+                  </label>{" "}
                   <span>{viewPercent(item.discount)}</span>{" "}
                 </div>
               );
             })}{" "}
             <div className="stage-two-totals">
               {" "}
-              <span /> <span className="divider" />{" "}
-              <strong>
-                {" "}
-                <small>Total Issued Pieces</small>{" "}
-                {totals ? totals.issuedPieces : "--"}{" "}
-              </strong>{" "}
+              <span /> <strong className="divider">TOTAL</strong>{" "}
+              <strong> {totals ? totals.issuedPieces : "--"} </strong>{" "}
               <strong className="divider">
                 {" "}
-                <small>Total Issued Weight</small>{" "}
                 {totals ? weightText(totals.issuedWeight) : "--"}{" "}
               </strong>{" "}
-              <strong>
-                {" "}
-                <small>Total Return Pieces</small>{" "}
-                {totals ? totals.returnPieces : "--"}{" "}
-              </strong>{" "}
+              <strong> {totals ? totals.returnPieces : "--"} </strong>{" "}
               <strong className="divider">
                 {" "}
-                <small>Total Return Weight</small>{" "}
                 {totals ? weightText(totals.returnWeight) : "--"}{" "}
               </strong>{" "}
-              <strong>
-                {" "}
-                <small>Total Sold Pieces</small>{" "}
-                {totals ? totals.soldPieces : "--"}{" "}
-              </strong>{" "}
+              <strong> {totals ? totals.soldPieces : "--"} </strong>{" "}
               <strong className="divider">
                 {" "}
-                <small>Total Sold Weight</small>{" "}
                 {totals ? weightText(totals.soldWeight) : "--"}{" "}
               </strong>{" "}
               <span /> <span />{" "}
@@ -833,9 +865,7 @@ export const FinalInvoiceModal = ({
               <span>RETURN</span>
               <span>SOLD / KEPT</span>
               <span>PRICE / CARAT</span>
-              <span>STAGE 1 NET AMOUNT</span>
-              <span>STAGE 1 DISCOUNT</span>
-              <span>STAGE 1 NET AFTER DISCOUNT</span>
+              <span>DISCOUNT</span>
               <span>FINAL BILLED AMOUNT</span>
             </div>
             {rows.map((item, index) => (
@@ -851,7 +881,7 @@ export const FinalInvoiceModal = ({
                 <b>
                   {item.sku}
                   <small>
-                    {item.type || "--"} · {item.shape || "--"} ·{" "}
+                    {item.type || "--"} · {shapeName(item.shape) || "--"} ·{" "}
                     {normalizeSize(item.size) || "--"}
                   </small>
                 </b>
@@ -865,12 +895,7 @@ export const FinalInvoiceModal = ({
                   {item.soldPieces} pcs / {weightText(item.soldWeight)} ct
                 </span>
                 <span>₹{moneyText(item.amount)}</span>
-                <span>₹{moneyText(item.stage1GrossAmount)}</span>
-                <span>
-                  {item.stage1DiscountPercent}% (₹
-                  {moneyText(item.stage1DiscountAmount)})
-                </span>
-                <span>₹{moneyText(item.stage1NetAmount)}</span>
+                <span>{item.stage1DiscountPercent}%</span>
                 {item.billingMode === "partial-return" ? (
                   canEnterPartial ? (
                     <label>
@@ -891,7 +916,7 @@ export const FinalInvoiceModal = ({
                           setError("");
                         }}
                       />
-                      <small>
+                      <small className="final-invoice-amount-hint">
                         Admin amount, up to ₹{moneyText(item.stage1NetAmount)}
                       </small>
                     </label>
@@ -903,8 +928,7 @@ export const FinalInvoiceModal = ({
                     ₹
                     {item.billingMode === "full-return"
                       ? "0.00"
-                      : moneyText(item.stage1NetAmount)}{" "}
-                    (locked)
+                      : moneyText(item.stage1NetAmount)}
                   </span>
                 )}
               </div>
@@ -913,18 +937,19 @@ export const FinalInvoiceModal = ({
         </div>
         <div className="stage-two-totals">
           <strong>
-            <small>Stage 1 Net Amount</small>₹
-            {moneyText(invoice?.grossAmount ?? record.amount)}
-          </strong>
-          <strong>
-            <small>Stage 1 Net Amount After Discount</small>₹
-            {moneyText(invoice?.stage1NetAmount ?? record.netAmount)}
-          </strong>
-          <strong>
             <small>Final Invoice Amount</small>
-            {invoice
-              ? "₹" + invoice.finalInvoiceAmount.toFixed(2)
-              : "Pending valid partial amount"}
+            <span
+              className={
+                invoice
+                  ? "final-invoice-total-value"
+                  : "final-invoice-total-value is-pending"
+              }
+              aria-live="polite"
+            >
+              {invoice
+                ? "₹" + invoice.finalInvoiceAmount.toFixed(2)
+                : "Enter billed amount to calculate total"}
+            </span>
           </strong>
         </div>
         {hasPartial && !canEnterPartial && (
@@ -958,31 +983,37 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
     [discount, setDiscount] = useState(""),
     [error, setError] = useState(""),
     [saving, setSaving] = useState(false);
-  const finalInvoiceAmount = money(record.finalInvoice?.finalInvoiceAmount);
+  const paymentId = useRef(crypto.randomUUID());
+  const finalInvoiceAmount = money(
+    record.finalInvoice?.finalInvoiceAmount ??
+      record.finalSettlement?.finalInvoiceAmount,
+  );
   let calculation = null;
+  let previous = null;
   let inputError = "";
   try {
-    calculation = settlementFor(
-      finalInvoiceAmount,
-      paid === "" ? "0" : paid,
-      discount,
-    );
+    previous = paymentProgress(record);
+    calculation = paymentProgress(record, paid, discount);
   } catch (reason) {
     inputError = reason.message;
   }
-  const remaining = calculation?.remaining ?? finalInvoiceAmount;
+  const remaining =
+    calculation?.remaining ?? previous?.remaining ?? finalInvoiceAmount;
   const canComplete = Boolean(
-    paid !== "" && calculation && calculation.remaining === 0,
+    (paid !== "" || discount !== "") &&
+    calculation &&
+    (calculation.currentPayment + calculation.currentDiscount > 0 ||
+      calculation.remaining === 0),
   );
   const submit = async () => {
     if (!canComplete)
       return setError(
-        inputError ||
-          "Amount Paid plus Discount Amount must equal the Final Invoice Amount exactly.",
+        inputError || "Enter a valid payment or discount amount.",
       );
+    if (saving) return;
     setSaving(true);
     try {
-      await onConfirm(paid, discount);
+      await onConfirm(paid || "0", discount, paymentId.current);
     } catch (reason) {
       setError(reason.message || "Could not complete settlement.");
       setSaving(false);
@@ -994,7 +1025,7 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
       role="dialog"
       aria-modal="true"
       aria-label="Final Settlement"
-      onMouseDown={onClose}
+      onMouseDown={saving ? undefined : onClose}
     >
       <section
         className="stage-two-modal settlement-modal"
@@ -1011,6 +1042,7 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
             type="button"
             className="stage-two-close"
             onClick={onClose}
+            disabled={saving}
             aria-label="Close"
           >
             ×
@@ -1023,6 +1055,7 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
         <div className="settlement-input-grid">
           <label className="stage-two-notes">
             Amount Paid by Customer
+            {previous?.previousPaid > 0 ? " (this payment)" : ""}
             <input
               type="number"
               min="0"
@@ -1063,9 +1096,17 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
               : "0.00"}
           </strong>
           <strong>
-            <small>Remaining</small>₹{remaining.toFixed(2)}
+            <small>Outstanding Amount</small>₹{remaining.toFixed(2)}
           </strong>
         </div>
+        {previous && previous.previousPaid + previous.previousDiscount > 0 && (
+          <p className="settlement-previous-payment">
+            Already paid: ₹{previous.previousPaid.toFixed(2)} · Previous
+            discount: ₹{previous.previousDiscount.toFixed(2)} · Outstanding
+            before this payment: ₹{previous.remaining.toFixed(2)}
+          </p>
+        )}
+        <SettlementPaymentHistory record={record} />
         {(error || inputError) && (
           <p className="stage-two-error">{error || inputError}</p>
         )}
@@ -1076,9 +1117,9 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
             disabled={saving || !canComplete}
             onClick={submit}
           >
-            {saving ? "Completing..." : "Record Payment / Complete"}
+            {saving ? "Saving Payment..." : "Record Payment / Complete"}
           </button>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose} disabled={saving}>
             Cancel
           </button>
         </footer>
@@ -1086,6 +1127,77 @@ export const FinalSettlementModal = ({ record, onClose, onConfirm }) => {
     </div>
   );
 };
+export function SettlementPaymentHistory({ record }) {
+  if (
+    !record.settlementPayments?.length &&
+    !record.settlementCorrections?.length &&
+    !record.settlementOpening &&
+    !record.finalSettlement
+  )
+    return null;
+  return (
+    <section
+      className="settlement-payment-history"
+      aria-label="Payment History"
+    >
+      <h4>Payment History</h4>
+      {(record.settlementOpening ||
+        (!record.settlementPayments && record.finalSettlement)) && (
+        <p>
+          Historical carry-forward (not an individual receipt): Paid ₹
+          {Number(
+            record.settlementOpening?.amountPaid ??
+              record.finalSettlement?.amountPaid ??
+              0,
+          ).toFixed(2)}{" "}
+          · Discount ₹
+          {Number(
+            record.settlementOpening?.settlementDiscountAmount ??
+              record.finalSettlement?.settlementDiscountAmount ??
+              0,
+          ).toFixed(2)}
+        </p>
+      )}
+      {record.settlementCorrections?.length > 0 && (
+        <div className="settlement-corrections">
+          <h5>Settlement Corrections</h5>
+          {record.settlementCorrections.map((entry) => (
+            <p key={entry.id}>
+              {new Date(entry.eventAtMs).toLocaleString("en-IN")} · Paid
+              adjustment ₹{(entry.paidDeltaCents / 100).toFixed(2)} · Discount
+              adjustment ₹{(entry.discountDeltaCents / 100).toFixed(2)} ·{" "}
+              {entry.actor?.accessId || entry.actor?.uid}
+            </p>
+          ))}
+        </div>
+      )}
+      <div className="settlement-payment-history-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Payment</th>
+              <th>Discount</th>
+              <th>Recorded By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(record.settlementPayments || []).map((entry) => (
+              <tr key={entry.id}>
+                <td>{new Date(entry.eventAtMs).toLocaleString("en-IN")}</td>
+                <td>₹{Number(entry.amountPaid).toFixed(2)}</td>
+                <td>₹{Number(entry.discountAmount).toFixed(2)}</td>
+                <td>
+                  {entry.actor?.accessId || entry.actor?.uid || "Unknown"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 const LegacyInvoiceUnavailableModal = ({ record, onClose }) => {
   usePageFreeze();
   return (
@@ -1255,7 +1367,7 @@ export const StageOneView = ({ items }) => (
         {items.map((item, index) => (
           <tr key={item.id || item.sku || index}>
             <td>{item.sku || "--"}</td>
-            <td>{item.shape || "--"}</td>
+            <td>{shapeName(item.shape) || "--"}</td>
             <td>{normalizeSize(item.size) || "--"}</td>
             <td>{normalizeSize(item.width) || "--"}</td>
             <td>{viewPieces(item.pieces)}</td>
@@ -1320,7 +1432,7 @@ export const StageTwoView = ({ items }) => (
           {items.map((item, index) => (
             <tr key={item.id || item.sku || index}>
               <td>{item.sku || "--"}</td>
-              <td>{item.shape || "--"}</td>
+              <td>{shapeName(item.shape) || "--"}</td>
               <td>{normalizeSize(item.size) || "--"}</td>
               <td>{normalizeSize(item.width) || "--"}</td>
               <td>{viewPieces(item.issuedPieces)}</td>
@@ -1409,7 +1521,7 @@ export const StageThreeView = ({ invoice }) => {
             {items.map((item, index) => (
               <tr key={item.id || item.sku || index}>
                 <td>{item.sku || "--"}</td>
-                <td>{item.shape || "--"}</td>
+                <td>{shapeName(item.shape) || "--"}</td>
                 <td>{normalizeSize(item.size) || "--"}</td>
                 <td>{normalizeSize(item.width) || "--"}</td>
                 <td>{soldKeptText(item)}</td>
@@ -1438,120 +1550,133 @@ export const StageThreeView = ({ invoice }) => {
     </article>
   );
 };
-export const StageFourView = ({ items, invoice, settlement }) => (
-  <article className="challan-view-card challan-view-items challan-view-stage-four">
-    <h2>Complete Challan History</h2>
-    {items.length ? (
-      <ViewTable>
-        <thead>
-          <tr>
-            <th>SKU / Item</th>
-            <th>Shape</th>
-            <th>Size</th>
-            <th>Width</th>
-            <th>Issued Pieces</th>
-            <th>Issued Weight</th>
-            <th>Return Pieces</th>
-            <th>Return Weight</th>
-            <th>Sold / Kept Pieces</th>
-            <th>Sold / Kept Weight</th>
-            <th>
-              {hasWeightedPricing(items) ? "Price / Carat" : "Original Price"}
-            </th>
-            <th>
-              {hasWeightedPricing(items)
-                ? "Stage 1 Net Amount"
-                : "Original Stage 1 Amount"}
-            </th>
-            <th>Stage 1 Net Amount After Discount</th>
-            <th>Stage 1 Discount</th>
-            <th>Discount Amount</th>
-            <th>Final Billed Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => (
-            <tr key={item.id || item.sku || index}>
-              <td>{item.sku || "--"}</td>
-              <td>{item.shape || "--"}</td>
-              <td>{normalizeSize(item.size) || "--"}</td>
-              <td>{normalizeSize(item.width) || "--"}</td>
-              <td>{viewPieces(item.issuedPieces)}</td>
-              <td>{viewWeight(item.issuedWeight)}</td>
-              <td>{viewPieces(item.returnPieces)}</td>
-              <td>{viewWeight(item.returnWeight)}</td>
-              <td>{viewPieces(item.soldPieces)}</td>
-              <td>{viewWeight(item.soldWeight)}</td>
-              <td>{viewCurrency(item.amount)}</td>
-              <td>{viewCurrency(stageOneGross(item))}</td>
-              <td>{viewCurrency(stageOneNet(item))}</td>
-              <td>
-                {viewPercent(item.stage1DiscountPercent ?? item.discount)}
-              </td>
-              <td>{viewCurrency(item.stage1DiscountAmount)}</td>
-              <td>{viewCurrency(item.finalAmount)}</td>
+export const StageFourView = ({
+  items,
+  invoice,
+  settlement: savedSettlement,
+}) => {
+  const settlement = settlementForRecord({
+    finalInvoice: invoice,
+    finalSettlement: savedSettlement,
+  });
+  return (
+    <article className="challan-view-card challan-view-items challan-view-stage-four">
+      <h2>Complete Challan History</h2>
+      {items.length ? (
+        <ViewTable>
+          <thead>
+            <tr>
+              <th>SKU / Item</th>
+              <th>Shape</th>
+              <th>Size</th>
+              <th>Width</th>
+              <th>Issued Pieces</th>
+              <th>Issued Weight</th>
+              <th>Return Pieces</th>
+              <th>Return Weight</th>
+              <th>Sold / Kept Pieces</th>
+              <th>Sold / Kept Weight</th>
+              <th>
+                {hasWeightedPricing(items) ? "Price / Carat" : "Original Price"}
+              </th>
+              <th>
+                {hasWeightedPricing(items)
+                  ? "Stage 1 Net Amount"
+                  : "Original Stage 1 Amount"}
+              </th>
+              <th>Stage 1 Net Amount After Discount</th>
+              <th>Stage 1 Discount</th>
+              <th>Discount Amount</th>
+              <th>Final Billed Amount</th>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colSpan="4">
-              <strong>Total Items: {items.length}</strong>
-            </td>
-            <td>
-              <strong>{viewPieces(sumStored(items, "issuedPieces"))}</strong>
-            </td>
-            <td>
-              <strong>{viewWeight(sumStored(items, "issuedWeight"))}</strong>
-            </td>
-            <td>
-              <strong>{viewPieces(sumStored(items, "returnPieces"))}</strong>
-            </td>
-            <td>
-              <strong>{viewWeight(sumStored(items, "returnWeight"))}</strong>
-            </td>
-            <td>
-              <strong>{viewPieces(sumStored(items, "soldPieces"))}</strong>
-            </td>
-            <td>
-              <strong>{viewWeight(sumStored(items, "soldWeight"))}</strong>
-            </td>
-            <td />
-            <td>
-              <strong>{viewCurrency(sumStoredBy(items, stageOneGross))}</strong>
-            </td>
-            <td>
-              <strong>{viewCurrency(sumStoredBy(items, stageOneNet))}</strong>
-            </td>
-            <td />
-            <td>
-              <strong>
-                {viewCurrency(sumStored(items, "stage1DiscountAmount"))}
-              </strong>
-            </td>
-          </tr>
-        </tfoot>
-      </ViewTable>
-    ) : (
-      <p className="challan-view-unavailable">
-        Complete item history is unavailable for this historical Challan.
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={item.id || item.sku || index}>
+                <td>{item.sku || "--"}</td>
+                <td>{shapeName(item.shape) || "--"}</td>
+                <td>{normalizeSize(item.size) || "--"}</td>
+                <td>{normalizeSize(item.width) || "--"}</td>
+                <td>{viewPieces(item.issuedPieces)}</td>
+                <td>{viewWeight(item.issuedWeight)}</td>
+                <td>{viewPieces(item.returnPieces)}</td>
+                <td>{viewWeight(item.returnWeight)}</td>
+                <td>{viewPieces(item.soldPieces)}</td>
+                <td>{viewWeight(item.soldWeight)}</td>
+                <td>{viewCurrency(item.amount)}</td>
+                <td>{viewCurrency(stageOneGross(item))}</td>
+                <td>{viewCurrency(stageOneNet(item))}</td>
+                <td>
+                  {viewPercent(item.stage1DiscountPercent ?? item.discount)}
+                </td>
+                <td>{viewCurrency(item.stage1DiscountAmount)}</td>
+                <td>{viewCurrency(item.finalAmount)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan="4">
+                <strong>Total Items: {items.length}</strong>
+              </td>
+              <td>
+                <strong>{viewPieces(sumStored(items, "issuedPieces"))}</strong>
+              </td>
+              <td>
+                <strong>{viewWeight(sumStored(items, "issuedWeight"))}</strong>
+              </td>
+              <td>
+                <strong>{viewPieces(sumStored(items, "returnPieces"))}</strong>
+              </td>
+              <td>
+                <strong>{viewWeight(sumStored(items, "returnWeight"))}</strong>
+              </td>
+              <td>
+                <strong>{viewPieces(sumStored(items, "soldPieces"))}</strong>
+              </td>
+              <td>
+                <strong>{viewWeight(sumStored(items, "soldWeight"))}</strong>
+              </td>
+              <td />
+              <td>
+                <strong>
+                  {viewCurrency(sumStoredBy(items, stageOneGross))}
+                </strong>
+              </td>
+              <td>
+                <strong>{viewCurrency(sumStoredBy(items, stageOneNet))}</strong>
+              </td>
+              <td />
+              <td>
+                <strong>
+                  {viewCurrency(sumStored(items, "stage1DiscountAmount"))}
+                </strong>
+              </td>
+            </tr>
+          </tfoot>
+        </ViewTable>
+      ) : (
+        <p className="challan-view-unavailable">
+          Complete item history is unavailable for this historical Challan.
+        </p>
+      )}
+      <CompletedFinancialSummary invoice={invoice} settlement={settlement} />
+      <p className="challan-view-timestamp">
+        Final Invoice confirmed:{" "}
+        {invoice?.confirmedAtMs
+          ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}`
+          : "--"}
       </p>
-    )}
-    <CompletedFinancialSummary invoice={invoice} settlement={settlement} />
-    <p className="challan-view-timestamp">
-      Final Invoice confirmed:{" "}
-      {invoice?.confirmedAtMs
-        ? `${formatStageDate(invoice.confirmedAtMs)}, ${formatStageTime(invoice.confirmedAtMs)}`
-        : "--"}
-    </p>
-    <p className="challan-view-timestamp">
-      Completed:{" "}
-      {settlement?.completedAtMs
-        ? `${formatStageDate(settlement.completedAtMs)}, ${formatStageTime(settlement.completedAtMs)}`
-        : "--"}
-    </p>
-  </article>
-);
+      <p className="challan-view-timestamp">
+        Stage 4 entered:{" "}
+        {settlement?.completedAtMs
+          ? `${formatStageDate(settlement.completedAtMs)}, ${formatStageTime(settlement.completedAtMs)}`
+          : "--"}
+      </p>
+    </article>
+  );
+};
+
 const ViewTable = ({ children }) => (
   <div className="challan-view-table-wrap">
     <table>{children}</table>
@@ -1597,7 +1722,7 @@ const InvoiceSummary = ({ invoice }) => (
 const CompletedFinancialSummary = ({ invoice, settlement }) => (
   <div
     className="challan-completed-financials"
-    aria-label="Completed Challan financial summary"
+    aria-label="Challan settlement financial summary"
   >
     <div className="challan-financial-cell">
       <span className="challan-financial-label">
@@ -1626,7 +1751,10 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
     <div className="challan-financial-cell final">
       <span className="challan-financial-label">Final Invoice</span>
       <strong className="challan-financial-value">
-        {viewCurrency(invoice?.finalInvoiceAmount, "Unavailable")}
+        {viewCurrency(
+          invoice?.finalInvoiceAmount ?? settlement?.finalInvoiceAmount,
+          "Unavailable",
+        )}
       </strong>
     </div>
     <div className="challan-financial-cell">
@@ -1645,6 +1773,27 @@ const CompletedFinancialSummary = ({ invoice, settlement }) => (
       <span className="challan-financial-label">Actual Received</span>
       <strong className="challan-financial-value">
         {viewCurrency(settlement?.actualReceivedAmount)}
+      </strong>
+    </div>
+    <div
+      className="challan-financial-cell challan-outstanding-cell"
+      role="status"
+    >
+      <span className="challan-financial-label">
+        {settlementStatus({
+          finalInvoice: invoice,
+          finalSettlement: settlement,
+        })}{" "}
+        · Outstanding Amount
+      </span>
+      <strong className="challan-financial-value">
+        {viewCurrency(
+          settlementOutstanding({
+            finalInvoice: invoice,
+            finalSettlement: settlement,
+          }),
+          "Unavailable",
+        )}
       </strong>
     </div>
   </div>
@@ -1991,7 +2140,7 @@ export const ChallanImportReviewModal = ({
                           const fields = [
                             ["SKU", item.sku || "--"],
                             ["Width", item.width || "--"],
-                            ["Shape", item.shape || "--"],
+                            ["Shape", shapeName(item.shape) || "--"],
                             ["Size", item.size || "--"],
                             ["Type", item.type || "--"],
                             ["Weight / Carat", viewWeight(item.weight)],
@@ -2095,18 +2244,23 @@ export default function Challan() {
   const navigate = useNavigate();
   const hasStagePermission = (stage) =>
     user?.role === "superadmin" ||
+    (user?.role === "admin" && stage === 4) ||
     Boolean(user?.permissions?.includes(`challan-stage-${stage}`));
   const isAdmin = user?.role === "superadmin";
   const permittedStages = useMemo(
     () =>
       isAdmin
         ? [1, 2, 3, 4]
-        : [1, 2, 3, 4].filter((stage) =>
-            user?.permissions?.includes(`challan-stage-${stage}`),
+        : [1, 2, 3, 4].filter(
+            (stage) =>
+              (user?.role === "admin" && stage === 4) ||
+              user?.permissions?.includes(`challan-stage-${stage}`),
           ),
-    [isAdmin, user?.permissions],
+    [isAdmin, user?.role, user?.permissions],
   );
   const [records, setRecords] = useState([]);
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [settlementEditCandidate, setSettlementEditCandidate] = useState(null);
   const [page, setPage] = useState("list"),
     [viewId, setViewId] = useState(null),
     [tab, setTab] = useState("all"),
@@ -2191,6 +2345,7 @@ export default function Challan() {
   const [partyOptions, setPartyOptions] = useState([]);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
   const [stageTwoCandidate, setStageTwoCandidate] = useState(null);
+  const [stageTwoPriceCandidate, setStageTwoPriceCandidate] = useState(null);
   const [finalInvoiceCandidate, setFinalInvoiceCandidate] = useState(null);
   const [finalSettlementCandidate, setFinalSettlementCandidate] =
     useState(null);
@@ -2257,7 +2412,12 @@ export default function Challan() {
   useEffect(
     () =>
       onSnapshot(
-        collection(db, "challans"),
+        user?.role === "admin" &&
+          !user?.permissions?.some((permission) =>
+            /^challan-stage-[1-4]$/.test(permission),
+          )
+          ? query(collection(db, "challans"), where("stage", "==", 4))
+          : collection(db, "challans"),
         (snapshot) => {
           const cloudRecords = snapshot.docs.map((entry) => ({
             id: entry.id,
@@ -2277,7 +2437,13 @@ export default function Challan() {
         (error) =>
           console.warn("Challans could not be loaded from Firestore.", error),
       ),
-    [location.pathname, location.state?.viewChallanId, navigate],
+    [
+      location.pathname,
+      location.state?.viewChallanId,
+      navigate,
+      user?.role,
+      user?.permissions,
+    ],
   );
   useEffect(
     () =>
@@ -2325,7 +2491,7 @@ export default function Challan() {
         ["Total Challans", count("all")],
         ["Goods Out", count(1)],
         ["Payment Pending", count(3)],
-        ["Completed", count(4)],
+        ["Stage 4 Settlements", count(4)],
       ]
     : permittedStages.map((stage) => [
         `Stage ${stage} · ${STAGES[stage]}`,
@@ -2365,6 +2531,8 @@ export default function Challan() {
             (!partyFilter || item.party === partyFilter) &&
             matchAge &&
             matchDashboardAge &&
+            (Number(tab) !== 4 ||
+              matchesSettlementFilter(item, paymentFilter)) &&
             ((
               String(item.number || "") +
               " " +
@@ -2391,6 +2559,7 @@ export default function Challan() {
       agingFilter,
       dashboardAge,
       sortMode,
+      paymentFilter,
       clock,
     ],
   );
@@ -2889,7 +3058,9 @@ export default function Challan() {
         input.returnPieces,
         input.returnWeight,
       );
-      const priced = stageOneFinancials(item);
+      const priced = stageOneFinancials(
+        stageTwoPriceItem(item, input.price ?? item.amount),
+      );
       return {
         inventoryId: item.sourceInventoryId || item.inventoryId || "",
         sourceInventoryId: item.sourceInventoryId || item.inventoryId || "",
@@ -2900,6 +3071,7 @@ export default function Challan() {
         width: normalizeSize(item.width),
         ...movement,
         amount: priced.amount,
+        stage1QuotedRate: item.amount,
         discount: priced.discount,
         grossAmount: priced.grossAmount,
         discountAmount: priced.discountAmount,
@@ -2986,6 +3158,68 @@ export default function Challan() {
       console.warn("Challan return activity could not be saved.", error),
     );
   };
+  const confirmStageTwoPrices = async (prices) => {
+    const previous = stageTwoPriceCandidate;
+    if (!previous || !hasStagePermission(2))
+      throw new Error("Stage 2 permission is required.");
+    const savedPrices = Object.fromEntries(
+      Object.entries(prices).map(([key, value]) => [
+        key,
+        strictMoney(value, "Price / Carat"),
+      ]),
+    );
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "challans", previous.id);
+      const snapshot = await tx.get(ref);
+      const current = snapshot.data();
+      if (
+        !snapshot.exists() ||
+        Number(current.stage) !== 2 ||
+        current.finalInvoice
+      )
+        throw new Error(
+          "This Challan is no longer available for Stage 2 price changes.",
+        );
+      if (
+        !sameStageTwoInvoiceSource(
+          stageTwoPricedItems(previous),
+          stageTwoPricedItems(current),
+        )
+      )
+        throw new Error(
+          "Prices or return details changed. Reopen the latest Challan.",
+        );
+      if (Object.keys(savedPrices).length !== current.stage2Return.items.length)
+        throw new Error("Price rows do not match the current Challan.");
+      invoiceReviewRows(
+        stageTwoPricedItems({ ...current, stage2Prices: savedPrices }),
+      );
+      tx.update(ref, { stage2Prices: savedPrices });
+    });
+    setStageTwoPriceCandidate(null);
+    void writeActivity({
+      panel: "challan",
+      stage: "Stage 2",
+      action: "edited",
+      recordId: previous.id,
+      snapshot: { ...challanSnapshot(previous), stage2Prices: savedPrices },
+      before: {
+        ...challanSnapshot(previous),
+        stage2Prices: previous.stage2Prices || {},
+      },
+      user,
+    }).catch((error) =>
+      console.warn("Stage 2 price activity could not be saved.", error),
+    );
+  };
+  const priceDialog = () =>
+    stageTwoPriceCandidate && (
+      <StageTwoPricesModal
+        record={stageTwoPriceCandidate}
+        onClose={() => setStageTwoPriceCandidate(null)}
+        onConfirm={confirmStageTwoPrices}
+      />
+    );
   const confirmFinalInvoice = async (partialAmounts = []) => {
     const previous = finalInvoiceCandidate;
     if (!previous) throw new Error("This Challan is no longer available.");
@@ -3001,8 +3235,8 @@ export default function Challan() {
         throw new Error("Final Invoice has already been confirmed.");
       if (
         !sameStageTwoInvoiceSource(
-          previous.stage2Return?.items,
-          current.stage2Return?.items,
+          stageTwoPricedItems(previous),
+          stageTwoPricedItems(current),
         )
       )
         throw new Error(
@@ -3019,7 +3253,7 @@ export default function Challan() {
           "Only Admin can enter a partial-return Final Billed Amount.",
         );
       const invoice = invoiceFromStageTwo(
-        current.stage2Return.items,
+        stageTwoPricedItems(current),
         partialAmounts,
       );
       const savedRecord = {
@@ -3052,6 +3286,7 @@ export default function Challan() {
   const confirmFinalSettlement = async (
     amountPaid,
     settlementDiscountAmount,
+    paymentId,
   ) => {
     const previous = finalSettlementCandidate;
     if (!previous) throw new Error("This Challan is no longer available.");
@@ -3060,10 +3295,19 @@ export default function Challan() {
     const saved = await runTransaction(db, async (tx) => {
       const challanRef = doc(db, "challans", previous.id);
       const snapshot = await tx.get(challanRef);
-      if (!snapshot.exists() || Number(snapshot.data().stage) !== 3)
-        throw new Error("This Challan is no longer in Stage 3.");
+      if (
+        snapshot.exists() &&
+        snapshot
+          .data()
+          .settlementPayments?.some((entry) => entry.id === paymentId)
+      )
+        return { ...snapshot.data(), id: previous.id, alreadyRecorded: true };
+      if (!snapshot.exists() || ![3, 4].includes(Number(snapshot.data().stage)))
+        throw new Error("This Challan is no longer available for payment.");
       const current = snapshot.data();
-      const rawFinalInvoiceAmount = current.finalInvoice?.finalInvoiceAmount;
+      const rawFinalInvoiceAmount =
+        current.finalInvoice?.finalInvoiceAmount ??
+        current.finalSettlement?.finalInvoiceAmount;
       if (
         rawFinalInvoiceAmount === undefined ||
         rawFinalInvoiceAmount === null ||
@@ -3073,46 +3317,141 @@ export default function Challan() {
         throw new Error(
           "Final Invoice data is unavailable for this historical Challan. Settlement cannot be completed until the invoice record is available.",
         );
-      if (current.finalSettlement)
-        throw new Error("This Challan has already been settled.");
-      const calculation = settlementFor(
-        rawFinalInvoiceAmount,
+      const now = Date.now();
+      const update = recordSettlementPayment(
+        current,
         amountPaid,
         settlementDiscountAmount,
+        paymentId,
+        now,
+        {
+          uid: user.uid,
+          accessId: user.accessId || "",
+          role: user.role || "employee",
+        },
       );
-      if (calculation.remaining !== 0)
-        throw new Error(
-          "Amount Paid plus Discount Amount must equal the Final Invoice Amount.",
-        );
-      const now = Date.now();
-      const savedRecord = {
-        ...current,
-        id: previous.id,
-        stage: 4,
-        finalSettlement: { ...calculation, completedAtMs: now },
-        stageHistory: {
+      if (Number(current.stage) === 3)
+        update.stageHistory = {
           ...(current.stageHistory || {}),
           stage4: { enteredAtMs: now, enteredAt: serverTimestamp() },
-        },
-      };
-      tx.set(challanRef, savedRecord);
-      return savedRecord;
+        };
+      tx.update(challanRef, update);
+      return { ...current, ...update, id: previous.id };
     });
     setFinalSettlementCandidate(null);
+    if (saved.alreadyRecorded) return;
     void writeActivity({
       panel: "challan",
-      stage: "Stage 4",
-      action: "stage_moved",
-      transition: "Stage 3 → Stage 4",
+      stage: `Stage ${saved.stage}`,
+      action: Number(previous.stage) === 3 ? "stage_moved" : "edited",
+      ...(Number(previous.stage) === 3
+        ? { transition: "Stage 3 → Stage 4" }
+        : {}),
       recordId: saved.id,
-      snapshot: challanSnapshot(saved),
+      snapshot: {
+        ...challanSnapshot(saved),
+        paymentSummary: saved.paymentSummary,
+      },
       before: challanSnapshot(previous),
       user,
     }).catch((error) =>
       console.warn("Final settlement activity could not be saved.", error),
     );
   };
+  const confirmSettlementEdit = async (
+    paid,
+    discount,
+    correctionId,
+    metadata,
+  ) => {
+    const previous = settlementEditCandidate;
+    if (!previous) throw new Error("Reopen the latest settlement.");
+    if (!metadata.party || !/^\d{4}-\d{2}-\d{2}$/.test(metadata.date))
+      throw new Error("Party and a valid date are required.");
+    await runTransaction(db, async (tx) => {
+      const ref = doc(db, "challans", previous.id),
+        snapshot = await tx.get(ref);
+      const current = snapshot.data();
+      if (
+        !snapshot.exists() ||
+        Number(current.stage) !== 4 ||
+        !editAllowed(current, user, anchoredNow(clockAnchor.current))
+      )
+        throw new Error("This Stage 4 settlement is no longer editable.");
+      if (
+        current.settlementCorrections?.some(
+          (entry) => entry.id === correctionId,
+        )
+      )
+        return;
+      const version = (row) =>
+        JSON.stringify([
+          row.finalSettlement,
+          row.paymentSummary,
+          row.settlementPayments,
+          row.settlementCorrections,
+          row.party,
+          row.date,
+          row.notes,
+        ]);
+      if (version(current) !== version(previous))
+        throw new Error(
+          "Settlement changed while you were editing. Reopen it and try again.",
+        );
+      const before = settlementForRecord(current, { strict: true });
+      const changedAmounts =
+        strictMoney(paid, "Amount Paid") !== before.amountPaid ||
+        strictMoney(discount || 0, "Discount Amount") !==
+          before.settlementDiscountAmount;
+      const update = changedAmounts
+        ? correctSettlement(current, paid, discount, correctionId, Date.now(), {
+            uid: user.uid,
+            accessId: user.accessId || "",
+            role: user.role || "employee",
+          })
+        : !Array.isArray(current.settlementPayments)
+          ? initializeSettlement(current)
+          : {};
+      tx.update(ref, { ...update, ...metadata, updatedAt: serverTimestamp() });
+    });
+    setSettlementEditCandidate(null);
+    void writeActivity({
+      panel: "challan",
+      stage: "Stage 4",
+      action: "edited",
+      recordId: previous.id,
+      snapshot: {
+        ...challanSnapshot(previous),
+        ...metadata,
+        settlementPaid: paid,
+        settlementDiscount: discount,
+      },
+      before: challanSnapshot(previous),
+      user,
+    }).catch((error) =>
+      console.warn("Settlement edit activity could not be saved.", error),
+    );
+  };
+  const settlementEditDialog = () =>
+    settlementEditCandidate && (
+      <StageFourSettlementModal
+        record={settlementEditCandidate}
+        onClose={() => setSettlementEditCandidate(null)}
+        onConfirm={confirmSettlementEdit}
+      />
+    );
   const stageEditRemaining = (record) => challanEditRemaining(record, clock);
+  const settlementDialog = () =>
+    finalSettlementCandidate && (
+      <FinalSettlementModal
+        record={
+          records.find((entry) => entry.id === finalSettlementCandidate.id) ||
+          finalSettlementCandidate
+        }
+        onClose={() => setFinalSettlementCandidate(null)}
+        onConfirm={confirmFinalSettlement}
+      />
+    );
   const canEditChallan = (record) => editAllowed(record, user, clock);
   const closeEditor = () => {
     editOriginal.current = null;
@@ -3143,6 +3482,10 @@ export default function Challan() {
       window.alert(
         error.message || "This Challan could not be opened for editing.",
       );
+      return;
+    }
+    if (Number(record.stage) === 4) {
+      setSettlementEditCandidate(record);
       return;
     }
     editOriginal.current = { record, snapshot: stageOneEditSnapshot(record) };
@@ -3290,15 +3633,19 @@ export default function Challan() {
       "Gross Amount": row.finalInvoice?.grossAmount ?? "",
       "Stage 1 Discount Amount": row.finalInvoice?.stage1DiscountAmount ?? "",
       "Final Invoice Amount": row.finalInvoice?.finalInvoiceAmount ?? "",
+      "Paid to Date": settlementForRecord(row)?.amountPaid ?? "",
+      "Outstanding Amount":
+        settlementOutstanding(row) ??
+        (Number(row.stage) === 3 ? row.finalInvoice?.finalInvoiceAmount : ""),
       "Final Invoice Confirmed": row.finalInvoice?.confirmedAtMs
         ? formatStageDate(row.finalInvoice.confirmedAtMs) +
           ", " +
           formatStageTime(row.finalInvoice.confirmedAtMs)
         : "",
-      "Amount Paid": row.finalSettlement?.amountPaid ?? "",
+      "Amount Paid": settlementForRecord(row)?.amountPaid ?? "",
       "Settlement Discount":
-        row.finalSettlement?.settlementDiscountAmount ?? "",
-      "Actual Received": row.finalSettlement?.actualReceivedAmount ?? "",
+        settlementForRecord(row)?.settlementDiscountAmount ?? "",
+      "Actual Received": settlementForRecord(row)?.actualReceivedAmount ?? "",
       Completed: row.finalSettlement?.completedAtMs
         ? formatStageDate(row.finalSettlement.completedAtMs) +
           ", " +
@@ -3310,7 +3657,7 @@ export default function Challan() {
         "Challan No.": row.number,
         Stage: "Stage " + row.stage,
         SKU: item.sku || "",
-        Shape: item.shape || "",
+        Shape: shapeName(item.shape) || "",
         Size: normalizeSize(item.size),
         Width: normalizeSize(item.width),
         Type: item.type || "",
@@ -3420,226 +3767,7 @@ export default function Challan() {
       setFormError("Please allow pop-ups to print this Challan.");
       return;
     }
-    const escape = (value) =>
-      String(value ?? "-").replace(
-        /[&<>"']/g,
-        (char) =>
-          ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#039;",
-          })[char],
-      );
-    const stage = Number(record.stage || 1);
-    const items = historicalItemsFor(record);
-    const invoice = record.finalInvoice;
-    const settlement = record.finalSettlement;
-    const isFlowStage = stage === 2 || stage === 4;
-    const types = (record.items || [])
-      .map((item) => item.type)
-      .filter(Boolean)
-      .join(", ");
-    const weightedPricing = hasWeightedPricing(items);
-    const totalAmount = moneyText(
-      weightedPricing
-        ? sumStoredBy(items, stageOneGross)
-        : sumStored(items, "amount"),
-    );
-    const sumPiecesForPrint = (key) => sumStored(items, key) ?? "Unavailable";
-    const sumWeightForPrint = (key) => weightText(sumStored(items, key));
-    const totalDetails =
-      stage === 1
-        ? "Items: " +
-          items.length +
-          " &nbsp; Pieces: " +
-          sumPiecesForPrint("pieces") +
-          " &nbsp; Weight: " +
-          sumWeightForPrint("weight") +
-          " ct &nbsp; Original Amount: &#8377;" +
-          totalAmount
-        : isFlowStage
-          ? "Items: " +
-            items.length +
-            " &nbsp; Issued: " +
-            sumPiecesForPrint("issuedPieces") +
-            " pcs / " +
-            sumWeightForPrint("issuedWeight") +
-            " ct &nbsp; Returned: " +
-            sumPiecesForPrint("returnPieces") +
-            " pcs / " +
-            sumWeightForPrint("returnWeight") +
-            " ct &nbsp; Sold / Kept: " +
-            sumPiecesForPrint("soldPieces") +
-            " pcs / " +
-            sumWeightForPrint("soldWeight") +
-            " ct &nbsp; Original Amount: &#8377;" +
-            totalAmount
-          : "Items: " +
-            items.length +
-            " &nbsp; Original Amount: &#8377;" +
-            totalAmount;
-    const headers = ["SKU / Item", "Shape", "Size", "Width"];
-    if (stage === 1) headers.push("Pieces", "Weight");
-    if (isFlowStage)
-      headers.push(
-        "Issued Pieces",
-        "Issued Weight",
-        "Return Pieces",
-        "Return Weight",
-        "Sold / Kept Pieces",
-        "Sold / Kept Weight",
-      );
-    if (stage === 3) headers.push("Sold / Kept");
-    headers.push(
-      ...(weightedPricing
-        ? [
-            "Price / Carat",
-            "Net Amount",
-            "Stage 1 Discount %",
-            "Net Amount After Discount",
-          ]
-        : ["Original Stage 1 Amount", "Stage 1 Discount %"]),
-    );
-    if (stage >= 3) headers.push("Discount Amount", "Final Billed Amount");
-    const itemRows = items
-      .map((item) => {
-        const cells = [
-          escape(item.sku),
-          escape(item.shape),
-          escape(normalizeSize(item.size)),
-          escape(normalizeSize(item.width) || "--"),
-        ];
-        if (stage === 1)
-          cells.push(pieceValue(item.pieces), weightText(item.weight) + " ct");
-        if (isFlowStage)
-          cells.push(
-            pieceValue(item.issuedPieces ?? item.pieces),
-            weightText(item.issuedWeight ?? item.weight ?? 0) + " ct",
-            item.returnPieces === undefined
-              ? "-"
-              : pieceValue(item.returnPieces),
-            item.returnWeight === undefined
-              ? "-"
-              : weightText(item.returnWeight) + " ct",
-            item.soldPieces === undefined ? "-" : pieceValue(item.soldPieces),
-            item.soldWeight === undefined
-              ? "-"
-              : weightText(item.soldWeight) + " ct",
-          );
-        if (stage === 3)
-          cells.push(
-            (item.soldPieces === undefined
-              ? "-"
-              : pieceValue(item.soldPieces) + " pcs") +
-              " / " +
-              (item.soldWeight === undefined
-                ? "-"
-                : weightText(item.soldWeight) + " ct"),
-          );
-        cells.push(
-          "&#8377;" + moneyText(item.amount),
-          ...(weightedPricing
-            ? ["&#8377;" + moneyText(stageOneGross(item))]
-            : []),
-          viewPercent(item.stage1DiscountPercent ?? item.discount),
-          ...(weightedPricing
-            ? ["&#8377;" + moneyText(stageOneNet(item))]
-            : []),
-        );
-        if (stage >= 3)
-          cells.push(
-            "&#8377;" + moneyText(item.stage1DiscountAmount),
-            "&#8377;" + moneyText(item.finalAmount),
-          );
-        return (
-          "<tr>" +
-          cells.map((cell) => "<td>" + cell + "</td>").join("") +
-          "</tr>"
-        );
-      })
-      .join("");
-    const invoiceDetails = invoice
-      ? '<p class="total">' +
-        (invoice.calculationVersion === "manual-partial-v1"
-          ? hasWeightedPricing(items)
-            ? "Stage 1 Net Amount"
-            : "Original Stage 1 Amount"
-          : "Gross Amount") +
-        ": &#8377;" +
-        moneyText(invoice.grossAmount) +
-        (Number(invoice.stage1DiscountAmount)
-          ? " &nbsp; Stage 1 Discount: -&#8377;" +
-            moneyText(invoice.stage1DiscountAmount)
-          : "") +
-        " &nbsp; <strong>Final Invoice Amount: &#8377;" +
-        moneyText(invoice.finalInvoiceAmount) +
-        "</strong></p>" +
-        (invoice.confirmedAtMs
-          ? "<p>Final Invoice confirmed: " +
-            escape(
-              formatStageDate(invoice.confirmedAtMs) +
-                ", " +
-                formatStageTime(invoice.confirmedAtMs),
-            ) +
-            "</p>"
-          : "")
-      : "";
-    const settlementDetails =
-      stage === 4 && settlement
-        ? '<p class="total">Amount Paid by Customer: &#8377;' +
-          moneyText(settlement.amountPaid) +
-          " &nbsp; Settlement Discount: &#8377;" +
-          moneyText(settlement.settlementDiscountAmount) +
-          " &nbsp; <strong>Actual Received: &#8377;" +
-          moneyText(settlement.actualReceivedAmount) +
-          "</strong></p>" +
-          (settlement.completedAtMs
-            ? "<p>Completed: " +
-              escape(
-                formatStageDate(settlement.completedAtMs) +
-                  ", " +
-                  formatStageTime(settlement.completedAtMs),
-              ) +
-              "</p>"
-            : "")
-        : "";
-    const copy = (label) =>
-      '<section class="copy"><header><b>' +
-      label +
-      '</b><h1>CHALLAN DETAILS</h1></header><div class="details"><p><strong>Challan No:</strong> ' +
-      escape(record.number) +
-      "</p><p><strong>Party:</strong> " +
-      escape(record.party) +
-      "</p><p><strong>Date:</strong> " +
-      escape(record.date || formatStageDate(stageEnteredAt(record, 1)) || "-") +
-      "</p><p><strong>Type / CVD / HP:</strong> " +
-      escape(types || "-") +
-      "</p><p><strong>Current Stage:</strong> Stage " +
-      record.stage +
-      " - " +
-      escape(STAGES[record.stage]) +
-      "</p></div><table><thead><tr>" +
-      headers.map((header) => "<th>" + header + "</th>").join("") +
-      "</tr></thead><tbody>" +
-      itemRows +
-      '</tbody></table><p class="total">' +
-      totalDetails +
-      "</p>" +
-      invoiceDetails +
-      settlementDetails +
-      '<p class="notes"><strong>Notes:</strong> ' +
-      escape(record.notes || "-") +
-      "</p></section>";
-    popup.document.write(
-      "<!doctype html><html><head><title>" +
-        escape(record.number) +
-        "</title><style>body{font-family:Arial,sans-serif;color:#172033;margin:20px}.copy{border:1.5px solid #334155;margin:0 0 28px;padding:20px;break-inside:auto;page-break-inside:auto}.copy header{border-bottom:2px solid #334155;display:flex;justify-content:space-between;margin-bottom:16px;padding-bottom:10px}.copy header b{border:1px solid #334155;font-size:12px;letter-spacing:.12em;padding:6px 10px}.copy h1{font-size:21px;margin:0}.details{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 20px}.details p,.notes{font-size:13px;margin:4px 0}table{border-collapse:collapse;width:100%;margin-top:16px;font-size:12px}th,td{border:1px solid #94a3b8;padding:8px;text-align:left}th{background:#eef2f7;font-size:10px;text-transform:uppercase}tr{break-inside:avoid;page-break-inside:avoid}.total{background:#f1f5f9;font-weight:bold;margin:0;padding:10px}@page{margin:12mm}@media print{body{margin:0}}</style></head><body>" +
-        copy("ORIGINAL") +
-        copy("DUPLICATE") +
-        "</body></html>",
-    );
+    popup.document.write(buildChallanPrint(record));
     popup.document.close();
     popup.focus();
     window.setTimeout(() => popup.print(), 250);
@@ -3648,7 +3776,7 @@ export default function Challan() {
     const XLSX = await import("xlsx");
     const stage = Number(record.stage || 1);
     const invoice = record.finalInvoice;
-    const settlement = record.finalSettlement;
+    const settlement = settlementForRecord(record);
     const items = historicalItemsFor(record).map((item) => {
       if (stage !== 4) return item;
       const returnItem = (record.stage2Return?.items || []).find(
@@ -3726,7 +3854,7 @@ export default function Challan() {
     const itemRows = items.map((item) => ({
       SKU: item.sku || "",
       Type: item.type || "",
-      Shape: item.shape || "",
+      Shape: shapeName(item.shape) || "",
       Size: normalizeSize(item.size),
       Width: normalizeSize(item.width),
       "Original Pieces": exportPieces(item.pieces ?? item.issuedPieces),
@@ -3895,9 +4023,9 @@ export default function Challan() {
       );
     const stage = Number(viewRecord.stage || 1);
     const issuedItems = viewRecord.items || [];
-    const returnItems = viewRecord.stage2Return?.items || [];
+    const returnItems = stageTwoPricedItems(viewRecord);
     const invoice = viewRecord.finalInvoice;
-    const settlement = viewRecord.finalSettlement;
+    const settlement = settlementForRecord(viewRecord);
     const invoiceItems = Array.isArray(invoice?.items) ? invoice.items : [];
     const stageFourItems = (
       returnItems.length ? returnItems : invoiceItems
@@ -3929,13 +4057,35 @@ export default function Challan() {
       1: "Goods issued and awaiting return details",
       2: "Returned and kept goods recorded",
       3: "Payment due is pending",
-      4: "Challan workflow completed",
+      4: `${settlementStatus(viewRecord)}${settlementOutstanding(viewRecord) > 0 ? ` · Outstanding: ${viewCurrency(settlementOutstanding(viewRecord))}` : ""}`,
     }[viewRecord.stage];
     return (
       <section className="challan-page challan-view">
         {" "}
         <div className="challan-view-toolbar">
-          {" "}
+          {settlementEditDialog()}
+          {priceDialog()}
+          {settlementDialog()}
+          {(stage === 3 ||
+            (stage === 4 && settlementOutstanding(viewRecord) > 0)) &&
+            hasStagePermission(4) && (
+              <button
+                type="button"
+                className="challan-view-print"
+                onClick={() => setFinalSettlementCandidate(viewRecord)}
+              >
+                Record Payment
+              </button>
+            )}
+          {stage === 2 && hasStagePermission(2) && (
+            <button
+              type="button"
+              className="challan-view-print"
+              onClick={() => setStageTwoPriceCandidate(viewRecord)}
+            >
+              Edit Stage 2 Prices
+            </button>
+          )}{" "}
           <button
             className="back"
             type="button"
@@ -3991,7 +4141,10 @@ export default function Challan() {
               )}{" "}
               <em className={"stage stage-" + viewRecord.stage}>
                 {" "}
-                Stage {viewRecord.stage} - {STAGES[viewRecord.stage]}{" "}
+                Stage {viewRecord.stage} -{" "}
+                {stage === 4
+                  ? settlementStatus(viewRecord)
+                  : STAGES[viewRecord.stage]}{" "}
               </em>{" "}
             </div>{" "}
           </div>{" "}
@@ -4026,7 +4179,12 @@ export default function Challan() {
                     )}{" "}
                   </div>{" "}
                   {stage < 4 && <i className="challan-timeline-line" />}{" "}
-                  <b>Stage {stage}</b> <span>{STAGES[stage]}</span>{" "}
+                  <b>Stage {stage}</b>{" "}
+                  <span>
+                    {stage === 4 && Number(viewRecord.stage) === 4
+                      ? settlementStatus(viewRecord)
+                      : STAGES[stage]}
+                  </span>{" "}
                   <small>
                     {entered ? (
                       <>
@@ -4045,6 +4203,18 @@ export default function Challan() {
         {stage === 1 && <StageOneView items={issuedItems} />}
         {stage === 2 && <StageTwoView items={returnItems} />}
         {stage === 3 && <StageThreeView invoice={invoice} />}
+        {(viewRecord.settlementPayments?.length > 0 ||
+          viewRecord.settlementCorrections?.length > 0 ||
+          viewRecord.settlementOpening ||
+          viewRecord.finalSettlement) && (
+          <>
+            <p className="settlement-previous-payment">
+              Paid: ₹{settlement?.amountPaid?.toFixed(2) ?? "Unavailable"} ·
+              Outstanding: ₹{settlement?.remaining?.toFixed(2) ?? "Unavailable"}
+            </p>
+            <SettlementPaymentHistory record={viewRecord} />
+          </>
+        )}
         {stage === 4 && (
           <StageFourView
             items={stageFourItems}
@@ -4102,7 +4272,7 @@ export default function Challan() {
                   {items.map((item, index) => (
                     <tr key={item.id || item.sku || index}>
                       <td>{item.sku || "-"}</td>
-                      <td>{item.shape || "-"}</td>
+                      <td>{shapeName(item.shape) || "-"}</td>
                       <td>{normalizeSize(item.size) || "-"}</td>
                       <td>{normalizeSize(item.width) || "--"}</td>
                       {stage === 1 && (
@@ -4380,7 +4550,8 @@ export default function Challan() {
             {inventory.map((item) => (
               <option key={item.id} value={item.sku}>
                 {" "}
-                {item.shape} · {normalizeSize(item.size)} mm · {item.type}{" "}
+                {shapeName(item.shape)} · {normalizeSize(item.size)} mm ·{" "}
+                {item.type}{" "}
               </option>
             ))}{" "}
           </datalist>{" "}
@@ -4851,6 +5022,35 @@ export default function Challan() {
             <option value="red">Red</option>{" "}
           </select>{" "}
         </label>{" "}
+        {Number(tab) === 4 && (
+          <label>
+            Payment Status
+            <select
+              value={paymentFilter}
+              onChange={(event) => setPaymentFilter(event.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="outstanding">Outstanding</option>
+              <option value="settled">Fully Settled</option>
+            </select>
+          </label>
+        )}
+        {Number(tab) === 4 && (
+          <button
+            className="challan-clear-payment-filters"
+            onClick={() => {
+              setPaymentFilter("all");
+              setSearch("");
+              setDateFilter("");
+              setPartyFilter("");
+              setAgingFilter("all");
+              setSortMode("newest");
+              setDashboardAge("");
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
         <label>
           {" "}
           Sort{" "}
@@ -4916,6 +5116,17 @@ export default function Challan() {
                   {row.number}{" "}
                 </button>{" "}
                 <small>{row.party}</small>{" "}
+                {Number(row.stage) === 4 && (
+                  <small className="challan-payment-status">
+                    {settlementStatus(row)} · Paid:{" "}
+                    {viewCurrency(
+                      settlementForRecord(row)?.amountPaid,
+                      "Unavailable",
+                    )}{" "}
+                    · Outstanding:{" "}
+                    {viewCurrency(settlementOutstanding(row), "Unavailable")}
+                  </small>
+                )}
               </div>{" "}
               <span>{row.items.map((item) => item.sku).join(", ")}</span>{" "}
               <time>{row.date}</time>{" "}
@@ -4928,7 +5139,10 @@ export default function Challan() {
               </b>{" "}
               {tab === "all" && (
                 <em className={`stage stage-${row.stage}`}>
-                  Stage {row.stage} - {STAGES[row.stage]}
+                  Stage {row.stage} -{" "}
+                  {Number(row.stage) === 4
+                    ? settlementStatus(row)
+                    : STAGES[row.stage]}
                 </em>
               )}{" "}
               {Number(row.stage) < 4 ? (
@@ -4967,10 +5181,24 @@ export default function Challan() {
                     {stageActionLabel(row.stage)} <Icon name="arrow" />{" "}
                   </button>
                 )}{" "}
+                {Number(row.stage) === 4 &&
+                  settlementOutstanding(row) > 0 &&
+                  hasStagePermission(4) && (
+                    <button
+                      className="challan-workflow-button"
+                      onClick={() => setFinalSettlementCandidate(row)}
+                    >
+                      Record Outstanding Payment
+                    </button>
+                  )}
                 <span className="challan-row-actions">
                   {" "}
                   {Number(row.stage) <= 4 &&
                     !(isAdmin && Number(row.stage) === 1) &&
+                    !(
+                      ["admin", "superadmin"].includes(user?.role) &&
+                      Number(row.stage) === 4
+                    ) &&
                     (isAdmin ||
                       (row.createdBy === user?.uid &&
                         row.createdByRole !== "superadmin" &&
@@ -5048,6 +5276,8 @@ export default function Challan() {
           )}{" "}
         </div>
       )}{" "}
+      {settlementEditDialog()}
+      {priceDialog()}
       {stageTwoCandidate && (
         <StageTwoModal
           record={stageTwoCandidate}
@@ -5057,19 +5287,19 @@ export default function Challan() {
       )}{" "}
       {finalInvoiceCandidate && (
         <FinalInvoiceModal
-          record={finalInvoiceCandidate}
+          record={{
+            ...finalInvoiceCandidate,
+            stage2Return: {
+              ...finalInvoiceCandidate.stage2Return,
+              items: stageTwoPricedItems(finalInvoiceCandidate),
+            },
+          }}
           onClose={() => setFinalInvoiceCandidate(null)}
           onConfirm={confirmFinalInvoice}
           canEnterPartial={isAdmin}
         />
       )}{" "}
-      {finalSettlementCandidate && (
-        <FinalSettlementModal
-          record={finalSettlementCandidate}
-          onClose={() => setFinalSettlementCandidate(null)}
-          onConfirm={confirmFinalSettlement}
-        />
-      )}{" "}
+      {settlementDialog()}{" "}
       {legacyInvoiceCandidate && (
         <LegacyInvoiceUnavailableModal
           record={legacyInvoiceCandidate}

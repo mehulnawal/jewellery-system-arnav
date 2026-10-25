@@ -341,6 +341,29 @@ export function invoiceReviewRows(items) {
     };
   });
 }
+// Keep the original Stage 1 quote intact; negotiated rates affect billing only.
+export function stageTwoPriceItem(item, rate) {
+  const nextRate = strictMoney(rate, "Price / Carat");
+  if (nextRate === strictMoney(item.amount, "Price / Carat"))
+    return { ...item };
+  const pricing = priceWeightedItem(
+    item.issuedWeight ?? item.weight,
+    nextRate,
+    item.discount,
+  );
+  return {
+    ...item,
+    ...pricing,
+    stage1QuotedRate: item.stage1QuotedRate ?? item.amount,
+  };
+}
+export function stageTwoPricedItems(record) {
+  return (record.stage2Return?.items || []).map((item, index) =>
+    Object.hasOwn(record.stage2Prices || {}, String(index))
+      ? stageTwoPriceItem(item, record.stage2Prices[index])
+      : item,
+  );
+}
 export function invoiceFromStageTwo(items, partialFinalAmounts = []) {
   const reviewed = invoiceReviewRows(items);
   let originalTotal = 0n,
@@ -478,6 +501,106 @@ export function challanStockRestoration(record) {
       items.reduce((sum, item) => sum + weightMillis(item.weight), 0n),
     ),
   };
+}
+// One normalization path for legacy totals and the append-only receipt ledger.
+export function settlementForRecord(record, { strict = false } = {}) {
+  const saved = record.finalSettlement || record.paymentSummary;
+  const hasLedger =
+    Array.isArray(record.settlementPayments) ||
+    record.settlementOpening ||
+    record.settlementCorrections;
+  if (!saved && !hasLedger) return null;
+  try {
+    const invoice =
+      record.finalInvoice?.finalInvoiceAmount ?? saved?.finalInvoiceAmount;
+    let paid = 0n,
+      discount = 0n;
+    if (hasLedger) {
+      paid = moneyCents(
+        record.settlementOpening?.amountPaid ?? 0,
+        "Opening payment",
+        { strict: true },
+      );
+      discount = moneyCents(
+        record.settlementOpening?.settlementDiscountAmount ?? 0,
+        "Opening discount",
+        { strict: true },
+      );
+      for (const entry of record.settlementPayments || []) {
+        const p = moneyCents(entry.amountPaid, "Saved payment", {
+          strict: true,
+        });
+        const d = moneyCents(entry.discountAmount, "Saved discount", {
+          strict: true,
+        });
+        if (
+          !Number.isSafeInteger(entry.paidCents) ||
+          !Number.isSafeInteger(entry.discountCents) ||
+          p !== BigInt(entry.paidCents) ||
+          d !== BigInt(entry.discountCents)
+        )
+          throw new Error("Saved payment totals disagree.");
+        paid += p;
+        discount += d;
+      }
+      for (const correction of record.settlementCorrections || []) {
+        if (
+          !Number.isSafeInteger(correction.paidDeltaCents) ||
+          !Number.isSafeInteger(correction.discountDeltaCents)
+        )
+          throw new Error("Saved settlement correction is invalid.");
+        paid += BigInt(correction.paidDeltaCents);
+        discount += BigInt(correction.discountDeltaCents);
+      }
+    } else {
+      paid = moneyCents(saved.amountPaid, "Saved payment", { strict: true });
+      discount = moneyCents(
+        saved.settlementDiscountAmount ?? 0,
+        "Saved discount",
+        { strict: true, blankZero: true },
+      );
+    }
+    const result = settlementFor(invoice, fromCents(paid), fromCents(discount));
+    if (paid < 0n || discount < 0n || result.remaining < 0)
+      throw new Error(
+        "Saved settlement exceeds the invoice or has negative totals.",
+      );
+    return {
+      ...saved,
+      ...result,
+      invoiceCents: Number(
+        moneyCents(invoice, "Final Invoice", { strict: true }),
+      ),
+      paidCents: Number(paid),
+      discountCents: Number(discount),
+      remainingCents: Number(
+        moneyCents(result.remaining, "Outstanding Amount", { strict: true }),
+      ),
+    };
+  } catch (error) {
+    if (strict) throw error;
+    // Legacy records with unavailable source amounts may still show a saved balance.
+    if (!hasLedger && /must be|decimal|unavailable/i.test(error.message)) {
+      try {
+        return {
+          ...saved,
+          remaining: strictMoney(saved.remaining, "Outstanding Amount"),
+        };
+      } catch {
+        /* unavailable */
+      }
+    }
+    return { ...saved, remaining: null };
+  }
+}
+export function matchesSettlementFilter(record, status) {
+  const remaining = settlementForRecord(record)?.remaining;
+  return (
+    status === "all" ||
+    (status === "outstanding"
+      ? remaining > 0
+      : status === "settled" && remaining === 0)
+  );
 }
 export function settlementFor(invoiceAmount, paid, discount = "") {
   const invoice = moneyCents(invoiceAmount, "Final Invoice", { strict: true });

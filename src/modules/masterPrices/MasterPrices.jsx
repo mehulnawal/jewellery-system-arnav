@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { useMasterPrices } from "../../hooks/useMasterPrices";
 import { useBusinessAvailability } from "../../hooks/useBusinessAvailability.js";
-import { INVENTORY_SHAPES, orderShapes } from "../../utils/inventoryRules.js";
+import {
+  INVENTORY_SHAPES,
+  orderShapes,
+  shapeName,
+} from "../../utils/inventoryRules.js";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { usePageFreeze } from "../../hooks/usePageFreeze";
@@ -164,7 +168,9 @@ export default function MasterPrices() {
                 !value ||
                 (["height", "width"].includes(key)
                   ? normalizeSize(row[key]) || "default"
-                  : row[key]) === value,
+                  : key === "shape"
+                    ? shapeName(row[key])
+                    : row[key]) === value,
             ),
         )
         .sort(
@@ -323,7 +329,9 @@ export default function MasterPrices() {
                   rows.map((row) =>
                     ["height", "width"].includes(key)
                       ? normalizeSize(row[key]) || "default"
-                      : row[key],
+                      : key === "shape"
+                        ? shapeName(row[key])
+                        : row[key],
                   ),
                 ),
               ]
@@ -378,7 +386,7 @@ export default function MasterPrices() {
               {filtered.map((row) => (
                 <tr key={row.id}>
                   <td>{row.type}</td>
-                  <td>{row.shape}</td>
+                  <td>{shapeName(row.shape)}</td>
                   <td>{normalizeSize(row.height)}</td>
                   <td>
                     {normalizeSize(row.width) || (

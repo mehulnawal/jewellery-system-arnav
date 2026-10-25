@@ -45,9 +45,9 @@ export function buildGoodsWithCustomers(
         excludedItems++;
         continue;
       }
-      // Physical IDs prevent two distinct Inventory records sharing a label.
+      // One user-facing row per SKU; keep physical identity on each issue.
       const physicalId = text(item.sourceInventoryId) || text(item.inventoryId);
-      const key = JSON.stringify([physicalId || null, sku]);
+      const key = sku;
       if (!groups.has(key))
         groups.set(key, { key, sku, millis: 0n, details: [] });
       const group = groups.get(key);
@@ -59,6 +59,9 @@ export function buildGoodsWithCustomers(
       }
       group.millis += millis;
       group.details.push({
+        sourceInventoryId: text(item.sourceInventoryId),
+        inventoryId: text(item.inventoryId),
+        physicalId,
         customer: text(challan.party) || "Customer unknown",
         carat: fromMillis(millis),
         date,

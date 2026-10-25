@@ -101,7 +101,7 @@ requireTrue(
 requireTrue(isValidBox("AB29") && !isValidBox("29AB"), "Box validation");
 const ordered = orderShapes(["Round", "Future Shape", "Oval", "Pan"]);
 requireTrue(
-  ordered.join("|") === "Pan|Oval|Future Shape|Round",
+  ordered.join("|") === "Pear|Oval|Future Shape|Round",
   "shape order with Round last",
 );
 

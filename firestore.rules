@@ -213,7 +213,12 @@ service cloud.firestore {
       allow update: if businessUnlocked() && currentBusinessGeneration() && ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(["size", "shape", "type", "sku"]) || claimedInventoryIdentity(entry)) && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && (!resource.data.keys().hasAll(['pieces']) || request.resource.data.pieces <= resource.data.pieces))));
       allow delete: if businessUnlocked() && (!identitySetupInProgress() && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m")) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m"))));
     }
-    match /shapes/{entry} { allow read: if activeOrGraceEmployee() || admin(); allow write: if businessUnlocked() && (admin() || inventoryEmployee()); }
+    match /shapes/{entry} {
+      allow read: if activeOrGraceEmployee() || admin();
+      allow create: if businessUnlocked() && (admin() || inventoryEmployee() || purchaseEmployee())
+        && request.resource.data.keys().hasOnly(['value']) && request.resource.data.value is string;
+      allow update, delete: if businessUnlocked() && (admin() || inventoryEmployee());
+    }
     match /settings/{entry} { allow read: if activeEmployee() || admin(); allow write: if businessUnlocked() && (admin()); }
     match /parties/{party} {
       allow read: if activeOrGraceEmployee() || admin();
@@ -246,8 +251,8 @@ service cloud.firestore {
       let fields = request.resource.data.diff(data).affectedKeys();
       return stage in [1, 2, 3, 4] && request.resource.data.stage == stage
         && fields.hasOnly(['number', 'party', 'date', 'notes', 'items', 'amount', 'discount', 'discountAmount', 'netAmount', 'stage1Images', 'stage2Images', 'updatedAt'])
-        && (admin()
-          ? (stage == 1 || request.time < challanStageStart(data) + duration.value(60, 'm'))
+        && (admin() || (stage == 4 && activeOrGraceEmployee() && profile().role == 'admin')
+          ? (stage == 1 || stage == 4 || request.time < challanStageStart(data) + duration.value(60, 'm'))
           : (activeOrGraceEmployee() && data.createdBy == request.auth.uid
             && data.get('createdByRole', '') != 'superadmin'
             && ((stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))
@@ -279,6 +284,7 @@ service cloud.firestore {
               && legacyChallanTransitionTime(newHistory.stage3.enteredAtMs)
               && after.finalInvoice.confirmedAtMs == newHistory.stage3.enteredAtMs)))
         || (before.stage == 3 && after.stage == 4
+          && !before.keys().hasAny(['settlementPayments'])
           && (admin() || profile().permissions.hasAny(['challan-stage-4']))
           && changed.hasOnly(['stage', 'finalSettlement', 'stageHistory'])
           && newHistory.get('stage1', {}) == oldHistory.get('stage1', {})
@@ -289,13 +295,137 @@ service cloud.firestore {
               && legacyChallanTransitionTime(newHistory.stage4.enteredAtMs)
               && after.finalSettlement.completedAtMs == newHistory.stage4.enteredAtMs))));
     }
+    function stageFourEditor() {
+      return admin() || (activeOrGraceEmployee() && profile().role == 'admin')
+        || (activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-4'])
+          && resource.data.createdBy == request.auth.uid && resource.data.get('createdByRole', '') != 'superadmin'
+          && request.time < challanStageStart(resource.data) + duration.value(60, 'm'));
+    }
+    function settlementInvoiceAmount() {
+      return resource.data.get('finalInvoice', {}).get('finalInvoiceAmount', resource.data.get('finalSettlement', {}).get('finalInvoiceAmount', null));
+    }
+    function priorPaidCents() {
+      return resource.data.get('settlementPayments', null) is list
+        ? resource.data.paymentSummary.paidCents
+        : math.round(resource.data.get('finalSettlement', {}).get('amountPaid', 0) * 100);
+    }
+    function priorDiscountCents() {
+      let discount = resource.data.get('finalSettlement', {}).get('settlementDiscountAmount', 0);
+      return resource.data.get('settlementPayments', null) is list
+        ? resource.data.paymentSummary.discountCents
+        : (discount == '' ? 0 : math.round(discount * 100));
+    }
+    function validSettlementOpening() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let opening = after.get('settlementOpening', {});
+      return (before.get('settlementPayments', null) is list || before.keys().hasAny(['settlementOpening']))
+        ? after.get('settlementOpening', null) == before.get('settlementOpening', null)
+        : (before.stage == 3 || (before.finalSettlement.amountPaid is number && before.finalSettlement.amountPaid >= 0))
+          && opening.keys().hasOnly(['amountPaid', 'settlementDiscountAmount', 'paidCents', 'discountCents'])
+          && opening.paidCents == priorPaidCents() && opening.discountCents == priorDiscountCents()
+          && opening.amountPaid == opening.paidCents / 100.0
+          && opening.settlementDiscountAmount == opening.discountCents / 100.0;
+    }
+    function validSettlementTotals() {
+      let summary = request.resource.data.paymentSummary;
+      let final = request.resource.data.finalSettlement;
+      return summary.keys().hasOnly(['finalInvoiceAmount', 'amountPaid', 'settlementDiscountAmount', 'actualReceivedAmount', 'remaining', 'invoiceCents', 'paidCents', 'discountCents', 'remainingCents'])
+        && summary.invoiceCents is int && summary.invoiceCents == math.round(settlementInvoiceAmount() * 100)
+        && summary.paidCents is int && summary.paidCents >= 0 && summary.discountCents is int && summary.discountCents >= 0
+        && summary.remainingCents is int && summary.remainingCents == summary.invoiceCents - summary.paidCents - summary.discountCents && summary.remainingCents >= 0
+        && summary.finalInvoiceAmount == settlementInvoiceAmount()
+        && summary.amountPaid == summary.paidCents / 100.0 && summary.settlementDiscountAmount == summary.discountCents / 100.0
+        && summary.actualReceivedAmount == summary.amountPaid && summary.remaining == summary.remainingCents / 100.0
+        && final.diff(summary).affectedKeys().hasOnly(['completedAtMs'])
+        && request.resource.data.stage == 4;
+    }
+    function settlementActor(entry) {
+      return entry.id is string && entry.id.size() > 0 && entry.eventAtMs is int
+        && legacyChallanTransitionTime(entry.eventAtMs)
+        && entry.actor.uid == request.auth.uid && entry.actor.role == profile().role;
+    }
+    function settlementPaymentAllowed() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let oldPayments = before.get('settlementPayments', []);
+      let entries = after.settlementPayments;
+      let entry = entries[entries.size() - 1];
+      return (admin() || (activeOrGraceEmployee() && (profile().role == 'admin' || profile().permissions.hasAny(['challan-stage-4']))))
+        && before.stage in [3, 4]
+        && (before.stage == 3 || priorPaidCents() + priorDiscountCents() < math.round(settlementInvoiceAmount() * 100))
+        && after.diff(before).affectedKeys().hasOnly(['stage', 'settlementPayments', 'paymentSummary', 'finalSettlement', 'stageHistory', 'settlementOpening'])
+        && entries is list && entries.size() == oldPayments.size() + 1 && entries.removeAll([entry]) == oldPayments
+        && entry.keys().hasOnly(['id', 'eventAtMs', 'actor', 'amountPaid', 'discountAmount', 'paidCents', 'discountCents'])
+        && settlementActor(entry)
+        && entry.paidCents is int && entry.paidCents >= 0 && entry.discountCents is int && entry.discountCents >= 0
+        && entry.amountPaid == entry.paidCents / 100.0 && entry.discountAmount == entry.discountCents / 100.0
+        && (entry.paidCents + entry.discountCents > 0 || before.stage == 3)
+        && validSettlementOpening() && validSettlementTotals()
+        && after.paymentSummary.paidCents == priorPaidCents() + entry.paidCents
+        && after.paymentSummary.discountCents == priorDiscountCents() + entry.discountCents
+        && ((before.stage == 3 && !before.keys().hasAny(['finalSettlement'])
+            && after.stageHistory.diff(before.get('stageHistory', {})).affectedKeys().hasOnly(['stage4'])
+            && after.stageHistory.stage4.enteredAt == request.time
+            && after.finalSettlement.completedAtMs == after.stageHistory.stage4.enteredAtMs)
+          || (before.stage == 4 && after.get('stageHistory', {}) == before.get('stageHistory', {})
+            && after.finalSettlement.get('completedAtMs', null) == before.finalSettlement.get('completedAtMs', null)));
+    }
+    function settlementCorrectionAllowed() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let oldCorrections = before.get('settlementCorrections', []);
+      let entries = after.settlementCorrections;
+      let entry = entries[entries.size() - 1];
+      return before.stage == 4 && stageFourEditor()
+        && after.diff(before).affectedKeys().hasOnly(['settlementCorrections', 'settlementPayments', 'settlementOpening', 'paymentSummary', 'finalSettlement', 'party', 'date', 'notes', 'updatedAt'])
+        && after.settlementPayments == before.get('settlementPayments', [])
+        && entries is list && entries.size() == oldCorrections.size() + 1 && entries.removeAll([entry]) == oldCorrections
+        && entry.keys().hasOnly(['id', 'eventAtMs', 'actor', 'paidDeltaCents', 'discountDeltaCents'])
+        && settlementActor(entry) && entry.paidDeltaCents is int && entry.discountDeltaCents is int
+        && (entry.paidDeltaCents != 0 || entry.discountDeltaCents != 0)
+        && validSettlementOpening() && validSettlementTotals()
+        && after.paymentSummary.paidCents == priorPaidCents() + entry.paidDeltaCents
+        && after.paymentSummary.discountCents == priorDiscountCents() + entry.discountDeltaCents
+        && after.finalSettlement.get('completedAtMs', null) == before.finalSettlement.get('completedAtMs', null);
+    }
+    function settlementCompatibilityAllowed() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.stage == 4 && stageFourEditor()
+        && !(before.get('settlementPayments', null) is list)
+        && after.diff(before).affectedKeys().hasOnly(['settlementPayments', 'settlementOpening', 'paymentSummary', 'finalSettlement', 'party', 'date', 'notes', 'updatedAt'])
+        && after.settlementPayments == []
+        && validSettlementOpening() && validSettlementTotals()
+        && after.paymentSummary.paidCents == priorPaidCents()
+        && after.paymentSummary.discountCents == priorDiscountCents()
+        && after.finalSettlement.get('completedAtMs', null) == before.finalSettlement.get('completedAtMs', null);
+    }
+    function stageTwoPriceEditAllowed() {
+      return (admin() || (activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-2'])))
+        && resource.data.stage == 2
+        && !resource.data.keys().hasAny(['finalInvoice'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage2Prices'])
+        && request.resource.data.stage2Prices is map
+        && request.resource.data.stage2Prices.size() == resource.data.stage2Return.items.size();
+    }
+    function challanUpdateAllowed() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasAny(['settlementCorrections'])
+        ? settlementCorrectionAllowed()
+        : changed.hasAny(['settlementPayments', 'paymentSummary', 'settlementOpening'])
+        ? (request.resource.data.settlementPayments.size() == 0 ? settlementCompatibilityAllowed() : settlementPaymentAllowed())
+        : changed.hasAny(['stage2Prices'])
+          ? stageTwoPriceEditAllowed()
+          : (challanEditAllowed() || challanStageTransition());
+    }
     match /challans/{entry} {
-      allow read: if admin() || challanEmployee() || purchaseEmployee();
+      allow read: if admin() || challanEmployee() || purchaseEmployee() || (activeOrGraceEmployee() && profile().role == 'admin' && resource.data.stage == 4);
       allow create: if businessUnlocked() && currentBusinessGeneration() && ((admin() || challanStageOneEmployee()) && claimedChallanNumber(entry)
         && request.resource.data.createdAt == request.time);
       allow update: if businessUnlocked() && currentBusinessGeneration()
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
-        && (challanEditAllowed() || challanStageTransition());
+        && challanUpdateAllowed();
       allow delete: if businessUnlocked() && (admin());
     }
     match /purchases/{entry} {
@@ -310,6 +440,52 @@ service cloud.firestore {
     match /brokers/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if businessUnlocked() && currentBusinessGeneration() && (admin() || purchaseEmployee()); allow delete: if businessUnlocked() && (admin()); }
     match /counters/{entry} { allow read: if admin() || purchaseEmployee(); allow create, update: if businessUnlocked() && currentBusinessGeneration() && (!(entry in ['challan', 'purchase']) && (admin() || purchaseEmployee())); allow delete: if businessUnlocked() && (false); }
     match /activityLog/{entry} { allow read: if admin(); allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() || (activeOrGraceEmployee() && authenticActor() && request.resource.data.panel != 'master price list')); allow update, delete: if businessUnlocked() && currentBusinessGeneration() && (false); }
+    function orderListActor(actor) {
+      return actor is map
+        && actor.keys().hasAll(['uid', 'name', 'role'])
+        && actor.keys().hasOnly(['uid', 'name', 'role'])
+        && actor.uid == request.auth.uid
+        && actor.name is string
+        && actor.role == profile().role;
+    }
+    function validOrderListImage(image) {
+      return image == null || (image is map
+        && image.keys().hasAll(['secureUrl', 'publicId', 'filename'])
+        && image.keys().hasOnly(['secureUrl', 'publicId', 'filename'])
+        && image.secureUrl is string && image.secureUrl.matches('https://res[.]cloudinary[.]com/.*')
+        && image.publicId is string && image.publicId.size() > 0
+        && image.filename is string);
+    }
+    function validOrderListRecord(data) {
+      return data.keys().hasAll(['orderDate', 'clientName', 'staffName', 'description', 'image', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy'])
+        && data.keys().hasOnly(['orderDate', 'clientName', 'staffName', 'description', 'image', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'businessGeneration'])
+        && data.orderDate is string
+        && data.orderDate.matches('[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])')
+        && data.clientName is string && !data.clientName.matches('^[[:space:]]*$')
+        && data.staffName is string && !data.staffName.matches('^[[:space:]]*$')
+        && data.description is string
+        && validOrderListImage(data.image)
+        && (!data.description.matches('^[[:space:]]*$') || data.image != null)
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+    match /orderList/{entry} {
+      allow read: if activeEmployee() && profile().role in ['employee', 'staff', 'admin', 'superadmin'];
+      allow create: if businessUnlocked() && currentBusinessGeneration() && activeEmployee()
+        && profile().role in ['employee', 'staff', 'admin', 'superadmin']
+        && validOrderListRecord(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && orderListActor(request.resource.data.createdBy)
+        && request.resource.data.updatedBy == null;
+      allow update: if businessUnlocked() && currentBusinessGeneration() && activeEmployee()
+        && profile().role in ['employee', 'staff', 'admin', 'superadmin']
+        && validOrderListRecord(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdBy == resource.data.createdBy
+        && orderListActor(request.resource.data.updatedBy);
+      allow delete: if businessUnlocked() && activeEmployee()
+        && profile().role in ['employee', 'staff', 'admin', 'superadmin'];
+    }
     match /activityLogFirstLogins/{entry} { allow get: if admin() || activeOrGraceEmployee(); allow list: if admin(); allow create: if businessUnlocked() && currentBusinessGeneration() && (admin() || (activeOrGraceEmployee() && authenticActor())); allow update, delete: if businessUnlocked() && currentBusinessGeneration() && (false); }
   }
 }

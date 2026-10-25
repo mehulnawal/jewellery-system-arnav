@@ -14,6 +14,7 @@ import {
 import { isValidSize, normalizeSize } from "../../utils/dimensions.js";
 import { pieceValue } from "../../utils/pieces";
 import "./inventoryPicker.css";
+import { shapeName } from "../../utils/shapes.js";
 
 export default function InventoryPicker({
   value,
@@ -220,7 +221,8 @@ export default function InventoryPicker({
                 >
                   <b>{row.sku}</b>
                   <span>
-                    Size {normalizeSize(row.size)} mm · {row.shape} · {row.type}
+                    Size {normalizeSize(row.size)} mm · {shapeName(row.shape)} ·{" "}
+                    {row.type}
                   </span>
                   <small>
                     Available: {Number(row.weight || 0).toFixed(3)} ct ·{" "}

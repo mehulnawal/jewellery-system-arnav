@@ -20,7 +20,9 @@ export const BUSINESS_COLLECTIONS = [
   "numberingMigrations",
   "inventoryIdentityMigrations",
 ];
+// Standalone order tracking survives inventory/challan business resets.
 export const PRESERVED_COLLECTIONS = [
+  "orderList",
   "employeeProfiles",
   "staffCredentials",
   "settings",

@@ -20,6 +20,8 @@ import { useToast } from "../../ui/ToastContext";
 import ConfirmDialog from "../../components/ui/ConfirmDialog";
 import {
   DEFAULT_SHAPES,
+  orderShapes,
+  shapeName,
   formatDecimal,
   inventoryMatchesSearch,
 } from "../../utils/inventoryRules";
@@ -63,7 +65,7 @@ function viewHtml(record) {
   const rows = (record.items || [])
     .map(
       (item) =>
-        `<tr><td>${escape(item.type)}</td><td>${escape(item.shape)}</td><td>${escape(normalizeSize(item.size))}</td><td>${formatDecimal(item.weight)}</td><td>${item.pieces}</td><td>${escape(item.box)}</td><td>${escape(item.sku)}</td></tr>`,
+        `<tr><td>${escape(item.type)}</td><td>${escape(shapeName(item.shape))}</td><td>${escape(normalizeSize(item.size))}</td><td>${formatDecimal(item.weight)}</td><td>${item.pieces}</td><td>${escape(item.box)}</td><td>${escape(item.sku)}</td></tr>`,
     )
     .join("");
   return `<section class="purchase-print"><h1>Purchase ${escape(record.purchaseId)}</h1><p><b>Date:</b> ${escape(labelDate(record.date))} &nbsp; <b>Vendor:</b> ${escape(record.vendorName)} &nbsp; <b>Broker:</b> ${escape(record.brokerName || "--")}</p><p><b>Total Weight:</b> ${formatDecimal(record.totalWeight)} ct &nbsp; <b>Gross:</b> ${currency(record.amount)} &nbsp; <b>Discount:</b> ${record.discount}% (${currency(record.discountAmount)}) &nbsp; <b>Net Payable:</b> ${currency(record.netPayable)}</p><p><b>Payment Due:</b> ${record.paymentDueDays} days -- ${escape(labelDate(record.paymentDueDate))}</p><table><thead><tr><th>Type</th><th>Shape</th><th>Size</th><th>Weight</th><th>Pieces</th><th>BOX</th><th>SKU</th></tr></thead><tbody>${rows}</tbody></table></section>`;
@@ -97,7 +99,7 @@ function exportPurchases(records, filename = "purchases.xlsx") {
           (r.items || []).map((item) => ({
             "Purchase ID": r.purchaseId,
             Type: item.type,
-            Shape: item.shape,
+            Shape: shapeName(item.shape),
             "Size (mm)": normalizeSize(item.size),
             "Weight (ct)": item.weight,
             Pieces: item.pieces,
@@ -301,12 +303,12 @@ export default function Purchase() {
   useEffect(
     () =>
       onSnapshot(collection(db, "shapes"), (snapshot) =>
-        setShapes([
-          ...new Set([
+        setShapes(
+          orderShapes([
             ...DEFAULT_SHAPES,
             ...snapshot.docs.map((row) => row.data().value).filter(Boolean),
           ]),
-        ]),
+        ),
       ),
     [],
   );
@@ -883,7 +885,7 @@ export default function Purchase() {
                     {(modal.record.items || []).map((i) => (
                       <tr key={i.id}>
                         <td>{i.type}</td>
-                        <td>{i.shape}</td>
+                        <td>{shapeName(i.shape)}</td>
                         <td>{normalizeSize(i.size)}</td>
                         <td>{formatDecimal(i.weight)} ct</td>
                         <td>{i.pieces}</td>

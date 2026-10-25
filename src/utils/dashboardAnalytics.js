@@ -1,4 +1,6 @@
 import { normalizeSize } from "./dimensions.js";
+import { shapeName } from "./shapes.js";
+import { paymentProgress } from "./settlementPayments.js";
 const DAY = 86400000;
 const finite = (value) =>
   value !== null &&
@@ -22,7 +24,7 @@ const inPeriod = (value, from, to) =>
   Boolean(value && value >= from && value <= to);
 const groupKey = (row) =>
   [
-    row.shape || "Unknown shape",
+    shapeName(row.shape) || "Unknown shape",
     normalizeSize(row.size) || "Unknown size",
     row.type || "Unknown type",
   ].join(" | ");
@@ -125,8 +127,18 @@ export function buildDashboardAnalytics({
         state.weight += number(item.weight);
       markMovement(itemIdentity(item), created);
     }
-    if (currentStage === 3 && finite(challan.finalInvoice?.finalInvoiceAmount))
-      state.amount += number(challan.finalInvoice.finalInvoiceAmount);
+    if (
+      currentStage === 3 &&
+      finite(challan.finalInvoice?.finalInvoiceAmount)
+    ) {
+      try {
+        state.amount += challan.settlementPayments?.length
+          ? paymentProgress(challan).remaining
+          : number(challan.finalInvoice.finalInvoiceAmount);
+      } catch {
+        state.missingAmount = (state.missingAmount || 0) + 1;
+      }
+    }
     if (currentStage === 3 && !finite(challan.finalInvoice?.finalInvoiceAmount))
       state.missingAmount = (state.missingAmount || 0) + 1;
     if (

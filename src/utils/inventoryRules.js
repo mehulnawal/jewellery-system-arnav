@@ -1,20 +1,13 @@
 // Keep Round last. New shapes deliberately sort just before it.
 import { canonicalSkuText, sameSize, sizeMatchesSearch } from "./dimensions.js";
 export { normalizeSize, isValidSize } from "./dimensions.js";
-export const SHAPE_ORDER = [
-  "Pan",
-  "Marquise",
-  "Oval",
-  "Emerlad",
-  "Princess",
-  "Cushion",
-  "Radiant",
-  "Choki",
-  "Taper (Choki)",
-  "Buget (Choki)",
-  "Trillion",
-];
-export const DEFAULT_SHAPES = [...SHAPE_ORDER, "Round"];
+import { DEFAULT_SHAPES, shapeName } from "./shapes.js";
+export {
+  SHAPE_ORDER,
+  DEFAULT_SHAPES,
+  orderShapes,
+  shapeName,
+} from "./shapes.js";
 
 // Canonical headers shared by the Inventory importer and the downloadable blank template.
 export const INVENTORY_IMPORT_HEADERS = [
@@ -45,23 +38,7 @@ export const isValidBox = (value) => value === "" || /^[A-Z]+\d+$/.test(value);
 
 export const sizeSortValue = (value) =>
   Number(String(value ?? "").split("X")[0]) || 0;
-export const orderShapes = (shapes) =>
-  [...new Set(shapes.filter(Boolean))].sort((a, b) => {
-    const rank = (shape) => {
-      if (shape === "Round") return Number.MAX_SAFE_INTEGER;
-      if (shape === "Emerald") return SHAPE_ORDER.indexOf("Emerlad");
-      return SHAPE_ORDER.indexOf(shape) === -1
-        ? SHAPE_ORDER.length
-        : SHAPE_ORDER.indexOf(shape);
-    };
-    return rank(a) - rank(b) || a.localeCompare(b);
-  });
-
-export const INVENTORY_SHAPES = orderShapes([
-  ...DEFAULT_SHAPES,
-  "Pear",
-  "Heart",
-]);
+export const INVENTORY_SHAPES = DEFAULT_SHAPES;
 
 export const parseSizeQuery = (query) => {
   const normalized = String(query ?? "")
@@ -127,7 +104,7 @@ export const inventoryMatchesSearch = (
       ? sameSize(item.size, parsed.value.toUpperCase())
       : sizeMatchesSearch(item.size, parsed.value.toUpperCase());
   if (
-    [item.shape, item.type, item.sku].some((value) =>
+    [item.shape, shapeName(item.shape), item.type, item.sku].some((value) =>
       searchWords(value).includes(searchWords(parsed.value)),
     )
   )

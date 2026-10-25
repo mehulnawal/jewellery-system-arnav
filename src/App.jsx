@@ -5,6 +5,7 @@ import BusinessDashboard from "./modules/dashboard/BusinessDashboard";
 import Inventory from "./modules/inventory/Inventory";
 import CheckInventory from "./modules/checkInventory/CheckInventory";
 import Challan from "./modules/challan/Challan";
+import OrderList from "./modules/orderList/OrderList";
 import AdminSettings from "./modules/admin/AdminSettings";
 import ActivityLog from "./modules/activityLog/ActivityLog";
 import WeeklyReport from "./modules/weeklyReport/WeeklyReport";
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="inventory" element={<Inventory />} />
           </Route>
           <Route path="check-inventory" element={<CheckInventory />} />
+          <Route path="order-list" element={<OrderList />} />
           <Route element={<PermissionRoute permission="purchase" />}>
             <Route path="purchase" element={<Purchase />} />
           </Route>

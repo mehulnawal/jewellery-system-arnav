@@ -13,7 +13,11 @@ import {
 import { db } from "../../firebase/config";
 import { useAuth } from "../../auth/AuthContext";
 import { useToast } from "../../ui/ToastContext";
-import { formatDecimal } from "../../utils/inventoryRules";
+import {
+  formatDecimal,
+  orderShapes,
+  shapeName,
+} from "../../utils/inventoryRules";
 import {
   pricingFor,
   purchaseLockedByChallan,
@@ -610,13 +614,19 @@ export default function PurchaseForm({
                                 <option value="">Select</option>
                                 {(key === "type"
                                   ? ["CVD", "HP"]
-                                  : [
-                                      ...new Set(
-                                        [...shapes, item.shape].filter(Boolean),
-                                      ),
-                                    ]
+                                  : orderShapes([...shapes, item.shape])
                                 ).map((value) => (
-                                  <option key={value}>{value}</option>
+                                  <option
+                                    key={value}
+                                    value={
+                                      key === "shape" &&
+                                      shapeName(item.shape) === value
+                                        ? item.shape
+                                        : value
+                                    }
+                                  >
+                                    {value}
+                                  </option>
                                 ))}
                               </select>
                             ) : (

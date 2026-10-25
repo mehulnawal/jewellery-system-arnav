@@ -2,6 +2,7 @@ import { runTransaction } from "../firebase/businessWrites.js";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { auditActor } from "./activityLog";
+import { shapeName } from "./shapes.js";
 import {
   canonicalMasterPrice,
   duplicatePriceMessage,
@@ -83,6 +84,11 @@ export async function saveMasterPrice(row, user, previous = null) {
     if (before)
       snapshot.description = `${before.description} → ${snapshot.description}`;
     audit(tx, user, previous ? "edited" : "created", snapshot, before);
+    tx.set(
+      doc(db, "shapes", encodeURIComponent(data.shape)),
+      { value: shapeName(data.shape) },
+      { merge: true },
+    );
   });
   return key;
 }
@@ -153,6 +159,16 @@ export async function importMasterPrices(rows, user) {
           });
       }
       const added = outcomes.filter((row) => row.added).length;
+      for (const { row } of entries.filter(
+        (_, index) => outcomes[index].added,
+      )) {
+        const shape = shapeName(row.shape);
+        tx.set(
+          doc(db, "shapes", encodeURIComponent(shape)),
+          { value: shape },
+          { merge: true },
+        );
+      }
       audit(tx, user, "imported", {
         description: `Imported ${chunk.length} Master Price rows: ${added} added, ${chunk.length - added} rejected.`,
         added,

@@ -1,4 +1,5 @@
-import { inventoryMatchesSearch, SHAPE_ORDER } from "./inventoryRules.js";
+import { inventoryMatchesSearch } from "./inventoryRules.js";
+import { shapeRank } from "./shapes.js";
 import { pieceValue } from "./pieces.js";
 import {
   inventoryIdentityErrors,
@@ -20,19 +21,6 @@ const compareText = (left, right) =>
   String(left ?? "").localeCompare(String(right ?? ""), "en", {
     sensitivity: "base",
   }) || String(left ?? "").localeCompare(String(right ?? ""), "en");
-const shapeAliases = {
-  Emerald: "Emerlad",
-  Cuhsion: "Cushion",
-  Radient: "Radiant",
-};
-const shapeRank = (value) => {
-  const shape = shapeAliases[String(value ?? "")] ?? String(value ?? "");
-  if (shape.toLowerCase() === "round") return SHAPE_ORDER.length + 1;
-  const rank = SHAPE_ORDER.findIndex(
-    (entry) => entry.toLowerCase() === shape.toLowerCase(),
-  );
-  return rank < 0 ? SHAPE_ORDER.length : rank;
-};
 const compareDecimal = (left, right) => {
   const [leftWhole, leftFraction = ""] = left.split(".");
   const [rightWhole, rightFraction = ""] = right.split(".");

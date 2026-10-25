@@ -17,13 +17,15 @@ test("rapid Stage 2 Pieces and Weight edits remain visible and reach save togeth
   await expect(first.nth(1)).toHaveValue("2.375");
   await expect(second.nth(0)).toHaveValue("2");
   await expect(second.nth(1)).toHaveValue("1.250");
-  await expect(page.getByText("Total Sold Weight")).toBeVisible();
+  await expect(page.locator(".stage-two-totals strong").nth(6)).toHaveText(
+    "3.375",
+  );
   await page.getByRole("button", { name: /Move to Stage 2/ }).click();
   await expect
     .poll(() => page.evaluate(() => window.__savedReturnRows))
     .toEqual([
-      { id: "a", returnPieces: "5", returnWeight: "2.375" },
-      { id: "b", returnPieces: "2", returnWeight: "1.250" },
+      { id: "a", returnPieces: "5", returnWeight: "2.375", price: "1000" },
+      { id: "b", returnPieces: "2", returnWeight: "1.250", price: "500" },
     ]);
 });
 test("contradictory Pieces and Weight cannot be submitted", async ({
@@ -43,24 +45,129 @@ test("contradictory Pieces and Weight cannot be submitted", async ({
   ).toBeVisible();
   expect(await page.evaluate(() => window.__savedReturnRows)).toBeUndefined();
 });
+
+test("Stage 2 totals align under the same ten columns and edited rate reaches confirmation", async ({
+  page,
+}) => {
+  await page.goto("/tests/challanCalculations.browser.html");
+  const rows = page.locator(".stage-two-row");
+  for (const row of await rows.all()) {
+    await row.locator("input").nth(0).fill("0");
+    await row.locator("input").nth(1).fill("0");
+  }
+  await page
+    .getByRole("spinbutton", { name: "A Price / Carat" })
+    .fill("900.25");
+  const totals = page.locator(".stage-two-totals");
+  await expect(totals).not.toContainText("Total Issued");
+  await expect(totals.locator("strong").first()).toHaveText("TOTAL");
+  await expect(totals.locator("strong").nth(2)).toHaveText("7.000");
+  const grid = async (selector) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+  expect(await grid(".stage-two-totals")).toBe(await grid(".stage-two-head"));
+  expect(await grid(".stage-two-row")).toBe(await grid(".stage-two-head"));
+  await page.getByRole("button", { name: /Move to Stage 2/ }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__savedReturnRows?.[0].price))
+    .toBe("900.25");
+});
+
+test("existing Stage 2 pricing modal defaults to the quote and validates edited rates", async ({
+  page,
+}) => {
+  await page.goto("/tests/challanCalculations.browser.html?mode=stage2-prices");
+  const price = page.getByLabel("A — Price / Carat");
+  await expect(price).toHaveValue("1000");
+  await price.fill("900.123");
+  await page.getByRole("button", { name: "Save Stage 2 Prices" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "at most 2 decimal places",
+  );
+  await price.fill("900.25");
+  await page.getByRole("button", { name: "Save Stage 2 Prices" }).click();
+  await expect
+    .poll(() => page.evaluate(() => window.__stage2Prices))
+    .toEqual({ 0: 900.25 });
+});
+
+test("Challan print has matching Original/Duplicate serials, totals and Customer Signature", async ({
+  page,
+}) => {
+  await page.goto("/tests/challanCalculations.browser.html?mode=print");
+  const frame = page.frameLocator('iframe[title="Challan print"]');
+  await expect(frame.locator(".copy")).toHaveCount(2);
+  for (const copy of await frame.locator(".copy").all()) {
+    await expect(copy).not.toContainText("Type / CVD / HP");
+    await expect(copy).not.toContainText("Original Amount");
+    await expect(copy).not.toContainText("After Discount");
+    await expect(copy).toContainText("15 10 2026");
+    await expect(copy.locator(".signature")).toHaveText("Customer Signature");
+    await expect(copy.locator("tbody tr td").first()).toHaveText("1");
+    await expect(copy.locator("tfoot td").last()).toHaveText("₹10");
+  }
+  await frame
+    .locator(".copy")
+    .first()
+    .screenshot({ path: "test-results/client-challan-print.png" });
+});
+
+test("few/many item print endings keep physical signature space and Stage 4 normalized balance", async ({
+  page,
+}) => {
+  for (const mode of ["print", "print-many", "print-stage4"]) {
+    await page.goto("/tests/challanCalculations.browser.html?mode=" + mode);
+    const frame = page.frameLocator('iframe[title="Challan print"]');
+    await expect(frame.locator(".signature")).toHaveCount(2);
+    for (const ending of await frame.locator(".copy-ending").all()) {
+      const signature = ending.locator(".signature");
+      await expect(signature).toContainText("Customer Signature");
+      const geometry = await signature.evaluate((e) => ({
+        padding: parseFloat(getComputedStyle(e).paddingTop),
+        width: e.querySelector("span").getBoundingClientRect().width,
+        breakInside: getComputedStyle(e.parentElement).breakInside,
+      }));
+      expect(geometry.padding).toBeGreaterThanOrEqual(83);
+      expect(geometry.width).toBeGreaterThanOrEqual(264);
+      expect(geometry.breakInside).toBe("avoid");
+    }
+    if (mode === "print-stage4")
+      for (const ending of await frame.locator(".copy-ending").all())
+        await expect(ending).toContainText("Outstanding Amount: ₹1,650");
+    const html = await page.locator("iframe").getAttribute("srcdoc");
+    await page.setContent(html);
+    await page.emulateMedia({ media: "print" });
+    await page.pdf({
+      path: `test-results/${mode}-restored.pdf`,
+      format: "A4",
+      printBackground: true,
+    });
+    await page.screenshot({
+      path: `test-results/${mode}-restored.png`,
+      fullPage: true,
+    });
+  }
+});
 test("weight-only manual return requires an explicit zero Pieces entry and retains zero totals", async ({
   page,
 }) => {
   await page.goto("/tests/challanCalculations.browser.html?mode=weight-only");
   const fields = page.locator(".stage-two-row input");
-  await expect(fields).toHaveCount(2);
+  await expect(fields).toHaveCount(3);
   await fields.nth(1).fill("2.500");
   await page.getByRole("button", { name: /Move to Stage 2/ }).click();
   await expect(page.getByText(/Enter 0 to 0/)).toBeVisible();
   expect(await page.evaluate(() => window.__savedReturnRows)).toBeUndefined();
   await fields.nth(0).fill("0");
-  await expect(page.getByText("Total Sold Pieces").locator("..")).toHaveText(
-    /Total Sold Pieces\s+0/,
-  );
+  await expect(page.locator(".stage-two-totals strong").nth(5)).toHaveText("0");
   await page.getByRole("button", { name: /Move to Stage 2/ }).click();
   await expect
     .poll(() => page.evaluate(() => window.__savedReturnRows))
-    .toEqual([{ id: "manual", returnPieces: "0", returnWeight: "2.500" }]);
+    .toEqual([
+      { id: "manual", returnPieces: "0", returnWeight: "2.500", price: "1000" },
+    ]);
 });
 
 test("invoice review requires Admin manual partial amount and locks full/no return amounts", async ({
@@ -72,8 +179,26 @@ test("invoice review requires Admin manual partial amount and locks full/no retu
   const finalAmount = page.getByRole("spinbutton", {
     name: "A Final Billed Amount",
   });
+  const review = page.locator(".final-invoice-modal");
+  await expect(review.locator(".stage-two-head > span")).toHaveText([
+    "SKU / TYPE",
+    "ISSUED",
+    "RETURN",
+    "SOLD / KEPT",
+    "PRICE / CARAT",
+    "DISCOUNT",
+    "FINAL BILLED AMOUNT",
+  ]);
+  await expect(review.locator(".stage-two-row > span").nth(4)).toHaveText("6%");
+  await expect(review.locator(".stage-two-totals > strong")).toHaveCount(1);
+  await expect(review.locator(".stage-two-totals small")).toHaveText(
+    "Final Invoice Amount",
+  );
+  await expect(review).not.toContainText("Stage 1");
   await expect(finalAmount).toBeVisible();
-  await expect(page.getByText("Pending valid partial amount")).toBeVisible();
+  await expect(
+    page.getByText("Enter billed amount to calculate total"),
+  ).toBeVisible();
   await finalAmount.fill("400.555");
   await page.getByRole("button", { name: /Confirm Final Invoice/ }).click();
   await expect(page.getByText(/at most 2 decimal places/)).toBeVisible();
@@ -85,10 +210,16 @@ test("invoice review requires Admin manual partial amount and locks full/no retu
     .toEqual(["400.50"]);
 
   await page.goto("/tests/challanCalculations.browser.html?mode=invoice-full");
-  await expect(page.getByText("₹0.00 (locked)")).toBeVisible();
+  await expect(review.locator(".stage-two-row > span").last()).toHaveText(
+    "₹0.00",
+  );
+  await expect(review).not.toContainText("locked");
   await expect(page.locator(".final-invoice-modal input")).toHaveCount(0);
   await page.goto("/tests/challanCalculations.browser.html?mode=invoice-none");
-  await expect(page.getByText("₹940.00 (locked)")).toBeVisible();
+  await expect(review.locator(".stage-two-row > span").last()).toHaveText(
+    "₹940.00",
+  );
+  await expect(review).not.toContainText("locked");
   await expect(page.locator(".final-invoice-modal input")).toHaveCount(0);
 
   await page.goto("/tests/challanCalculations.browser.html?mode=invoice-staff");
@@ -97,6 +228,110 @@ test("invoice review requires Admin manual partial amount and locks full/no retu
     page.getByRole("button", { name: /Confirm Final Invoice/ }),
   ).toBeDisabled();
 });
+test("simplified invoice review keeps seven columns aligned in both themes and small screens", async ({
+  page,
+}) => {
+  await page.goto("/tests/challanCalculations.browser.html?mode=invoice-none");
+  const review = page.locator(".final-invoice-modal");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (value) => (document.documentElement.dataset.theme = value),
+      theme,
+    );
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(review).toBeVisible();
+      await expect(review.locator(".stage-two-head > span")).toHaveCount(7);
+      await expect(review.locator(".stage-two-row > *")).toHaveCount(7);
+      const columns = await review
+        .locator(".stage-two-head")
+        .evaluate(
+          (element) =>
+            getComputedStyle(element).gridTemplateColumns.split(" ").length,
+        );
+      expect(columns).toBe(7);
+      if (width === 1440) {
+        for (let index = 1; index <= 5; index++) {
+          const header = await review
+            .locator(".stage-two-head > span")
+            .nth(index)
+            .boundingBox();
+          const text = await review
+            .locator(".stage-two-row > *")
+            .nth(index)
+            .evaluate((element) => {
+              const range = document.createRange();
+              range.selectNodeContents(element);
+              const rect = range.getBoundingClientRect();
+              return { x: rect.x, width: rect.width };
+            });
+          expect(
+            Math.abs(header.x + header.width / 2 - text.x - text.width / 2),
+          ).toBeLessThan(2);
+        }
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await review.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: `test-results/invoice-review-${theme}-${width}.png`,
+      });
+    }
+  }
+});
+
+test("partial invoice pending total and amount hint avoid inherited badge styles", async ({
+  page,
+}) => {
+  await page.goto(
+    "/tests/challanCalculations.browser.html?mode=invoice-partial",
+  );
+  const review = page.locator(".final-invoice-modal");
+  const input = page.getByRole("spinbutton", { name: "A Final Billed Amount" });
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (value) => (document.documentElement.dataset.theme = value),
+      theme,
+    );
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await input.fill("");
+      await expect(
+        review.locator(".final-invoice-total-value.is-pending"),
+      ).toHaveText("Enter billed amount to calculate total");
+      for (const selector of [
+        ".stage-two-totals small",
+        ".final-invoice-amount-hint",
+      ]) {
+        expect(
+          await review
+            .locator(selector)
+            .evaluate((element) => getComputedStyle(element).backgroundColor),
+        ).toBe("rgba(0, 0, 0, 0)");
+      }
+      if (width === 390)
+        await review
+          .locator(".stage-two-table-wrap")
+          .evaluate((element) => (element.scrollLeft = element.scrollWidth));
+      await page.screenshot({
+        path: `test-results/invoice-pending-${theme}-${width}.png`,
+      });
+      await input.fill("400.50");
+      await expect(review.locator(".final-invoice-total-value")).toHaveText(
+        "₹400.50",
+      );
+      await expect(review.locator(".is-pending")).toHaveCount(0);
+    }
+  }
+});
+
 test("settlement updates Remaining immediately and rejects sub-cent Paid", async ({
   page,
 }) => {
@@ -105,12 +340,11 @@ test("settlement updates Remaining immediately and rejects sub-cent Paid", async
     name: "Amount Paid by Customer",
   });
   const discount = page.getByRole("spinbutton", { name: "Discount Amount" });
-  const complete = page.getByRole("button", {
-    name: "Record Payment / Complete",
-  });
+  const complete = page.locator(".settlement-modal footer button.primary");
   await paid.fill("900");
   await expect(page.getByText("₹100.00")).toBeVisible();
-  await expect(complete).toBeDisabled();
+  await expect(complete).toHaveText("Record Payment / Complete");
+  await expect(complete).toBeEnabled();
   await discount.fill("100");
   await expect(page.getByText("₹0.00")).toBeVisible();
   await expect(complete).toBeEnabled();
@@ -127,6 +361,98 @@ test("settlement updates Remaining immediately and rejects sub-cent Paid", async
       paid: "1000",
       discount: "",
     });
+});
+
+test("outstanding preview remains available and settlement labels have no badge background", async ({
+  page,
+}) => {
+  await page.goto("/tests/challanCalculations.browser.html?mode=settlement");
+  await page
+    .getByRole("spinbutton", { name: "Amount Paid by Customer" })
+    .fill("900");
+  const summary = page.locator(".settlement-summary-grid");
+  await expect(summary.locator("strong").last()).toHaveText(
+    /Outstanding Amount\s*₹100.00/,
+  );
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (value) => (document.documentElement.dataset.theme = value),
+      theme,
+    );
+    for (const label of await summary.locator("small").all()) {
+      expect(
+        await label.evaluate(
+          (element) => getComputedStyle(element).backgroundColor,
+        ),
+      ).toBe("rgba(0, 0, 0, 0)");
+    }
+    await page.screenshot({
+      path: `test-results/settlement-outstanding-${theme}.png`,
+    });
+  }
+  await expect(
+    page.getByRole("button", { name: "Record Payment / Complete" }),
+  ).toBeEnabled();
+});
+
+test("15000 invoice saves 10000, reopens with 5000 due, then completes after the next payment", async ({
+  page,
+}) => {
+  await page.goto(
+    "/tests/challanCalculations.browser.html?mode=settlement-partial",
+  );
+  const modal = page.getByRole("dialog", { name: "Final Settlement" });
+  await modal
+    .getByRole("spinbutton", { name: "Amount Paid by Customer" })
+    .fill("10000");
+  await expect(
+    modal.locator(".settlement-summary-grid strong").last(),
+  ).toContainText("₹5000.00");
+  await modal
+    .getByRole("button", { name: "Record Payment / Complete" })
+    .click();
+  await expect(modal).not.toBeVisible();
+  await expect(page.getByLabel("Current Stage")).toHaveText("Stage 4");
+  await expect(page.getByLabel("Saved Outstanding")).toHaveText("₹5000");
+  await page.getByRole("button", { name: "Record Next Payment" }).click();
+  await expect(modal).toContainText("Already paid: ₹10000.00");
+  await expect(
+    modal.getByRole("region", { name: "Payment History" }),
+  ).toContainText("₹10000.00");
+  await modal
+    .getByRole("spinbutton", { name: /Amount Paid by Customer/ })
+    .fill("6000");
+  await expect(modal).toContainText("cannot exceed the outstanding amount");
+  await modal
+    .getByRole("spinbutton", { name: /Amount Paid by Customer/ })
+    .fill("5000");
+  await modal
+    .getByRole("button", { name: "Record Payment / Complete" })
+    .click();
+  await expect(page.getByLabel("Current Stage")).toHaveText("Stage 4");
+  await expect(page.getByLabel("Saved Outstanding")).toHaveText("₹0");
+  await expect(
+    page.getByRole("region", { name: "Payment History" }).locator("tbody tr"),
+  ).toHaveCount(2);
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__paymentRecord.finalSettlement.amountPaid),
+    )
+    .toBe(15000);
+});
+
+test("Stage 4 partial payment clearly shows outstanding without claiming completion", async ({
+  page,
+}) => {
+  await page.goto(
+    "/tests/challanCalculations.browser.html?mode=view-partial-payment",
+  );
+  const fourth = page.locator(".challan-view-stage-four");
+  await expect(fourth.getByRole("status")).toContainText("Partially Paid");
+  await expect(fourth.getByRole("status")).toContainText("Outstanding Amount");
+  await expect(fourth.getByRole("status")).toContainText("₹5,000.00");
+  await expect(fourth).not.toContainText("Completed:");
+  await expect(fourth).toContainText("Stage 4 entered:");
 });
 
 test("saved Stage 3 and 4 Views show quoted, billable, discount, and final values", async ({

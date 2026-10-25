@@ -18,6 +18,7 @@ import {
   validatePurchaseForm,
 } from "./purchaseValidation.js";
 import { prepareNumberClaim, prepareNumberRelease } from "./numberRegistry.js";
+import { shapeName } from "./shapes.js";
 import { normalizeBox, normalizeSize, sizeSortValue } from "./inventoryRules";
 
 export const PURCHASE_HEADERS = [
@@ -261,9 +262,20 @@ export async function savePurchase({
         createdAt: serverTimestamp(),
         createdAtMs: now,
       });
+    // New shapes discovered by a Purchase import join the same shared catalog.
+    const newShapeRefs = [];
+    for (const shape of new Set(
+      recordItems.map((item) => shapeName(item.shape)),
+    )) {
+      if (!shape || shape.toLowerCase() === "heart") continue;
+      const ref = doc(db, "shapes", encodeURIComponent(shape));
+      const existing = await tx.get(ref);
+      if (!existing.exists()) newShapeRefs.push({ ref, shape });
+    }
     releaseInventory.forEach((release) => release());
     claimInventory();
     claimNumber();
+    for (const { ref, shape } of newShapeRefs) tx.set(ref, { value: shape });
     tx.set(purchaseRef, payload, { merge: edit });
     if (edit)
       linkedInventory.docs.forEach((old) => {

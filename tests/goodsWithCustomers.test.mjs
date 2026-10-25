@@ -118,13 +118,17 @@ test("date precedence and invalid legacy dates", () => {
   for (const date of ["2026-99-99", "2026-02-30", "nonsense", ""])
     assert.equal(stageOneIssueDate({ date }), "");
 });
-test("physical identity collisions remain separate and legacy SKU-only rows remain visible", () => {
+test("same SKU across physical identities produces one row with traceable issues", () => {
   const records = [
-    record(1, 2),
+    record(1, 7),
     record(2, 3, { items: [{ sku: "ABC", inventoryId: "i2", weight: 3 }] }),
-    record(3, 1, { items: [{ sku: "ABC", weight: 1 }] }),
+    record(3, 4, { items: [{ sku: "ABC", weight: 4 }] }),
   ];
-  assert.equal(build(records).rows.length, 3);
+  const rows = build(records).rows;
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].carat, 14);
+  assert.equal(rows[0].details.length, 3);
+  assert.equal(rows[0].details[1].inventoryId, "i2");
 });
 test("malformed weights/SKUs are omitted with notice, zero remains, shared rounding", () => {
   const items = [

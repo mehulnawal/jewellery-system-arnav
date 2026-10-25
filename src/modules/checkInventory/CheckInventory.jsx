@@ -9,9 +9,10 @@ import {
   formatDecimal,
   inventoryMatchesSearch,
   orderShapes,
+  shapeName,
 } from "../../utils/inventoryRules";
 import "./checkInventory.css";
-const LEGACY_SHAPES = orderShapes([...DEFAULT_SHAPES, "Pear", "Heart"]),
+const LEGACY_SHAPES = DEFAULT_SHAPES,
   AGEING = [
     "Any ageing",
     "Green (1-30 days)",
@@ -134,7 +135,7 @@ export default function CheckInventory() {
                 (ageing.startsWith("Red") && getAgeingColor(age) === "red");
             return (
               match &&
-              (shape === "All shapes" || item.shape === shape) &&
+              (shape === "All shapes" || shapeName(item.shape) === shape) &&
               (type === "All types" || item.type === type) &&
               (group === "All groups" ||
                 (item.group || "Uncategorized") === group) &&
@@ -160,7 +161,7 @@ export default function CheckInventory() {
   const exportResult = async () => {
     const XLSX = await import("xlsx"),
       rows = visibleResult.map((item) => ({
-        Shape: item.shape,
+        Shape: shapeName(item.shape),
         Type: item.type,
         "Weight (ct)": formatDecimal(item.weight),
         "Size (mm)": normalizeSize(item.size),
@@ -294,7 +295,7 @@ export default function CheckInventory() {
         <tbody>
           {visibleResult.map((item) => (
             <tr key={item.id}>
-              <td>{item.shape}</td>
+              <td>{shapeName(item.shape)}</td>
               <td>{item.type}</td>
               <td>{formatDecimal(item.weight)}</td>
               <td>{normalizeSize(item.size)}</td>
@@ -342,7 +343,7 @@ function Card({ item }) {
     <article className="check-card">
       <strong className="check-card-size">{normalizeSize(item.size)} mm</strong>
       <span className={`check-type ${normal(item.type)}`}>{item.type}</span>
-      <span className="check-card-shape">{item.shape}</span>
+      <span className="check-card-shape">{shapeName(item.shape)}</span>
       <span className={`check-age ${getAgeingColor(days)}`}>
         <i />
         {days}d

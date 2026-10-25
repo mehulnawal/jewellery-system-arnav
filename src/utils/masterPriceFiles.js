@@ -1,5 +1,6 @@
 import { MASTER_PRICE_HEADERS } from "./masterPrices.js";
 import { normalizeSize } from "./dimensions.js";
+import { shapeName } from "./shapes.js";
 export async function exportMasterPrices(rows, template = false) {
   const XLSX = await import("xlsx"),
     book = XLSX.utils.book_new();
@@ -9,7 +10,7 @@ export async function exportMasterPrices(rows, template = false) {
       ? []
       : rows.map((row) => [
           row.type,
-          row.shape,
+          shapeName(row.shape),
           normalizeSize(row.height),
           normalizeSize(row.width),
           row.price,
@@ -46,5 +47,5 @@ const escape = (value) =>
       ],
   );
 export function masterPricePrintHtml(rows) {
-  return `<!doctype html><html><head><title>Master Price List</title><style>body{font:14px Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:10px;text-align:left}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body><h1>Master Price List</h1><table><thead><tr>${MASTER_PRICE_HEADERS.map((header) => `<th>${header}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${[row.type, row.shape, normalizeSize(row.height), normalizeSize(row.width) || "Default", Number(row.price).toLocaleString("en-IN", { style: "currency", currency: "INR" })].map((value) => `<td>${escape(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`;
+  return `<!doctype html><html><head><title>Master Price List</title><style>body{font:14px Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:10px;text-align:left}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body><h1>Master Price List</h1><table><thead><tr>${MASTER_PRICE_HEADERS.map((header) => `<th>${header}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${[row.type, shapeName(row.shape), normalizeSize(row.height), normalizeSize(row.width) || "Default", Number(row.price).toLocaleString("en-IN", { style: "currency", currency: "INR" })].map((value) => `<td>${escape(value)}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`;
 }

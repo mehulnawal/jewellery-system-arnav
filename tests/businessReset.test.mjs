@@ -121,7 +121,7 @@ test("all audited business roots, nested/orphan data removed; configuration/acco
     await db.doc(`${name}/old`).set({ sample: true });
     await db.doc(`${name}/missing/nested/child`).set({ sample: true });
   }
-  for (const name of ["settings", "shapes", "staffCredentials"])
+  for (const name of ["settings", "shapes", "staffCredentials", "orderList"])
     await db.doc(`${name}/keep`).set({ preserved: true });
   await start();
   assert.equal((await finish()).status, "complete");
@@ -146,6 +146,7 @@ test("all audited business roots, nested/orphan data removed; configuration/acco
     "settings/keep",
     "shapes/keep",
     "staffCredentials/keep",
+    "orderList/keep",
   ])
     assert.equal((await db.doc(path).get()).exists, true);
   for (const path of [
