@@ -13,6 +13,7 @@ import {
   recordSettlementPayment,
   correctSettlement,
   initializeSettlement,
+  sameSettlementEditSource,
   settlementOutstanding,
   settlementStatus,
 } from "../../utils/settlementPayments.js";
@@ -3384,17 +3385,7 @@ export default function Challan() {
         )
       )
         return;
-      const version = (row) =>
-        JSON.stringify([
-          row.finalSettlement,
-          row.paymentSummary,
-          row.settlementPayments,
-          row.settlementCorrections,
-          row.party,
-          row.date,
-          row.notes,
-        ]);
-      if (version(current) !== version(previous))
+      if (!sameSettlementEditSource(previous, current))
         throw new Error(
           "Settlement changed while you were editing. Reopen it and try again.",
         );

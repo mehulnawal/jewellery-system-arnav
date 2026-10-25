@@ -6,6 +6,28 @@ import {
 
 const cents = (value, label, blankZero = false) =>
   moneyCents(value, label, { strict: true, blankZero });
+
+// Firestore map key order can differ between a server read and a transaction.
+// Keep array order significant, but compare maps by their contents.
+const orderedValue = (value) => {
+  if (Array.isArray(value)) return value.map(orderedValue);
+  if (value && typeof value === "object") {
+    if (typeof value.toJSON === "function")
+      return orderedValue(value.toJSON());
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, orderedValue(value[key])]),
+    );
+  }
+  return value;
+};
+export function sameSettlementEditSource(original, latest) {
+  const version = (row) => JSON.stringify(orderedValue([
+    row.stage, row.number, row.finalInvoice, row.finalSettlement,
+    row.paymentSummary, row.settlementOpening, row.settlementPayments,
+    row.settlementCorrections, row.party, row.date, row.notes,
+  ]));
+  return version(original) === version(latest);
+}
 export function settlementOutstanding(record) {
   return settlementForRecord(record)?.remaining ?? null;
 }

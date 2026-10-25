@@ -5,6 +5,7 @@ import {
   settlementOutstanding,
   settlementStatus,
   recordSettlementPayment as record,
+  sameSettlementEditSource,
 } from "../src/utils/settlementPayments.js";
 import { buildDashboardAnalytics } from "../src/utils/dashboardAnalytics.js";
 const actor = { uid: "admin", accessId: "Admin", role: "superadmin" };
@@ -17,6 +18,26 @@ const invoice = (amount = 15000) => ({
 const save = (source, paid, discount, id = "payment1") => ({
   ...source,
   ...record(source, paid, discount, id, Date.now(), actor),
+});
+
+test("Stage 4 edit comparison ignores Firestore map order but detects real concurrent edits", () => {
+  const source = save(invoice(), "10000", "");
+  source.party = "Rohan";
+  source.notes = "Original note";
+  const reorder = (value) => Array.isArray(value) ? value.map(reorder)
+    : value && typeof value === "object" ? Object.fromEntries(
+      Object.entries(value).reverse().map(([key, nested]) => [key, reorder(nested)]),
+    ) : value;
+  const latest = reorder(source);
+  assert.notEqual(JSON.stringify(source.finalSettlement), JSON.stringify(latest.finalSettlement));
+  assert.equal(sameSettlementEditSource(source, latest), true);
+  assert.equal(sameSettlementEditSource(source, { ...latest, updatedAt: 123 }), true);
+  for (const changed of [
+    { ...latest, notes: "Concurrent note" },
+    { ...latest, finalInvoice: { finalInvoiceAmount: 16000 } },
+    save(latest, "1000", "", "second-payment"),
+    { ...latest, settlementOpening: { paidCents: 1 } },
+  ]) assert.equal(sameSettlementEditSource(source, changed), false);
 });
 test("Stage 4 status distinguishes outstanding, paid and historical missing balances", () => {
   const partial = save(invoice(), "10000", "");

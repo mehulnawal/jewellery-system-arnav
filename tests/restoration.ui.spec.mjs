@@ -3,6 +3,7 @@ import { initializeApp, deleteApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { readFile } from "node:fs/promises";
+import { recordSettlementPayment } from "../src/utils/settlementPayments.js";
 if (!process.env.FIRESTORE_EMULATOR_HOST?.startsWith("127.0.0.1:"))
   throw Error("Local emulator required");
 const app = initializeApp({ projectId: "demo-jewellery-ui" }, "restoration-ui"),
@@ -43,6 +44,39 @@ const login = async (page, uid, path) => {
   );
   await page.goto(path);
 };
+
+test("Stage 4 receipt-backed edits save and actual concurrent edits remain protected", async ({ page }) => {
+  await legacy("ledger", 3000);
+  const ref = db.doc("challans/ledger");
+  const source = (await ref.get()).data();
+  const update = recordSettlementPayment(
+    { ...source, stage: 3, finalSettlement: undefined },
+    "3000", "350", "receipt-1", Date.now(),
+    { uid: "admin", role: "superadmin", accessId: "admin" },
+  );
+  await ref.update(update);
+  await login(page, "admin", "/dashboard/challan");
+  await page.locator(".challan-page nav button").filter({ hasText: "Stage 4" }).click();
+  const row = page.locator(".challan-row").filter({ hasText: "A1/ledger" });
+  await row.locator(".challan-edit").click();
+  const edit = page.getByRole("dialog", { name: "Edit Stage 4 Settlement" });
+  await edit.getByLabel("Amount Paid by Customer").fill("2900");
+  await edit.locator("textarea").fill("Saved correction");
+  await edit.getByRole("button", { name: "Save Settlement Changes" }).click();
+  await expect(edit).not.toBeVisible();
+  const saved = (await ref.get()).data();
+  expect(saved.finalSettlement.amountPaid).toBe(2900);
+  expect(saved.finalSettlement.remaining).toBe(1750);
+  expect(saved.settlementPayments).toHaveLength(1);
+  expect(saved.settlementCorrections).toHaveLength(1);
+  await row.locator(".challan-edit").click();
+  await expect(edit).toBeVisible();
+  await ref.update({ notes: "Another user's change" });
+  await edit.locator("textarea").fill("Stale draft");
+  await edit.getByRole("button", { name: "Save Settlement Changes" }).click();
+  await expect(edit.getByRole("alert")).toContainText("Settlement changed while you were editing");
+  expect((await ref.get()).data().notes).toBe("Another user's change");
+});
 const fillOrder = async (modal) => {
   await modal.getByLabel(/Client Name/).fill("Client Alpha");
   await modal.getByLabel(/Staff Name/).fill("Any staff text");
