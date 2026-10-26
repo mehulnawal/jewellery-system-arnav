@@ -251,7 +251,7 @@
   color: #374151;
   cursor: pointer;
   display: inline-flex;
-  font: 600 13px inherit;
+  font: 600 0.8125rem inherit;
   gap: 7px;
   height: 38px;
   padding: 0 12px;
@@ -325,41 +325,41 @@
 
 /* Match the Inventory module's typography scale. */
 .check-inventory-module header h2 {
-  font-size: 31px;
+  font-size: 1.9375rem;
   line-height: 34px;
 }
 .check-inventory-module header p {
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .check-actions button,
 .check-search input,
 .check-filter select {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .check-filter span,
 .check-matched > span,
 .check-total small {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .check-matched h3 {
-  font-size: 27px;
+  font-size: 1.6875rem;
 }
 .check-total strong {
-  font-size: 27px;
+  font-size: 1.6875rem;
 }
 .check-card-size {
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .check-card-shape,
 .check-age {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .check-card-weight {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .check-type {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .check-empty {
-  font-size: 16px;
+  font-size: 1rem;
 }

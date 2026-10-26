@@ -10,12 +10,12 @@
   margin-bottom: 18px;
 }
 .purchase-heading h2 {
-  font-size: 27px;
+  font-size: 1.6875rem;
   margin: 0;
 }
 .purchase-heading p {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 5px 0;
 }
 .purchase-actions,
@@ -33,7 +33,7 @@
   color: var(--ui-text);
   cursor: pointer;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   height: 38px;
   justify-content: center;
@@ -67,13 +67,13 @@
 .purchase-metrics span,
 .purchase-view-grid span {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .purchase-metrics strong {
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .purchase-filters {
   align-items: end;
@@ -98,7 +98,7 @@
   box-sizing: border-box;
   color: var(--ui-text);
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
   height: 38px;
   outline: none;
   padding: 0 10px;
@@ -109,7 +109,7 @@
 .purchase-filters label {
   color: var(--ui-muted);
   display: grid;
-  font-size: 11px;
+  font-size: 0.6875rem;
   gap: 3px;
 }
 .purchase-filters label input {
@@ -140,22 +140,22 @@
 .purchase-items th {
   background: var(--ui-surface-subtle);
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .purchase-table td {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .purchase-table td small {
   color: var(--ui-muted);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   margin-top: 3px;
 }
 .purchase-table tfoot {
   background: var(--ui-surface-subtle);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
 }
 .purchase-empty {
@@ -168,7 +168,7 @@
   border: 0;
   color: var(--ui-emerald-dark);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   padding: 0;
 }
@@ -206,19 +206,19 @@
   border: 0;
   color: var(--ui-muted);
   cursor: pointer;
-  font-size: 27px;
+  font-size: 1.6875rem;
   line-height: 1;
   position: absolute;
   right: 16px;
   top: 12px;
 }
 .purchase-modal-card h2 {
-  font-size: 22px;
+  font-size: 1.375rem;
   margin: 0;
 }
 .purchase-modal-card > p {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 5px 0 19px;
 }
 .purchase-form-grid {
@@ -233,12 +233,12 @@
   position: relative;
 }
 .purchase-field span {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .purchase-field em {
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-style: normal;
   font-weight: 500;
   margin-left: 6px;
@@ -260,7 +260,7 @@
   color: var(--ui-text);
   cursor: pointer;
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 8px 10px;
   text-align: left;
   width: 100%;
@@ -271,7 +271,7 @@
 .purchase-master-menu small {
   color: var(--ui-emerald);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   padding: 8px 10px;
 }
 .purchase-financials,
@@ -292,15 +292,15 @@
 .purchase-financials span {
   color: var(--ui-muted);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .purchase-financials b {
   display: block;
-  font-size: 14px;
+  font-size: 0.875rem;
   margin-top: 3px;
 }
 .purchase-form-card h3 {
-  font-size: 16px;
+  font-size: 1rem;
   margin: 18px 0 9px;
 }
 .purchase-items table {
@@ -319,7 +319,7 @@
 }
 .purchase-items tfoot {
   background: var(--ui-surface-subtle);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 .purchase-icon-button {
@@ -327,7 +327,7 @@
   border: 0;
   color: #c24b4b;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 .purchase-icon-button:disabled {
   opacity: 0.35;
@@ -342,7 +342,7 @@
   border: 0;
   color: var(--ui-emerald-dark);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   margin-top: 9px;
   padding: 4px 0;
@@ -352,7 +352,7 @@
   border: 1px solid #f4c4c4;
   border-radius: 6px;
   color: #b93e3e;
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 14px 0 0;
   padding: 9px 10px;
 }
@@ -369,7 +369,7 @@
 }
 .purchase-view-head span {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -378,7 +378,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .purchase-view-grid p {
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.7;
 }
 .purchase-view-grid span {
@@ -395,7 +395,7 @@
 }
 .purchase-review h3 {
   background: var(--ui-surface-subtle);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 0;
   padding: 10px 12px;
 }
@@ -406,7 +406,7 @@
 .purchase-review > div,
 .purchase-review > p {
   border-top: 1px solid var(--ui-border);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0;
   padding: 9px 12px;
 }
@@ -416,7 +416,7 @@
 }
 .purchase-review p {
   color: #b93e3e;
-  font-size: 12px;
+  font-size: 0.75rem;
   margin: 4px 0 0;
 }
 .purchase-print {
@@ -547,7 +547,7 @@ html[data-theme="dark"] .purchase-button:disabled {
 }
 .purchase-icon-button.remove::after {
   content: "\00d7";
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 500;
 }
 .purchase-icon-button.remove:disabled {
@@ -564,7 +564,7 @@ html[data-theme="dark"] .purchase-button:disabled {
 }
 .purchase-row-error::after {
   content: "Invalid item";
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 700;
 }
 html[data-theme="dark"] .purchase-icon-button.remove {
@@ -617,7 +617,7 @@ html[data-theme="dark"] .purchase-row-error {
 }
 .purchase-field > small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 .purchase-form-card {
@@ -629,7 +629,7 @@ html[data-theme="dark"] .purchase-form-card {
 .purchase-form-card .purchase-field-message {
   color: var(--purchase-danger);
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.4;
   min-height: 17px;

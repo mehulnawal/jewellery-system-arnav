@@ -10,13 +10,13 @@
 }
 .challan-heading h2,
 .challan-create h2 {
-  font-size: 31px;
+  font-size: 1.9375rem;
   line-height: 34px;
   margin: 0;
 }
 .challan-heading p {
   color: #788393;
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 4px 0;
 }
 .challan-page button {
@@ -25,7 +25,7 @@
   border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
-  font: 600 15px inherit;
+  font: 600 0.9375rem inherit;
   gap: 7px;
   justify-content: center;
 }
@@ -52,7 +52,7 @@
 }
 .search input {
   border: 0;
-  font: 500 16px inherit;
+  font: 500 1rem inherit;
   height: 48px;
   outline: 0;
   padding-left: 11px;
@@ -88,7 +88,7 @@
 .challan-page small {
   background: #eef2f7;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 2px 6px;
 }
 .metrics {
@@ -113,14 +113,14 @@
 }
 .metrics span {
   color: #64748b;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .metrics b {
-  font-size: 24px;
+  font-size: 1.5rem;
 }
 .showing {
   color: #64748b;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
 }
 .challan-list {
@@ -139,13 +139,13 @@
   background: #f8fafc;
   border-bottom: 1px solid #dfe4e8;
   color: #64748b;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
 .challan-row {
   border-bottom: 1px solid #edf0f2;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .challan-row:last-child {
   border: 0;
@@ -160,7 +160,7 @@
 }
 .stage {
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-style: normal;
   font-weight: 700;
   padding: 5px 7px;
@@ -220,7 +220,7 @@
   background: #dbeafe;
   border-radius: 20px;
   color: #1d4ed8;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 6px 10px;
 }
@@ -232,7 +232,7 @@
   padding: 22px;
 }
 .challan-create h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin: 0 0 16px;
 }
 .challan-fields {
@@ -242,7 +242,7 @@
 }
 .challan-fields label {
   display: grid;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 700;
   gap: 6px;
 }
@@ -252,7 +252,7 @@
   border: 1px solid #cbd5e1;
   border-radius: 7px;
   box-sizing: border-box;
-  font: 500 16px inherit;
+  font: 500 1rem inherit;
   height: 40px;
   padding: 0 11px;
   width: 100%;
@@ -269,7 +269,7 @@
 }
 .item-head {
   color: #64748b;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   margin-bottom: 7px;
   text-transform: uppercase;
@@ -356,14 +356,14 @@ html[data-theme="dark"] .challan-row {
 
 /* Match the compact Inventory / Check Inventory scale. */
 .challan-page {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .challan-page h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 26px;
 }
 .challan-page p {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .challan-fields {
   row-gap: 20px;
@@ -419,7 +419,7 @@ html[data-theme="dark"] .challan-page textarea::placeholder {
   padding: 10px 14px;
 }
 .metrics b {
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .showing {
   margin: 0 0 12px;
@@ -435,7 +435,7 @@ html[data-theme="dark"] .challan-page textarea::placeholder {
 .challan-item .remove-item {
   background: #fff1f2;
   color: #be123c;
-  font-size: 12px;
+  font-size: 0.75rem;
   padding: 0 7px;
 }
 .challan-item .remove-item:disabled {
@@ -458,7 +458,7 @@ html[data-theme="dark"] .challan-page textarea::placeholder {
 .challan-filters label {
   color: #64748b;
   display: grid;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   gap: 5px;
   letter-spacing: 0.04em;
@@ -470,7 +470,7 @@ html[data-theme="dark"] .challan-page textarea::placeholder {
   border: 1px solid #cbd5e1;
   border-radius: 7px;
   color: #334155;
-  font: 500 15px inherit;
+  font: 500 0.9375rem inherit;
   height: 38px;
   min-width: 135px;
   padding: 0 10px;
@@ -512,7 +512,7 @@ html[data-theme="dark"] .challan-page select {
   border: 1px solid var(--ui-border);
   border-radius: 9px;
   color: var(--ui-emerald-dark);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 800;
   margin-bottom: 22px;
   padding: 10px 14px;
@@ -542,7 +542,7 @@ html[data-theme="dark"] .challan-create .back:hover {
 
 .party-help {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.35;
 }
@@ -588,28 +588,28 @@ html[data-theme="dark"] .challan-create .back:hover {
   background: var(--ui-emerald-soft) !important;
 }
 .sku-menu button b {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .sku-menu button span {
   color: var(--ui-emerald);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
 }
 .sku-menu button small {
   background: none !important;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   grid-column: 1/-1;
   padding: 0;
 }
 .sku-menu p {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 8px 10px;
 }
 .live-weight-label {
   color: var(--ui-emerald);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-style: normal;
   font-weight: 800;
   letter-spacing: 0.03em;
@@ -641,7 +641,7 @@ html[data-theme="dark"] .challan-item input:read-only {
   margin-left: 6px;
 }
 .challan-row-actions button {
-  font-size: 12px !important;
+  font-size: 0.75rem !important;
   padding: 7px 9px !important;
 }
 .challan-row-actions .challan-edit {
@@ -658,7 +658,7 @@ html[data-theme="dark"] .challan-item input:read-only {
   border: 1px solid #fecdd3;
   border-radius: 8px;
   color: #be123c;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   margin: 0 0 14px;
   padding: 10px 12px;
@@ -670,7 +670,7 @@ html[data-theme="dark"] .challan-form-error {
 }
 .challan-item .stock-availability {
   color: var(--ui-emerald);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   line-height: 1.2;
   padding: 4px 2px;
@@ -689,7 +689,7 @@ html[data-theme="dark"] .challan-form-error {
   border-radius: 8px;
   color: var(--ui-text);
   display: grid;
-  font-size: 13px;
+  font-size: 0.8125rem;
   gap: 9px;
   grid-template-columns: 2fr 1fr 1fr 0.8fr 1.1fr 0.8fr 68px;
   margin: 2px 0 12px;
@@ -716,7 +716,7 @@ html[data-theme="dark"] .challan-form-error {
 .challan-edit-timer {
   background: #eff6ff !important;
   color: #1d4ed8 !important;
-  font-size: 11px !important;
+  font-size: 0.6875rem !important;
   font-weight: 800;
   line-height: 1;
   margin: 0;
@@ -768,7 +768,7 @@ html[data-theme="dark"] .challan-form-error {
 }
 .party-menu p {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 8px 10px;
 }
 .challan-delete-overlay {
@@ -833,7 +833,7 @@ html[data-theme="dark"] .challan-form-error {
 }
 .challan-pricing b {
   margin-left: 8px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 html[data-theme="dark"] .challan-pricing span {
   background: #173c32;
@@ -848,7 +848,7 @@ html[data-theme="dark"] .challan-pricing span {
 .challan-item .item-price-summary {
   align-self: center;
   color: var(--ui-emerald-dark);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -862,7 +862,7 @@ html[data-theme="dark"] .challan-pricing span {
 .challan-width small {
   color: var(--age-red);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .challan-width [aria-invalid="true"] {
   border-color: var(--age-red);
@@ -931,7 +931,7 @@ html[data-theme="dark"] .challan-pricing span {
 }
 .challan-tab-subtitle {
   color: #788393;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 .challan-page nav button.active .challan-tab-subtitle {
@@ -972,7 +972,7 @@ html[data-theme="dark"] .challan-pricing span {
   align-items: center;
   color: #475569;
   display: flex;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   gap: 5px;
   text-transform: uppercase;
@@ -988,7 +988,7 @@ html[data-theme="dark"] .challan-pricing span {
 .challan-aging-legend small {
   background: transparent !important;
   color: #788393;
-  font-size: 11px;
+  font-size: 0.6875rem;
   padding: 0;
 }
 .challan-aging-legend .green i,
@@ -1030,7 +1030,7 @@ html[data-theme="dark"] .challan-pricing span {
   border: 1px solid;
   border-radius: 999px;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   gap: 5px;
   line-height: 1;
@@ -1039,7 +1039,7 @@ html[data-theme="dark"] .challan-pricing span {
 }
 .challan-aging-badge b {
   display: inline !important;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .challan-aging-badge.green {
   background: #f0fdf4;
@@ -1138,7 +1138,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   padding: 15px 18px;
 }
 .stage-two-modal h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.25;
   margin: 0;
 }
@@ -1148,7 +1148,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-radius: 8px;
   color: #64748b !important;
   display: inline-flex;
-  font-size: 15px !important;
+  font-size: 0.9375rem !important;
   font-weight: 800;
   height: 32px;
   justify-content: center;
@@ -1171,7 +1171,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border-radius: 10px;
   color: #1d4ed8;
   display: flex;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   gap: 9px;
   margin: 14px 18px;
@@ -1209,7 +1209,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   background: #f8fafc;
   border-bottom: 1px solid #dfe4e8;
   color: #64748b;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   text-align: center;
 }
@@ -1223,7 +1223,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .stage-two-row {
   border-bottom: 1px solid #edf0f2;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .stage-two-row > * {
   align-items: center;
@@ -1238,7 +1238,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .final-invoice-modal h3,
 .stage-two-modal.settlement-modal h3 {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 650;
 }
 .final-invoice-modal > header small {
@@ -1246,7 +1246,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border: 0 !important;
   color: var(--ui-muted, #64748b);
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-top: 7px;
   padding: 0 !important;
 }
@@ -1298,7 +1298,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border: 0;
   border-radius: 0;
   color: var(--ui-muted, #64748b);
-  font-size: 11px;
+  font-size: 0.6875rem;
   padding: 0;
 }
 .final-invoice-modal .stage-two-totals {
@@ -1309,7 +1309,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .final-invoice-modal .final-invoice-total-value.is-pending {
   color: var(--ui-muted, #64748b);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 500;
 }
 .final-invoice-modal .stage-two-row > label {
@@ -1321,13 +1321,13 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border: 0;
   border-radius: 0;
   color: var(--ui-muted, #64748b);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 400;
   line-height: 1.4;
   padding: 0;
 }
 .final-invoice-modal .stage-two-totals > :last-child {
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .final-invoice-modal .stage-two-totals > :last-child {
   background: color-mix(
@@ -1347,7 +1347,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border: 0 !important;
   color: var(--ui-muted, #64748b) !important;
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 500;
   margin-top: 4px;
   padding: 0 !important;
@@ -1362,7 +1362,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border: 0 !important;
   color: var(--ui-muted, #64748b);
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-top: 7px;
   padding: 0 !important;
 }
@@ -1377,12 +1377,12 @@ html[data-theme="dark"] .challan-aging-badge.red {
 }
 .settlement-modal .settlement-invoice-row span {
   color: var(--ui-muted, #64748b);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 650;
 }
 .settlement-modal .settlement-invoice-row strong {
   color: var(--ui-emerald, #15803d);
-  font-size: 22px;
+  font-size: 1.375rem;
   line-height: 1.2;
 }
 .settlement-modal .stage-two-notes input {
@@ -1409,7 +1409,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
 .settlement-modal .stage-two-notes {
   color: var(--ui-text, #172033);
   display: grid;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 650;
   margin: 0;
   width: auto;
@@ -1439,7 +1439,7 @@ html[data-theme="dark"] .challan-aging-badge.red {
   border: 0;
   border-radius: 0;
   color: var(--ui-muted, #64748b);
-  font-size: 10px;
+  font-size: 0.625rem;
   padding: 0;
 }
 .settlement-modal .settlement-summary-grid > :last-child {
@@ -1528,7 +1528,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 }
 .stage-two-row small {
   color: #dc2626;
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.1;
 }
 .stage-two-table .divider {
@@ -1541,7 +1541,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 .stage-two-totals > * {
   align-items: center;
   display: flex;
-  font-size: 13px;
+  font-size: 0.8125rem;
   justify-content: center;
   min-height: 42px;
   padding: 6px;
@@ -1549,7 +1549,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 .stage-two-notes {
   color: #475569;
   display: grid;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   gap: 6px;
   margin: 14px 18px;
@@ -1557,7 +1557,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 .stage-two-notes textarea {
   border: 1px solid #cbd5e1;
   border-radius: 9px;
-  font: 500 14px inherit;
+  font: 500 0.875rem inherit;
   min-height: 92px;
   padding: 11px;
   resize: vertical;
@@ -1581,7 +1581,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 }
 .stage-two-error {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   margin: 0 24px 14px;
 }
@@ -1620,13 +1620,13 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 }
 .settlement-modal header p {
   color: var(--ui-muted, #64748b);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   margin: 0 0 5px;
 }
 .settlement-modal h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.25;
   margin: 0;
 }
@@ -1635,7 +1635,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
   border: 1px solid #bfdbfe;
   border-radius: 10px;
   color: #1d4ed8;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 650;
   line-height: 1.45;
   margin: 18px 24px;
@@ -1662,7 +1662,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 .invoice-totals small,
 .settlement-invoice small {
   color: var(--ui-muted, #64748b);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
@@ -1683,7 +1683,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 .settlement-table-wrap th {
   background: var(--ui-surface-subtle, #f8fafc);
   color: var(--ui-muted, #64748b);
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: 0.04em;
   padding: 11px 12px;
   text-align: left;
@@ -1707,7 +1707,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 }
 .invoice-totals strong {
   color: var(--ui-emerald, #15803d);
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .settlement-invoice {
   align-items: center;
@@ -1723,11 +1723,11 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 }
 .settlement-invoice strong {
   color: var(--ui-emerald, #15803d);
-  font-size: 26px;
+  font-size: 1.625rem;
 }
 .settlement-invoice span {
   color: var(--ui-muted, #64748b);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 .settlement-inputs {
@@ -1739,7 +1739,7 @@ html[data-theme="dark"] .legacy-invoice-body dl {
 .settlement-inputs label {
   color: var(--ui-text, #172033);
   display: grid;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   gap: 7px;
 }
@@ -1759,18 +1759,18 @@ html[data-theme="dark"] .legacy-invoice-body dl {
   margin: 0 24px 12px;
 }
 .settlement-summary span {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .settlement-summary strong {
   color: #b45309;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .settlement-summary.is-valid strong {
   color: var(--ui-emerald, #15803d);
 }
 .settlement-error {
   color: #b91c1c;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.4;
   margin: 0 24px 14px;
@@ -1944,7 +1944,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 }
 .stage-two-totals small {
   color: #64748b;
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1964,7 +1964,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 }
 .challan-field-error {
   color: #b93e3e;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -2011,18 +2011,18 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 .challan-view-identity small {
   background: none;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   padding: 0;
 }
 .challan-view-identity h1 {
-  font-size: 36px;
+  font-size: 2.25rem;
   line-height: 1.1;
   margin: 8px 0;
 }
 .challan-view-identity h2 {
-  font-size: 28px;
+  font-size: 1.75rem;
   margin: 0;
 }
 .challan-view-identity p {
@@ -2066,7 +2066,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   border: 2px solid var(--ui-border);
   border-radius: 50%;
   display: flex;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 900;
   height: 30px;
   justify-content: center;
@@ -2110,11 +2110,11 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   display: block;
 }
 .challan-timeline-step b {
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-top: 10px;
 }
 .challan-timeline-step span {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.35;
   margin-top: 2px;
 }
@@ -2125,7 +2125,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   border-radius: 8px;
   box-sizing: border-box;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   line-height: 1.45;
   margin-top: 6px;
@@ -2137,7 +2137,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 }
 .challan-view-items h2,
 .challan-view-notes h2 {
-  font-size: 22px;
+  font-size: 1.375rem;
   margin: 0 0 19px;
 }
 .challan-view-table-wrap {
@@ -2153,7 +2153,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 .challan-view-table-wrap th {
   background: var(--ui-page);
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   padding: 12px;
   text-align: left;
   text-transform: uppercase;
@@ -2179,7 +2179,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 .challan-view-link {
   background: transparent !important;
   color: var(--ui-text) !important;
-  font-size: 14px !important;
+  font-size: 0.875rem !important;
   font-weight: 800 !important;
   padding: 0 !important;
   text-align: left !important;
@@ -2187,7 +2187,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
 .challan-view-button {
   background: #f1f5f9 !important;
   color: #334155 !important;
-  font-size: 12px !important;
+  font-size: 0.75rem !important;
   padding: 7px 9px !important;
 }
 @media (max-width: 720px) {
@@ -2296,7 +2296,7 @@ html[data-theme="dark"] .challan-view-summary {
   border-radius: 999px;
   color: var(--ui-text);
   display: inline-flex;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   justify-content: center;
   line-height: 1;
@@ -2372,7 +2372,7 @@ html[data-theme="dark"] .challan-view-summary {
 }
 .challan-view-link {
   color: var(--ui-text) !important;
-  font-size: 15px !important;
+  font-size: 0.9375rem !important;
 }
 .challan-row small {
   background: transparent;
@@ -2531,7 +2531,7 @@ html[data-theme="dark"]
 
 /* Give the displayed Party Name a clearer secondary hierarchy in Challan rows. */
 .challan-row > div > small {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 650;
   line-height: 1.35;
   margin-top: 5px;
@@ -2549,7 +2549,7 @@ html[data-theme="dark"]
   padding: 16px 20px;
 }
 .settlement-modal h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   line-height: 1.25;
 }
 .settlement-modal-content {
@@ -2562,12 +2562,12 @@ html[data-theme="dark"]
 }
 .settlement-section h4 {
   color: var(--ui-text, #172033);
-  font-size: 13px;
+  font-size: 0.8125rem;
   letter-spacing: 0.01em;
   margin: 0 0 9px;
 }
 .settlement-message {
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0 0 16px;
   padding: 10px 12px;
 }
@@ -2586,7 +2586,7 @@ html[data-theme="dark"]
 .settlement-details b,
 .invoice-totals b,
 .settlement-summary b {
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.3;
 }
 .settlement-table-wrap {
@@ -2594,11 +2594,11 @@ html[data-theme="dark"]
   margin: 0;
 }
 .settlement-table-wrap th {
-  font-size: 10px;
+  font-size: 0.625rem;
   padding: 9px 10px;
 }
 .settlement-table-wrap td {
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 9px 10px;
   vertical-align: middle;
 }
@@ -2616,7 +2616,7 @@ html[data-theme="dark"]
   margin: 0;
 }
 .invoice-totals strong {
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .settlement-invoice {
   border-radius: 9px;
@@ -2625,7 +2625,7 @@ html[data-theme="dark"]
   padding: 11px 14px;
 }
 .settlement-invoice strong {
-  font-size: 23px;
+  font-size: 1.4375rem;
   line-height: 1.2;
 }
 .settlement-inputs {
@@ -2650,7 +2650,7 @@ html[data-theme="dark"]
 }
 .settlement-summary small {
   color: var(--ui-muted, #64748b);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2666,7 +2666,7 @@ html[data-theme="dark"]
 }
 .stage-two-close {
   color: var(--ui-muted, #64748b) !important;
-  font-size: 15px !important;
+  font-size: 0.9375rem !important;
   font-weight: 800;
   height: 32px;
   transition:
@@ -2746,7 +2746,7 @@ html[data-theme="dark"] .stage-two-close:focus-visible {
   margin-bottom: 3px;
 }
 .settlement-modal h3 {
-  font-size: 19px;
+  font-size: 1.1875rem;
 }
 .settlement-section + .settlement-section {
   margin-top: 16px;
@@ -2846,7 +2846,7 @@ html[data-theme="dark"] .settlement-message {
   justify-content: start;
 }
 .challan-actions > button {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.2;
   min-height: 30px;
   padding: 6px 8px;
@@ -2862,18 +2862,18 @@ html[data-theme="dark"] .settlement-message {
   gap: 5px;
 }
 .challan-row-actions button {
-  font-size: 11px;
+  font-size: 0.6875rem;
   min-height: 28px;
   padding: 5px 7px;
 }
 .challan-row-actions small {
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.2;
 }
 .challan-view-items tfoot td {
   background: var(--ui-surface-subtle, #f8fafc);
   border-top: 2px solid var(--ui-border);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 .challan-view-payable {
@@ -2889,13 +2889,13 @@ html[data-theme="dark"] .settlement-message {
 }
 .challan-view-payable small {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
 .challan-view-payable strong {
   color: var(--ui-emerald);
-  font-size: 21px;
+  font-size: 1.3125rem;
 }
 .challan-view-unavailable {
   color: var(--ui-muted);
@@ -2904,7 +2904,7 @@ html[data-theme="dark"] .settlement-message {
 }
 .challan-view-timestamp {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 14px 0 0;
 }
 .challan-view-stage-three .challan-financial-summary,
@@ -2947,7 +2947,7 @@ html[data-theme="dark"] .settlement-message {
   border-radius: 0;
   color: var(--ui-muted);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   line-height: 1.3;
@@ -2959,7 +2959,7 @@ html[data-theme="dark"] .settlement-message {
 .challan-view-stage-four .challan-financial-value {
   color: var(--ui-text);
   display: block;
-  font-size: 18px;
+  font-size: 1.125rem;
   line-height: 1.35;
   margin: 0;
   overflow-wrap: anywhere;
@@ -2976,7 +2976,7 @@ html[data-theme="dark"] .settlement-message {
   .challan-financial-cell.final
   .challan-financial-value {
   color: var(--ui-emerald-dark);
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 html[data-theme="dark"] .challan-view-stage-three .challan-financial-summary,
 html[data-theme="dark"] .challan-view-stage-four .challan-completed-financials {
@@ -3020,19 +3020,19 @@ html[data-theme="dark"]
   padding: 12px;
 }
 .challan-image-placeholder b {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .challan-image-placeholder span {
   color: var(--ui-muted);
   flex: 1 1 210px;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .challan-image-placeholder button {
   background: var(--ui-surface);
   border: 1px solid var(--ui-border);
   border-radius: 7px;
   color: var(--ui-text);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   padding: 8px 10px;
 }
@@ -3094,7 +3094,7 @@ html[data-theme="dark"] .challan-image-placeholder button {
 .challan-view-types {
   color: var(--ui-emerald);
   display: inline-block;
-  font-size: 12px;
+  font-size: 0.75rem;
   margin-top: 4px;
 }
 
@@ -3119,7 +3119,7 @@ html[data-theme="dark"] .challan-image-placeholder button {
   border: 1px solid currentColor;
   border-radius: 7px;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-style: normal;
   font-weight: 800;
   line-height: 1.3;
@@ -3145,7 +3145,7 @@ html[data-theme="dark"] .challan-image-placeholder button {
 .challan-aging-empty {
   color: var(--ui-muted);
   display: inline-flex;
-  font-size: 14px;
+  font-size: 0.875rem;
   justify-content: center;
   min-width: 1em;
 }
@@ -3157,7 +3157,7 @@ html[data-theme="dark"] .challan-image-placeholder button {
   justify-content: start;
 }
 .challan-list .challan-actions > button {
-  font-size: 12px;
+  font-size: 0.75rem;
   line-height: 1.2;
   min-height: 38px;
   padding: 7px 9px;
@@ -3260,13 +3260,13 @@ html[data-theme="dark"] .challan-list .stage-4 {
   right: 10px;
 }
 .challan-tab-main {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 750;
   gap: 8px;
   line-height: 1.25;
 }
 .challan-tab-subtitle {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   line-height: 1.25;
   text-align: left;
@@ -3276,7 +3276,7 @@ html[data-theme="dark"] .challan-list .stage-4 {
   border: 0;
   border-radius: 999px;
   color: var(--ui-text, #172033);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   min-width: 28px;
   padding: 6px 8px;
@@ -3309,11 +3309,11 @@ html[data-theme="dark"] .challan-list .stage-4 {
   padding-top: 8px;
 }
 .challan-row > div > .challan-view-link {
-  font-size: 16px !important;
+  font-size: 1rem !important;
   font-weight: 750;
 }
 .challan-row > div > small {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.35;
   margin-top: 8px;
@@ -3322,7 +3322,7 @@ html[data-theme="dark"] .challan-list .stage-4 {
   border-radius: 9px;
   box-sizing: border-box;
   display: inline-flex;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.25;
   max-width: 238px;
@@ -3335,7 +3335,7 @@ html[data-theme="dark"] .challan-list .stage-4 {
   border-radius: 999px;
   box-sizing: border-box;
   display: inline-flex;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 750;
   gap: 8px;
   min-height: 36px;
@@ -3362,7 +3362,7 @@ html[data-theme="dark"] .challan-list .stage-4 {
   justify-content: start;
 }
 .challan-list .challan-actions > button {
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.25;
   min-height: 42px;
   padding: 8px 12px;
@@ -3384,7 +3384,7 @@ html[data-theme="dark"] .challan-list .stage-4 {
   margin: 0;
 }
 .challan-list .challan-row-actions button {
-  font-size: 13px;
+  font-size: 0.8125rem;
   min-height: 36px;
   min-width: 78px;
   padding: 8px 12px;
@@ -3396,7 +3396,7 @@ html[data-theme="dark"] .challan-list .stage-4 {
   border-radius: 999px;
   color: #1e40af !important;
   display: inline-flex;
-  font-size: 12px !important;
+  font-size: 0.75rem !important;
   font-weight: 800;
   line-height: 1.3;
   min-height: 34px;
@@ -3502,6 +3502,36 @@ html[data-theme="dark"] .challan-edit-timer.expired {
 }
 
 /* Stage-specific Cloudinary image attachments are kept separate from printed Challans. */
+.challan-list .challan-settlement-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.challan-list .challan-settlement-actions > button,
+.challan-list .challan-settlement-actions .challan-row-actions button {
+  min-height: 36px;
+  width: auto;
+  padding: 8px 12px;
+}
+.challan-list .challan-settlement-actions .challan-row-actions {
+  width: auto;
+  gap: 8px;
+}
+.challan-list .challan-outstanding-button {
+  flex: 0 1 auto;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.challan-list .challan-outstanding-button:hover {
+  background: #dbeafe;
+}
+
 .challan-image-section {
   display: grid;
   gap: 14px;
@@ -3517,7 +3547,7 @@ html[data-theme="dark"] .challan-edit-timer.expired {
 }
 .challan-image-section-heading p {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 4px 0 0;
 }
 .challan-image-section-heading small {
@@ -3525,7 +3555,7 @@ html[data-theme="dark"] .challan-edit-timer.expired {
   border: 1px solid var(--ui-border, #dfe4e8);
   border-radius: 999px;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   padding: 5px 8px;
   white-space: nowrap;
@@ -3578,12 +3608,12 @@ html[data-theme="dark"] .challan-edit-timer.expired {
   opacity: 0.7;
 }
 .challan-image-upload b {
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.35;
 }
 .challan-image-upload span {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   line-height: 1.35;
   margin-top: 5px;
 }
@@ -3627,7 +3657,7 @@ html[data-theme="dark"] .challan-edit-timer.expired {
   color: var(--ui-text);
   cursor: pointer;
   display: flex;
-  font-size: 22px;
+  font-size: 1.375rem;
   height: 32px;
   justify-content: center;
   line-height: 1;
@@ -3678,7 +3708,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .challan-image-empty,
 .challan-image-status {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0;
 }
 .challan-image-empty {
@@ -3727,7 +3757,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 }
 .challan-import-help {
   color: var(--ui-text-muted, #64748b);
-  font-size: 12px;
+  font-size: 0.75rem;
   margin: 6px 0 10px;
 }
 
@@ -3775,7 +3805,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   background: transparent;
   box-shadow: none;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.35;
 }
@@ -3796,13 +3826,13 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .challan-bulk-header h2 {
   margin: 0;
   color: var(--ui-text);
-  font-size: clamp(23px, 2vw, 29px);
+  font-size: clamp(1.4375rem, 2vw, 1.8125rem);
   line-height: 1.15;
 }
 .challan-bulk-header p {
   margin: 4px 0 0;
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
 .challan-bulk-modal .challan-bulk-close {
@@ -3818,7 +3848,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   box-shadow: none;
   background: var(--ui-surface);
   color: var(--ui-text);
-  font-size: 23px;
+  font-size: 1.4375rem;
   font-weight: 400;
   line-height: 1;
   cursor: pointer;
@@ -3843,7 +3873,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   color: var(--ui-text);
 }
 .challan-bulk-summary-card strong {
-  font-size: 25px;
+  font-size: 1.5625rem;
   line-height: 1;
 }
 .challan-bulk-summary-card span {
@@ -3852,7 +3882,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border-radius: 0;
   background: none;
   color: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .challan-bulk-summary-card.is-valid {
@@ -3883,7 +3913,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border-radius: 6px 6px 0 0;
   background: transparent;
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -3894,7 +3924,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   background: var(--ui-surface-subtle);
   color: inherit;
   text-align: center;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .challan-bulk-modal .challan-bulk-tab.is-valid.is-active {
   border-color: var(--ui-emerald);
@@ -3932,7 +3962,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border: 1px dashed var(--ui-border-strong);
   border-radius: 8px;
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .challan-bulk-group {
   min-width: 0;
@@ -3977,12 +4007,12 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .challan-bulk-summary-field strong {
   display: block;
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.3;
 }
 .challan-bulk-ref strong {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 750;
 }
 .challan-bulk-badge {
@@ -3991,7 +4021,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border-radius: 5px;
   background: var(--ui-emerald-soft);
   color: var(--ui-text);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -4004,7 +4034,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border: 0;
   background: none;
   color: var(--ui-muted);
-  font-size: 23px;
+  font-size: 1.4375rem;
   line-height: 1;
   text-align: center;
   transition: transform 0.15s ease;
@@ -4027,14 +4057,14 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .challan-bulk-items-heading h3 {
   margin: 0;
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .challan-bulk-items-heading span {
   padding: 0;
   border: 0;
   background: none;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .challan-bulk-items-table {
   width: 100%;
@@ -4042,7 +4072,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border-collapse: collapse;
   border: 1px solid var(--ui-border);
   background: var(--ui-surface);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .challan-bulk-items-table th,
 .challan-bulk-items-table td {
@@ -4056,7 +4086,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .challan-bulk-items-table th {
   background: var(--ui-surface-subtle);
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 750;
   line-height: 1.3;
   text-transform: uppercase;
@@ -4075,7 +4105,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border-radius: 7px;
   background: color-mix(in srgb, var(--age-red) 8%, var(--ui-surface));
   color: var(--ui-text);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .challan-bulk-reasons ol {
   margin: 7px 0 0;
@@ -4091,7 +4121,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   border: 1px solid var(--ui-border-strong);
   border-radius: 8px;
   background: var(--ui-surface-subtle);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .challan-bulk-result ul {
   margin: 8px 0;
@@ -4116,7 +4146,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   padding: 10px 18px;
   border-radius: 7px;
   box-shadow: none;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   font-family: inherit;
   line-height: 1.2;
@@ -4175,7 +4205,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   .challan-bulk-items-table th,
   .challan-bulk-items-table td {
     padding: 7px 5px;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 }
 @media (max-width: 760px) {
@@ -4191,7 +4221,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
     padding: 11px 14px;
   }
   .challan-bulk-header h2 {
-    font-size: 22px;
+    font-size: 1.375rem;
   }
   .challan-bulk-summary {
     gap: 6px;
@@ -4206,11 +4236,11 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   }
   .challan-bulk-summary-card strong {
     display: block;
-    font-size: 20px;
+    font-size: 1.25rem;
   }
   .challan-bulk-summary-card span {
     display: block;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
   .challan-bulk-tabs {
     padding: 6px 14px 0;
@@ -4219,7 +4249,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
     flex: 1;
     gap: 5px;
     padding: 7px 5px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
   .challan-bulk-scroll {
     padding: 10px 12px 16px;
@@ -4292,14 +4322,14 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
     min-width: 0;
     padding: 0;
     border: 0;
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   .challan-bulk-items-table td::before {
     display: block;
     margin-bottom: 2px;
     color: var(--ui-muted);
     content: attr(data-label);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 600;
   }
   .challan-bulk-actions {
@@ -4310,7 +4340,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
   .challan-bulk-modal .challan-bulk-secondary {
     min-height: 44px;
     padding: 9px 12px;
-    font-size: 11px;
+    font-size: 0.6875rem;
   }
 }
 .stage-two-movement-modal .stage-two-row > *,
@@ -4365,7 +4395,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .settlement-previous-payment {
   margin: 12px 26px;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .settlement-payment-history {
   margin: 16px 26px;
@@ -4379,7 +4409,7 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .settlement-payment-history table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .settlement-payment-history th,
 .settlement-payment-history td {
@@ -4417,5 +4447,5 @@ html[data-theme="dark"] .challan-image-upload:focus-visible {
 .stage-four-edit-fields input { width: 100%; min-width: 0; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-surface); color: var(--ui-text); padding: 12px; }
 .stage-four-edit-balance { margin: 18px 0; padding: 14px; border: 1px solid var(--ui-border); border-radius: 8px; font-weight: 700; }
 .challan-clear-payment-filters { min-height: 40px; padding: 8px 12px; border: 1px solid var(--ui-border); border-radius: 7px; background: var(--ui-surface); color: var(--ui-text); cursor: pointer; }
-.settlement-corrections { font-size: 12px; color: var(--ui-muted); overflow-wrap: anywhere; }
+.settlement-corrections { font-size: 0.75rem; color: var(--ui-muted); overflow-wrap: anywhere; }
 @media (max-width: 520px) { .stage-four-edit-fields { grid-template-columns: minmax(0, 1fr); } .stage-four-edit-body { padding: 14px; } }

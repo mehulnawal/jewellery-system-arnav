@@ -51,7 +51,7 @@
 }
 .nav-brand b {
   font:
-    600 16px/1.2 Inter,
+    600 1rem/1.2 Inter,
     system-ui,
     sans-serif;
   flex: 1;
@@ -101,7 +101,7 @@
   background: transparent;
   color: color-mix(in srgb, var(--ui-text) 82%, var(--ui-muted));
   font:
-    500 14px/20px Inter,
+    500 0.875rem/1.25rem Inter,
     system-ui,
     sans-serif;
   text-decoration: none;
@@ -138,7 +138,7 @@
   margin-top: 8px;
 }
 .dashboard-sidebar .nav-group-toggle {
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .dashboard-sidebar .nav-group-toggle.contains-active {
@@ -166,7 +166,7 @@
   height: 40px;
   min-height: 40px;
   padding-block: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .dashboard-main {
   margin-left: var(--sidebar-width);
@@ -188,7 +188,7 @@
 .app-page-context {
   color: var(--ui-muted);
   font:
-    500 13px/1.4 Inter,
+    500 0.8125rem/1.4 Inter,
     system-ui,
     sans-serif;
 }
@@ -209,7 +209,7 @@
   background: transparent;
   color: var(--ui-text);
   font:
-    500 12px/20px Inter,
+    500 0.75rem/1.25rem Inter,
     system-ui,
     sans-serif;
   cursor: pointer;
@@ -239,7 +239,7 @@
   background: var(--ui-surface);
   color: var(--ui-text);
   font:
-    13px/1.5 Inter,
+    0.8125rem/1.5 Inter,
     system-ui,
     sans-serif;
 }
@@ -249,7 +249,7 @@
 .availability-banner p {
   margin: 3px 0 0;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .availability-banner button {
   flex-shrink: 0;
@@ -258,7 +258,7 @@
   background: transparent;
   color: var(--ui-text);
   font:
-    500 12px/1.4 Inter,
+    500 0.75rem/1.4 Inter,
     system-ui,
     sans-serif;
   padding: 7px 10px;
@@ -272,10 +272,10 @@
   color: var(--ui-text);
 }
 .business-maintenance h2 {
-  font-size: 22px;
+  font-size: 1.375rem;
 }
 .business-maintenance p {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: var(--ui-muted);
 }
 @media (max-width: 700px) {
@@ -348,12 +348,12 @@
 }
 .logout-modal h2 {
   color: var(--ui-text);
-  font-size: 21px;
+  font-size: 1.3125rem;
   margin: 0;
 }
 .logout-modal p {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.55;
   margin: 9px 0 24px;
 }
@@ -400,7 +400,7 @@ html[data-theme="dark"] .logout-modal-icon {
 .logout-shortcuts {
   color: var(--ui-muted);
   display: block;
-  font-size: 12px;
+  font-size: 0.75rem;
   margin: -12px 0 20px;
 }
 .logout-shortcuts span {
@@ -412,7 +412,7 @@ html[data-theme="dark"] .logout-modal-icon {
   border-radius: 4px;
   color: var(--ui-text);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   padding: 2px 5px;
 }
@@ -470,7 +470,7 @@ html[data-theme="dark"] .logout-shortcuts kbd {
   color: var(--ui-text);
   box-shadow: var(--ui-shadow-sm);
   font:
-    500 12px/18px Inter,
+    500 0.75rem/1.125rem Inter,
     system-ui,
     sans-serif;
 }
@@ -506,7 +506,7 @@ html[data-theme="dark"] .logout-shortcuts kbd {
   padding: 8px 10px 7px;
   color: var(--ui-muted);
   font:
-    600 11px/15px Inter,
+    600 0.6875rem/0.9375rem Inter,
     system-ui,
     sans-serif;
   text-transform: uppercase;
@@ -522,7 +522,7 @@ html[data-theme="dark"] .logout-shortcuts kbd {
   border-radius: 7px;
   color: var(--ui-text);
   font:
-    500 13px/18px Inter,
+    500 0.8125rem/1.125rem Inter,
     system-ui,
     sans-serif;
   text-decoration: none;

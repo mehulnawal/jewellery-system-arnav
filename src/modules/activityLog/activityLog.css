@@ -10,7 +10,7 @@
   margin-bottom: 24px;
 }
 .activity-heading h2 {
-  font-size: 31px;
+  font-size: 1.9375rem;
   font-weight: 750;
   letter-spacing: -0.04em;
   line-height: 34px;
@@ -18,7 +18,7 @@
 }
 .activity-heading p {
   color: var(--ui-muted);
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 0.4rem 0 0;
 }
 .activity-actions {
@@ -34,7 +34,7 @@
   color: #374151;
   cursor: pointer;
   display: inline-flex;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   gap: 6px;
   min-height: 38px;
@@ -73,7 +73,7 @@
 .activity-datebar input {
   border: 0;
   color: #374151;
-  font-size: 16px;
+  font-size: 1rem;
   outline: 0;
   padding: 8px 0;
 }
@@ -89,7 +89,7 @@
   font-weight: 700 !important;
 }
 .activity-datebar strong {
-  font-size: 16px;
+  font-size: 1rem;
   margin-left: auto;
 }
 .activity-metrics {
@@ -108,13 +108,13 @@
 .activity-metrics span {
   color: var(--ui-muted);
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 .activity-metrics strong {
   display: block;
-  font-size: 27px;
+  font-size: 1.6875rem;
   margin-top: 7px;
 }
 .activity-panels {
@@ -136,7 +136,7 @@
   color: #1f2937;
   cursor: pointer;
   display: flex;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
   gap: 10px;
   padding: 16px;
@@ -161,7 +161,7 @@
 .activity-panel-head b,
 .activity-stage b {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin-left: auto;
 }
 .activity-stages {
@@ -170,7 +170,7 @@
 .activity-stage {
   background: #fafafa;
   border-bottom: 1px solid #f0f1f3;
-  font-size: 16px;
+  font-size: 1rem;
   padding-left: 32px;
 }
 .activity-entries {
@@ -194,15 +194,15 @@
 }
 .activity-entry time {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .activity-entry span,
 .activity-entry b {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .activity-empty {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 0;
   padding: 16px;
 }
@@ -297,13 +297,13 @@ html[data-theme="dark"] .activity-entry > * + *::before {
   align-items: baseline;
   color: var(--ui-emerald-dark);
   display: flex;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0.01em;
 }
 .activity-actor-meta b {
   color: var(--ui-text);
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 800;
   margin-left: 8px;
 }
@@ -317,14 +317,14 @@ html[data-theme="dark"] .activity-entry > * + *::before {
 }
 .activity-table th {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   text-align: left;
   padding: 8px 10px;
   border-bottom: 1px solid var(--ui-border);
 }
 .activity-table td {
-  font-size: 14px;
+  font-size: 0.875rem;
   padding: 11px 10px;
   border-bottom: 1px solid var(--ui-border);
   vertical-align: top;
@@ -335,7 +335,7 @@ html[data-theme="dark"] .activity-entry > * + *::before {
 .activity-badge {
   border-radius: 99px;
   display: inline-block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   margin-left: 8px;
   padding: 3px 7px;
@@ -367,12 +367,12 @@ html[data-theme="dark"] .activity-entry > * + *::before {
 .activity-change b {
   display: grid;
   gap: 3px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 .activity-change small {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   text-transform: capitalize;
 }
 .activity-change i {
@@ -424,7 +424,7 @@ html[data-theme="dark"] .activity-actor-meta b {
 /* Make each panel's entry count easier to read. */
 .activity-panel-head b,
 .activity-stage b {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .daily-first-logins {
@@ -443,19 +443,19 @@ html[data-theme="dark"] .activity-actor-meta b {
   padding: 15px 18px;
 }
 .daily-first-logins h3 {
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 0;
 }
 .daily-first-logins p {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 4px 0 0;
 }
 .daily-first-logins > header > b {
   background: var(--ui-emerald-soft);
   border-radius: 99px;
   color: var(--ui-emerald-dark);
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 5px 9px;
 }
 .daily-login-list {
@@ -476,12 +476,12 @@ html[data-theme="dark"] .activity-actor-meta b {
 }
 .daily-login-row small {
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 800;
   letter-spacing: 0.06em;
 }
 .daily-login-row strong {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 @media (max-width: 650px) {
   .daily-login-row {
@@ -517,11 +517,11 @@ html[data-theme="dark"] .daily-first-logins > header,
   padding: 5px 8px;
 }
 .activity-panel-logins b {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .activity-panel-logins small {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 @media (max-width: 650px) {
   .activity-panel-logins {

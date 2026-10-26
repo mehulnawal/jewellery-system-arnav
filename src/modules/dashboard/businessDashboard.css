@@ -1,6 +1,6 @@
 .business-dashboard {
   font:
-    14px/1.5 Inter,
+    0.875rem/1.5 Inter,
     system-ui,
     sans-serif;
   display: grid;
@@ -21,13 +21,13 @@
 }
 .business-eyebrow {
   color: var(--ui-emerald);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.13em;
 }
 .business-hero h2 {
   font-weight: 650;
-  font-size: 28px;
+  font-size: 1.75rem;
   line-height: 1.1;
   margin: 7px 0;
 }
@@ -35,7 +35,7 @@
 .business-card-head p,
 .business-footnote {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0;
 }
 .business-period {
@@ -46,7 +46,7 @@
 .business-period label,
 .business-period small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .business-period select,
 .business-custom input {
@@ -76,7 +76,7 @@
 }
 .business-live-strip span {
   color: var(--ui-emerald);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -90,7 +90,7 @@
   border-radius: 50%;
 }
 .business-live-strip strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .business-grid {
   display: grid;
@@ -121,16 +121,16 @@
 }
 .business-card h3 {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin: 0 0 5px;
 }
 .business-card h4 {
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0 0 12px;
 }
 .business-text-link {
   font:
-    600 12px/1.5 Inter,
+    600 0.75rem/1.5 Inter,
     system-ui,
     sans-serif;
   padding: 0;
@@ -144,7 +144,7 @@
 .business-empty {
   margin: 12px 0 0;
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .business-chart,
 .business-aging-chart {
@@ -159,14 +159,14 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .business-bar-label span,
 .business-bar-row small {
   color: var(--ui-muted);
 }
 .business-bar-row small {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .business-bar-track {
   display: block;
@@ -205,13 +205,13 @@
 }
 .business-aging-row span:first-child,
 .business-aging-row small {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .business-aging-row small {
   color: var(--ui-muted);
 }
 .business-aging-row strong {
-  font-size: 12px;
+  font-size: 0.75rem;
   text-align: right;
 }
 .business-table-wrap {
@@ -220,12 +220,12 @@
 .business-card table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .business-card th {
   text-align: left;
   color: var(--ui-muted);
-  font-size: 10px;
+  font-size: 0.625rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 800;
@@ -276,20 +276,20 @@
 .business-stage-grid span {
   display: block;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .business-attention strong,
 .business-due-summary strong,
 .business-stage-grid strong {
   display: block;
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin: 5px 0;
 }
 .business-attention small,
 .business-due-summary small,
 .business-stage-grid small {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .business-party-grid,
 .business-risk-grid {
@@ -304,14 +304,14 @@
 }
 .business-party strong,
 .business-signal strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .business-party small,
 .business-party > span:last-child,
 .business-signal span,
 .business-signal small {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .business-metric-grid {
   display: grid;
@@ -326,11 +326,11 @@
 .business-metric-grid span {
   display: block;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .business-metric-grid strong {
   display: block;
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin-top: 6px;
 }
 .business-stage-grid {
@@ -350,7 +350,7 @@
   margin-bottom: 15px;
 }
 .business-due-summary strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .business-purchase-list {
   display: grid;
@@ -377,10 +377,10 @@
   gap: 4px;
 }
 .business-purchase-list strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .business-purchase-list small {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--ui-muted);
 }
 .business-rank {
@@ -417,7 +417,7 @@
   border-radius: 8px;
   background: var(--ui-surface-subtle);
   border: 1px solid var(--ui-border);
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--ui-muted);
   margin: 0;
 }
@@ -484,7 +484,7 @@
 
 .business-dashboard button {
   font-family: inherit;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .business-quick {
   grid-column: 1 / -1;
@@ -494,7 +494,7 @@
   flex-wrap: wrap;
 }
 .business-quick h3 {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   margin: 0;
   color: var(--ui-muted);
@@ -513,7 +513,7 @@
   color: var(--ui-muted);
 }
 .business-aging-row.has-stock strong {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 650;
 }
 .business-aging-row:focus-visible {
@@ -537,7 +537,7 @@
   border: 1px solid var(--ui-border);
   border-radius: 4px;
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   white-space: nowrap;
 }
 .business-card td {
@@ -550,7 +550,7 @@
   padding: 8px 10px;
 }
 .business-stage-grid strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 3px 0;
 }
 @media (max-width: 700px) {
@@ -600,7 +600,7 @@
   display: grid;
   gap: 4px;
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   min-width: 0;
 }
 .customer-goods-controls input,
@@ -627,7 +627,7 @@
 }
 .customer-goods-table th {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .customer-goods-dialog {
   box-sizing: border-box;

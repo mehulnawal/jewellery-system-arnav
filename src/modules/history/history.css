@@ -7,12 +7,12 @@
   margin-bottom: 24px;
 }
 .history-page-header h2 {
-  font-size: 27px;
+  font-size: 1.6875rem;
   margin: 0;
 }
 .history-page-header p {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 7px 0 0;
 }
 .history-selector {
@@ -25,7 +25,7 @@
 .history-selected-header small {
   color: var(--ui-muted);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   margin-bottom: 7px;
@@ -68,7 +68,7 @@
   color: var(--ui-text);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 750;
   min-height: 40px;
   padding: 0 12px;
@@ -97,7 +97,7 @@
   color: var(--ui-text);
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 650;
   min-height: 40px;
   padding: 0 10px;
@@ -114,7 +114,7 @@
 }
 .history-directory-list p {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 8px;
 }
 .history-main {
@@ -137,7 +137,7 @@
   margin: 0 0 4px;
 }
 .history-selected-header h3 {
-  font-size: 24px;
+  font-size: 1.5rem;
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -157,13 +157,13 @@
 }
 .history-summary span {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 750;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .history-summary strong {
-  font-size: 21px;
+  font-size: 1.3125rem;
   overflow-wrap: anywhere;
 }
 .history-filters {
@@ -203,12 +203,12 @@
   justify-content: space-between;
 }
 .history-section-heading h3 {
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 0;
 }
 .history-section-heading span {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .history-table-wrap,
 .history-detail-table-wrap {
@@ -235,14 +235,14 @@
 .history-detail-table-wrap th {
   background: var(--ui-surface-subtle);
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .history-table-wrap td,
 .history-detail-table-wrap td {
-  font-size: 13px;
+  font-size: 0.8125rem;
   white-space: nowrap;
 }
 .history-table-wrap tbody tr:last-child td,
@@ -255,7 +255,7 @@
   color: var(--ui-emerald-dark);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 800;
   padding: 4px 0;
 }
@@ -271,7 +271,7 @@
 .history-aging {
   border-radius: 999px;
   display: inline-flex;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   line-height: 1;
   padding: 7px 9px;
@@ -313,7 +313,7 @@
   color: var(--ui-muted);
   display: flex;
   flex-direction: column;
-  font-size: 14px;
+  font-size: 0.875rem;
   gap: 7px;
   justify-content: center;
   min-height: 88px;
@@ -357,13 +357,13 @@
 .history-detail-header small {
   color: var(--ui-muted);
   display: block;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .history-detail-header h2 {
-  font-size: 22px;
+  font-size: 1.375rem;
   margin: 5px 0 0;
 }
 .history-detail-header button {
@@ -374,7 +374,7 @@
   color: var(--ui-text);
   cursor: pointer;
   display: inline-flex;
-  font-size: 25px;
+  font-size: 1.5625rem;
   height: 38px;
   justify-content: center;
   line-height: 1;
@@ -401,13 +401,13 @@
 }
 .history-detail-grid small {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 750;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 .history-detail-grid strong {
-  font-size: 14px;
+  font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
 .history-detail-section {
@@ -416,7 +416,7 @@
 }
 .history-detail-section h3,
 .history-detail-notes h3 {
-  font-size: 16px;
+  font-size: 1rem;
   margin: 0;
 }
 .history-detail-table-wrap table {
@@ -541,7 +541,7 @@ html[data-theme="dark"] .history-stage.stage-3 {
 }
 @media (max-width: 480px) {
   .history-page-header h2 {
-    font-size: 24px;
+    font-size: 1.5rem;
   }
   .history-selected-header {
     align-items: flex-start;

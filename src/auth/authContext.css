@@ -16,13 +16,13 @@
   z-index: 1000;
 }
 .access-revocation-notice b {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .access-revocation-notice span {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .access-revocation-notice strong {
-  font-size: 20px;
+  font-size: 1.25rem;
   letter-spacing: 0.02em;
 }
 @media (max-width: 480px) {

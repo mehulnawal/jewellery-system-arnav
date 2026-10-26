@@ -13,7 +13,7 @@
   margin: 2px 0 23px;
 }
 .inventory-heading h2 {
-  font-size: 31px;
+  font-size: 1.9375rem;
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 34px;
@@ -21,7 +21,7 @@
 }
 .inventory-heading p {
   color: #788393;
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 500;
   margin: 4px 0 0;
 }
@@ -44,20 +44,20 @@
 .inventory-filter > span {
   color: #7d8795;
   display: block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 .inventory-metrics strong {
   display: block;
-  font-size: 27px;
+  font-size: 1.6875rem;
   letter-spacing: -0.03em;
   line-height: 29px;
   margin-top: 8px;
 }
 .inventory-metrics i {
   color: #7c8694;
-  font-size: 16px;
+  font-size: 1rem;
   font-style: normal;
   font-weight: 500;
   letter-spacing: 0;
@@ -91,7 +91,7 @@
 .inventory-search input {
   border: 0;
   color: #243041;
-  font: 500 16px inherit;
+  font: 500 1rem inherit;
   height: 100%;
   min-width: 0;
   outline: 0;
@@ -103,7 +103,7 @@
 }
 .inventory-search kbd {
   color: #98a1ad;
-  font: 14px inherit;
+  font: 0.875rem inherit;
   position: absolute;
   right: 10px;
 }
@@ -119,7 +119,7 @@
   border: 1px solid #dce1e7;
   border-radius: 7px;
   color: #354152;
-  font: 500 16px inherit;
+  font: 500 1rem inherit;
   height: 38px;
   outline: 0;
   padding: 0 29px 0 11px;
@@ -146,7 +146,7 @@
   color: #354152;
   cursor: pointer;
   display: inline-flex;
-  font: 600 16px inherit;
+  font: 600 1rem inherit;
   gap: 7px;
   height: 38px;
   justify-content: center;
@@ -191,7 +191,7 @@
   color: #354152;
   cursor: pointer;
   display: block;
-  font: 600 16px inherit;
+  font: 600 1rem inherit;
   padding: 11px 13px;
   text-align: left;
   width: 100%;
@@ -213,7 +213,7 @@
   padding: 0 12px 0 16px;
 }
 .inventory-selection b {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .inventory-selection > div {
   display: flex;
@@ -284,7 +284,7 @@
 .inventory-table th {
   background: #fafbfc;
   color: #788390;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   height: 42px;
   letter-spacing: 0.08em;
@@ -296,7 +296,7 @@
 }
 .inventory-group td {
   color: #253243;
-  font-size: 16px;
+  font-size: 1rem;
 }
 .inventory-group:hover {
   filter: brightness(0.985);
@@ -324,7 +324,7 @@
 }
 .inventory-item td {
   color: #536071;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .inventory-item td:nth-child(2),
 .inventory-item td:nth-child(4),
@@ -372,7 +372,7 @@
 .inventory-type {
   border-radius: 4px;
   display: inline-block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.025em;
   line-height: 21px;
@@ -393,7 +393,7 @@
   border-radius: 999px;
   color: #29915e;
   display: inline-block;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   line-height: 21px;
   padding: 0 8px;
@@ -402,7 +402,7 @@
   align-items: center;
   border-radius: 999px;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   gap: 5px;
   height: 22px;
@@ -436,7 +436,7 @@
 }
 .inventory-admin-only {
   color: #8b95a1 !important;
-  font-size: 14px !important;
+  font-size: 0.875rem !important;
 }
 .inventory-modal {
   align-items: center;
@@ -471,12 +471,12 @@
   top: 16px;
 }
 .inventory-modal-card h3 {
-  font-size: 22px;
+  font-size: 1.375rem;
   margin: 0;
 }
 .inventory-modal-card > p {
   color: #7c8795;
-  font-size: 15px;
+  font-size: 0.9375rem;
   line-height: 18px;
   margin: 5px 0 20px;
 }
@@ -498,7 +498,7 @@
 .inventory-read-only > span,
 .inventory-sku-field > span {
   color: #4d5968;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 650;
 }
 .inventory-field input,
@@ -509,14 +509,14 @@
   border-radius: 6px;
   box-sizing: border-box;
   color: #354152;
-  font: 500 16px inherit;
+  font: 500 1rem inherit;
   height: 38px;
   outline: 0;
   padding: 0 11px;
   width: 100%;
 }
 .inventory-select {
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .inventory-field input:focus,
 .inventory-select:focus,
@@ -555,7 +555,7 @@
   color: #3c4755;
   cursor: pointer;
   display: flex;
-  font: 500 17px inherit;
+  font: 500 1.0625rem inherit;
   height: 38px;
   justify-content: space-between;
   padding: 0 9px;
@@ -587,7 +587,7 @@
   border: 0;
   color: #148658;
   cursor: pointer;
-  font: 650 15px inherit;
+  font: 650 0.9375rem inherit;
   height: 34px;
   padding: 0 5px;
 }
@@ -607,7 +607,7 @@
 .inventory-sku-field b {
   color: #394556;
   display: block;
-  font-size: 16px;
+  font-size: 1rem;
   margin-top: 4px;
 }
 .inventory-read-only:nth-of-type(2) b {
@@ -617,7 +617,7 @@
   background: #e4f6ec;
   border-radius: 10px;
   color: #208a5c;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-style: normal;
   font-weight: 700;
   margin-left: 5px;
@@ -625,7 +625,7 @@
 }
 .inventory-error {
   color: #c64e4e;
-  font-size: 15px;
+  font-size: 0.9375rem;
   margin: 12px 0 0;
 }
 .inventory-modal-card footer {
@@ -640,7 +640,7 @@
   border-radius: 6px;
   bottom: 18px;
   color: #fff;
-  font-size: 16px;
+  font-size: 1rem;
   padding: 10px 13px;
   position: fixed;
   right: 18px;
@@ -759,38 +759,38 @@
   width: 16px;
 }
 .inventory-table th {
-  font-size: 15px;
+  font-size: 0.9375rem;
   letter-spacing: 0.07em;
 }
 .inventory-group td {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 .inventory-item td {
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 .inventory-type,
 .inventory-stock,
 .inventory-age {
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .inventory-admin-only {
-  font-size: 15px !important;
+  font-size: 0.9375rem !important;
 }
 
 .inventory-search input::placeholder {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .inventory-filter select,
 .inventory-button,
 .inventory-export-menu button {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .inventory-search kbd {
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 .inventory-empty-row td {
   color: #7d8795 !important;
-  font-size: 14px !important;
+  font-size: 0.875rem !important;
   height: 116px !important;
   text-align: center !important;
 }
@@ -818,11 +818,11 @@
 }
 .inventory-import-section > header b {
   color: #2e3b4c;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .inventory-import-section > header span {
   border-radius: 99px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   padding: 3px 8px;
 }
@@ -847,7 +847,7 @@
 .inventory-import-table td {
   border-bottom: 1px solid #e8ecef;
   color: #455264;
-  font-size: 13px;
+  font-size: 0.8125rem;
   padding: 10px 12px;
   text-align: left;
   vertical-align: top;
@@ -855,7 +855,7 @@
 .inventory-import-table th {
   background: #fff;
   color: #7d8795;
-  font-size: 11px;
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   position: sticky;
   text-transform: uppercase;
@@ -875,7 +875,7 @@
 }
 .inventory-import-empty {
   color: #7f8995;
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0;
   padding: 18px 14px;
 }
@@ -922,10 +922,10 @@ html[data-theme="dark"] .inventory-search input::placeholder {
   color: #94a3b8 !important;
 }
 .inventory-new-shape input {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .inventory-new-shape button {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .inventory-row-actions button {
   height: 36px;
@@ -983,7 +983,7 @@ html[data-theme="dark"] .inventory-search input::placeholder {
   border: 0;
   color: #17845b;
   cursor: pointer;
-  font: 600 14px inherit;
+  font: 600 0.875rem inherit;
   padding: 4px 0;
 }
 .inventory-box-input {
@@ -998,7 +998,7 @@ html[data-theme="dark"] .inventory-search input::placeholder {
 
 .inventory-edit-timer {
   color: #667384;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1043,7 +1043,7 @@ html[data-theme="dark"] .inventory-search input::placeholder {
 }
 .inventory-field-error {
   color: #c74343;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.25;
   margin-top: -2px;
@@ -1058,7 +1058,7 @@ html[data-theme="dark"] .inventory-search input::placeholder {
 }
 .inventory-box-editor small {
   color: #c74343;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.15;
   white-space: normal;
@@ -1169,12 +1169,12 @@ html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
 /* Inventory Add/Edit form states */
 .inventory-required-star {
   color: #c73535;
-  font-size: 16px;
+  font-size: 1rem;
   margin-left: 2px;
 }
 .inventory-optional-label {
   color: #697789;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
   margin-left: 5px;
 }
@@ -1185,7 +1185,7 @@ html[data-theme="dark"] .inventory-import-card .inventory-modal-close {
   border-radius: 6px;
   box-sizing: border-box;
   color: #354152;
-  font: 500 16px inherit;
+  font: 500 1rem inherit;
   height: 38px;
   outline: 0;
   padding: 0 11px;

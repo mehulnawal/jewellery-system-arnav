@@ -138,48 +138,48 @@ html[data-theme="dark"] .settings-tabs button {
 /* Match Inventory and Check Inventory typography. */
 .admin-settings {
   color: var(--ui-text);
-  font-size: 16px;
+  font-size: 1rem;
 }
 .admin-settings header h2 {
-  font-size: 31px;
+  font-size: 1.9375rem;
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 34px;
 }
 .admin-settings header p {
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 4px 0 0;
 }
 .admin-settings h3 {
-  font-size: 22px;
+  font-size: 1.375rem;
   line-height: 27px;
 }
 .admin-settings p {
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.45;
 }
 .settings-tabs button,
 .settings-primary,
 .settings-delete,
 .access-create label button {
-  font-size: 16px;
+  font-size: 1rem;
 }
 .access-create label,
 .access-create fieldset label,
 .permission-list label,
 .admin-toggle {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 .access-create input {
   box-sizing: border-box;
   color: #354152;
-  font-size: 16px;
+  font-size: 1rem;
   height: 38px;
   padding: 0 11px;
 }
 .access-account header b,
 .access-account header span {
-  font-size: 16px;
+  font-size: 1rem;
 }
 html[data-theme="dark"] .admin-settings input:not([type="checkbox"]) {
   background: #111827 !important;
@@ -203,7 +203,7 @@ html[data-theme="dark"] .admin-settings input::placeholder {
   border: 0;
   border-radius: 6px;
   color: var(--ui-emerald-dark);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 5px 8px;
   position: absolute;
@@ -372,7 +372,7 @@ html[data-theme="dark"] .settings-tabs .active {
 }
 .access-account header small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .admin-account-list {
@@ -389,7 +389,7 @@ html[data-theme="dark"] .settings-tabs .active {
 .staff-permissions > small,
 .new-staff-credentials small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -408,7 +408,7 @@ html[data-theme="dark"] .settings-tabs .active {
 }
 .new-staff-credentials code {
   color: var(--ui-text);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 800;
 }
 .new-staff-credentials button {
@@ -447,7 +447,7 @@ html[data-theme="dark"] .settings-tabs .active {
 .staff-credentials > small,
 .staff-permissions > small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -464,19 +464,19 @@ html[data-theme="dark"] .settings-tabs .active {
 }
 .credential-details small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 .credential-details b,
 .credential-details em {
   color: var(--ui-text);
-  font-size: 16px;
+  font-size: 1rem;
   font-style: normal;
   overflow-wrap: anywhere;
 }
 .credential-details em {
   color: var(--ui-muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 500;
 }
 .credential-copy,
@@ -486,7 +486,7 @@ html[data-theme="dark"] .settings-tabs .active {
   border-radius: 8px;
   color: var(--ui-emerald-dark);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
   height: 40px;
   padding: 0 14px;
@@ -510,14 +510,14 @@ html[data-theme="dark"] .settings-tabs .active {
   border: 1px solid color-mix(in srgb, var(--ui-emerald) 35%, var(--ui-border));
   border-radius: 8px;
   color: var(--ui-emerald-dark);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 750;
   display: inline-flex;
   min-height: 34px;
   padding: 0 12px;
 }
 .permission-empty {
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 0;
 }
 html[data-theme="dark"] .staff-credentials {
@@ -562,7 +562,7 @@ html[data-theme="dark"] .permission-chip {
 .account-section-heading h3,
 .admin-account-list > h3 {
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: 0.875rem;
   letter-spacing: 0.07em;
   margin: 0;
   text-transform: uppercase;
@@ -575,7 +575,7 @@ html[data-theme="dark"] .permission-chip {
 }
 .account-sort > span {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -588,7 +588,7 @@ html[data-theme="dark"] .permission-chip {
   color: var(--ui-text);
   cursor: pointer;
   display: flex;
-  font: 600 13px inherit;
+  font: 600 0.8125rem inherit;
   gap: 10px;
   height: 40px;
   justify-content: space-between;
@@ -626,7 +626,7 @@ html[data-theme="dark"] .permission-chip {
   border-radius: 6px;
   color: var(--ui-text);
   cursor: pointer;
-  font: 600 13px inherit;
+  font: 600 0.8125rem inherit;
   padding: 9px 12px;
   text-align: left;
   white-space: nowrap;
@@ -645,7 +645,7 @@ html[data-theme="dark"] .permission-chip {
 }
 .account-dates span {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 .account-dates b {
   color: var(--ui-text);
@@ -661,7 +661,7 @@ html[data-theme="dark"] .permission-chip {
 .account-status {
   color: var(--ui-emerald);
   flex: none;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 750;
 }
 .inactive .account-status {
@@ -692,7 +692,7 @@ html[data-theme="dark"] .permission-chip {
 .settings-delete {
   align-items: center;
   display: inline-flex;
-  font-size: 14px;
+  font-size: 0.875rem;
   height: 42px;
   padding: 0 16px;
 }
@@ -701,7 +701,7 @@ html[data-theme="dark"] .permission-chip {
   border: 1px solid color-mix(in srgb, var(--ui-emerald) 35%, var(--ui-border));
   border-radius: 9px;
   color: var(--ui-emerald-dark);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
   margin: 0 0 16px;
   padding: 10px 12px;
@@ -789,12 +789,12 @@ html[data-theme="dark"] .account-sort-menu button.selected {
 }
 .import-template-card h4,
 .import-template-rules h5 {
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 0;
 }
 .import-template-card p,
 .import-template-rules p {
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 5px 0 0;
 }
 .import-template-card > .settings-primary {
@@ -806,7 +806,7 @@ html[data-theme="dark"] .account-sort-menu button.selected {
 }
 .import-template-rules ul {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.5;
   margin: 10px 0 0;
   padding-left: 20px;
@@ -848,7 +848,7 @@ html[data-theme="dark"] .import-template-rules {
 }
 .import-rule-section h5 {
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   margin: 0;
@@ -874,13 +874,13 @@ html[data-theme="dark"] .import-template-rules {
   border: 1px solid color-mix(in srgb, var(--ui-emerald) 35%, var(--ui-border));
   border-radius: 999px;
   color: var(--ui-emerald-dark);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 750;
   padding: 5px 9px;
 }
 .import-rule-note {
   color: var(--ui-text) !important;
-  font-size: 13px !important;
+  font-size: 0.8125rem !important;
   margin-top: 10px !important;
 }
 .import-rule-section.before-upload {

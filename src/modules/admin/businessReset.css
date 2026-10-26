@@ -10,7 +10,7 @@
 }
 .business-danger-zone h3 {
   color: var(--ui-danger);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 .business-danger-zone p {

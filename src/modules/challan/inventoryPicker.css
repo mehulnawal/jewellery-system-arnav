@@ -32,10 +32,10 @@
 .inventory-picker-popover span,
 .inventory-picker-popover small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 .inventory-picker-popover .inventory-picker-record {
-  font-size: 10px;
+  font-size: 0.625rem;
   overflow-wrap: anywhere;
 }
 .inventory-picker-popover p {

@@ -5149,7 +5149,7 @@ export default function Challan() {
               ) : (
                 <span className="challan-aging-empty">--</span>
               )}{" "}
-              <span className="challan-actions">
+              <span className={`challan-actions${Number(row.stage) === 4 ? " challan-settlement-actions" : ""}`}>
                 {" "}
                 <button
                   type="button"
@@ -5176,7 +5176,7 @@ export default function Challan() {
                   settlementOutstanding(row) > 0 &&
                   hasStagePermission(4) && (
                     <button
-                      className="challan-workflow-button"
+                      className="challan-outstanding-button"
                       onClick={() => setFinalSettlementCandidate(row)}
                     >
                       Record Outstanding Payment

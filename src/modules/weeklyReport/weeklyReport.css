@@ -9,7 +9,7 @@
   margin-bottom: 22px;
 }
 .weekly-heading h2 {
-  font-size: clamp(34px, 3vw, 38px);
+  font-size: clamp(2.125rem, 3vw, 2.375rem);
   font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.05;
@@ -17,7 +17,7 @@
 }
 .weekly-heading p {
   color: var(--ui-muted);
-  font-size: 17px;
+  font-size: 1.0625rem;
   margin: 7px 0 0;
 }
 
@@ -50,13 +50,13 @@
 .weekly-summary span,
 .weekly-select span {
   color: var(--ui-muted);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.075em;
   text-transform: uppercase;
 }
 .weekly-period strong {
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-weight: 650;
   line-height: 1.2;
   margin-top: 3px;
@@ -72,7 +72,7 @@
   border-radius: 9px;
   color: var(--ui-text);
   cursor: pointer;
-  font: 600 13px inherit;
+  font: 600 0.8125rem inherit;
   height: 38px;
   padding: 0 12px;
   white-space: nowrap;
@@ -104,7 +104,7 @@
 }
 .weekly-summary b {
   display: block;
-  font-size: 32px;
+  font-size: 2rem;
   font-weight: 650;
   line-height: 1;
   margin-top: 11px;
@@ -150,7 +150,7 @@
   border-radius: 9px;
   box-sizing: border-box;
   color: var(--ui-text);
-  font: 13px inherit;
+  font: 0.8125rem inherit;
   height: 38px;
   min-width: 0;
   padding: 0 10px;
@@ -196,14 +196,14 @@
 }
 .weekly-section h3 {
   color: var(--section-accent-dark);
-  font-size: 23px;
+  font-size: 1.4375rem;
   font-weight: 650;
   line-height: 1.1;
   margin: 0;
 }
 .weekly-section p {
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 4px 0 0;
 }
 .weekly-section--inventory {
@@ -233,7 +233,7 @@
   border-radius: 8px;
   color: var(--ui-muted);
   display: inline-flex;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   gap: 6px;
   height: 32px;
@@ -241,7 +241,7 @@
 }
 .weekly-mini-stats b {
   color: var(--ui-text);
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 .weekly-stat--created {
   background: #edf8f3 !important;
@@ -292,7 +292,7 @@
 .weekly-table-wrap th {
   background: var(--ui-surface-subtle);
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.055em;
   padding: 14px 15px;
@@ -301,7 +301,7 @@
 }
 .weekly-table-wrap td {
   border-top: 1px solid var(--ui-border);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.35;
   padding: 11px 15px;
   vertical-align: middle;
@@ -319,13 +319,13 @@
 }
 .weekly-time small {
   color: var(--ui-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
   margin-top: 2px;
 }
 .weekly-action {
   border-radius: 6px;
   display: inline-block;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 26px;
   padding: 0 8px;
@@ -400,7 +400,7 @@
 .weekly-empty {
   border-radius: 14px;
   color: var(--ui-muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 0;
   padding: 18px 20px;
 }
@@ -544,10 +544,10 @@ html[data-theme="dark"] .weekly-stage {
     margin-bottom: 20px;
   }
   .weekly-heading h2 {
-    font-size: 34px;
+    font-size: 2.125rem;
   }
   .weekly-heading p {
-    font-size: 16px;
+    font-size: 1rem;
   }
   .weekly-period {
     display: flex;
