@@ -23,6 +23,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="check-inventory" element={<Page />} />
         <Route path="purchase" element={<Page />} />
         <Route path="challan" element={<Page />} />
+        <Route path="order-list" element={<Page />} />
         <Route path="activity-log" element={<Page />} />
         <Route path="weekly-report" element={<Page />} />
         <Route path="vendor-purchase-history" element={<Page />} />

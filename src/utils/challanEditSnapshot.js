@@ -24,6 +24,7 @@ export function stageOneEditSnapshot(record) {
     party: optionalText(record.party),
     date: String(record.date ?? ""),
     notes: optionalText(record.notes),
+    angadiaService: record.angadiaService === true,
     items: (record.items ?? []).map((item) => {
       const financials =
         item.pricingVersion === WEIGHT_RATE_PRICING

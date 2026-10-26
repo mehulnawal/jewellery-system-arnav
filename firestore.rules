@@ -250,7 +250,7 @@ service cloud.firestore {
       let stage = data.stage;
       let fields = request.resource.data.diff(data).affectedKeys();
       return stage in [1, 2, 3, 4] && request.resource.data.stage == stage
-        && fields.hasOnly(['number', 'party', 'date', 'notes', 'items', 'amount', 'discount', 'discountAmount', 'netAmount', 'stage1Images', 'stage2Images', 'updatedAt'])
+        && fields.hasOnly(['number', 'party', 'date', 'notes', 'angadiaService', 'items', 'amount', 'discount', 'discountAmount', 'netAmount', 'stage1Images', 'stage2Images', 'updatedAt'])
         && (admin() || (stage == 4 && activeOrGraceEmployee() && profile().role == 'admin')
           ? (stage == 1 || stage == 4 || request.time < challanStageStart(data) + duration.value(60, 'm'))
           : (activeOrGraceEmployee() && data.createdBy == request.auth.uid
@@ -409,9 +409,24 @@ service cloud.firestore {
         && request.resource.data.stage2Prices is map
         && request.resource.data.stage2Prices.size() == resource.data.stage2Return.items.size();
     }
+    function angadiaServiceUpdateAllowed() {
+      let stage = resource.data.stage;
+      return stage in [1, 2, 3, 4] && request.resource.data.stage == stage
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['angadiaService', 'updatedAt'])
+        && request.resource.data.angadiaService is bool
+        && request.resource.data.updatedAt == request.time
+        && (admin() || (activeOrGraceEmployee()
+          && ((profile().role == 'admin' && stage == 4)
+            || (stage == 1 && profile().permissions.hasAny(['challan-stage-1']))
+            || (stage == 2 && profile().permissions.hasAny(['challan-stage-2']))
+            || (stage == 3 && profile().permissions.hasAny(['challan-stage-3']))
+            || (stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))));
+    }
     function challanUpdateAllowed() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return changed.hasAny(['settlementCorrections'])
+      return changed.hasAny(['angadiaService']) && changed.hasOnly(['angadiaService', 'updatedAt'])
+        ? angadiaServiceUpdateAllowed()
+        : changed.hasAny(['settlementCorrections'])
         ? settlementCorrectionAllowed()
         : changed.hasAny(['settlementPayments', 'paymentSummary', 'settlementOpening'])
         ? (request.resource.data.settlementPayments.size() == 0 ? settlementCompatibilityAllowed() : settlementPaymentAllowed())
@@ -422,8 +437,10 @@ service cloud.firestore {
     match /challans/{entry} {
       allow read: if admin() || challanEmployee() || purchaseEmployee() || (activeOrGraceEmployee() && profile().role == 'admin' && resource.data.stage == 4);
       allow create: if businessUnlocked() && currentBusinessGeneration() && ((admin() || challanStageOneEmployee()) && claimedChallanNumber(entry)
+        && request.resource.data.get('angadiaService', false) is bool
         && request.resource.data.createdAt == request.time);
       allow update: if businessUnlocked() && currentBusinessGeneration()
+        && request.resource.data.get('angadiaService', false) is bool
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['number']) || (admin() && claimedChallanNumber(entry)))
         && challanUpdateAllowed();
       allow delete: if businessUnlocked() && (admin());

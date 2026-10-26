@@ -7,7 +7,12 @@ import {
 } from "../../utils/inventoryRules.js";
 import StageFourSettlementModal from "./StageFourSettlementModal.jsx";
 import StageTwoPricesModal from "./StageTwoPricesModal.jsx";
-import { buildChallanPrint } from "../../utils/challanPrint.js";
+import {
+  buildChallanPrint,
+  buildChallanListPrint,
+  angadiaServiceText,
+} from "../../utils/challanPrint.js";
+import AngadiaCheckbox from "./AngadiaCheckbox.jsx";
 import {
   paymentProgress,
   recordSettlementPayment,
@@ -250,6 +255,7 @@ const historicalItemsFor = (record) => {
 };
 const challanSnapshot = (record) => ({
   challanNo: record.number || "",
+  angadiaService: record.angadiaService === true,
   partyName: record.party || "",
   amount: Number(record.amount || 0),
   discount: Number(record.discount || 0),
@@ -2260,6 +2266,10 @@ export default function Challan() {
     [isAdmin, user?.role, user?.permissions],
   );
   const [records, setRecords] = useState([]);
+  const [angadiaSaving, setAngadiaSaving] = useState({});
+  const [angadiaDraft, setAngadiaDraft] = useState({});
+  const [angadiaErrors, setAngadiaErrors] = useState({});
+  const angadiaPending = useRef(new Set());
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [settlementEditCandidate, setSettlementEditCandidate] = useState(null);
   const [page, setPage] = useState("list"),
@@ -2278,6 +2288,7 @@ export default function Challan() {
     amount: "",
     discount: "",
     notes: "",
+    angadiaService: false,
     items: [blank()],
   });
   const {
@@ -2312,7 +2323,6 @@ export default function Challan() {
   // this a bounded update, never a write-back or subscription loop.
   useEffect(() => {
     if (page !== "create") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- External live snapshots must merge into editable draft state without overwriting user overrides.
     setForm((state) => {
       let changed = false;
       const items = state.items.map((item) => {
@@ -2393,6 +2403,7 @@ export default function Challan() {
           date: today(),
           party: "",
           notes: "",
+          angadiaService: false,
           items: [blank()],
         });
         setPage("create");
@@ -2926,6 +2937,7 @@ export default function Challan() {
             party,
             date: form.date,
             notes: form.notes,
+            angadiaService: form.angadiaService === true,
             items: pricedItems,
             ...pricing,
           }
@@ -2935,6 +2947,7 @@ export default function Challan() {
             party,
             date: form.date,
             notes: form.notes,
+            angadiaService: form.angadiaService === true,
             items: pricedItems,
             ...pricing,
             stage: 1,
@@ -2972,6 +2985,7 @@ export default function Challan() {
             party,
             date: form.date,
             notes: form.notes,
+            angadiaService: form.angadiaService === true,
             items: pricedItems,
             ...pricing,
           });
@@ -2999,6 +3013,7 @@ export default function Challan() {
         date: today(),
         party: "",
         notes: "",
+        angadiaService: false,
         items: [blank()],
       });
       setPage("list");
@@ -3452,6 +3467,7 @@ export default function Challan() {
       date: today(),
       party: "",
       notes: "",
+      angadiaService: false,
       items: [blank()],
     });
     setFormError("");
@@ -3490,6 +3506,7 @@ export default function Challan() {
       date: record.date,
       party: record.party,
       notes: record.notes || "",
+      angadiaService: record.angadiaService === true,
       items: record.items.map((item) =>
         savedPriceItem({
           ...item,
@@ -3600,6 +3617,73 @@ export default function Challan() {
     setRecords((state) => state.filter((entry) => entry.id !== id));
     setDeleteCandidate(null);
   };
+  const saveAngadia = async (record, checked) => {
+    if (angadiaPending.current.has(record.id)) return;
+    angadiaPending.current.add(record.id);
+    setAngadiaDraft((old) => ({ ...old, [record.id]: checked }));
+    setAngadiaSaving((old) => ({ ...old, [record.id]: true }));
+    setAngadiaErrors((old) => ({ ...old, [record.id]: "" }));
+    try {
+      const saved = await runTransaction(db, async (tx) => {
+        const ref = doc(db, "challans", record.id);
+        const snapshot = await tx.get(ref);
+        if (!snapshot.exists())
+          throw new Error("This Challan is no longer available.");
+        const current = snapshot.data();
+        if (Number(current.stage) !== Number(record.stage))
+          throw new Error(
+            "Challan stage changed. Reopen it before changing Angadia Service.",
+          );
+        if (!hasStagePermission(Number(current.stage)))
+          throw new Error("You do not have access to change this Challan.");
+        if ((current.angadiaService === true) === checked)
+          return { ...current, id: record.id, angadiaService: checked };
+        tx.update(ref, {
+          angadiaService: checked,
+          updatedAt: serverTimestamp(),
+        });
+        return { ...current, id: record.id, angadiaService: checked };
+      });
+      setRecords((old) =>
+        old.map((row) =>
+          row.id === record.id ? { ...row, angadiaService: checked } : row,
+        ),
+      );
+      void writeActivity({
+        panel: "challan",
+        stage: "Stage " + saved.stage,
+        action: "edited",
+        recordId: saved.id,
+        snapshot: challanSnapshot(saved),
+        before: challanSnapshot(record),
+        user,
+      }).catch((error) =>
+        console.warn("Angadia activity could not be saved.", error),
+      );
+    } catch (error) {
+      setAngadiaErrors((old) => ({
+        ...old,
+        [record.id]: "Angadia Service was not saved: " + error.message,
+      }));
+    } finally {
+      angadiaPending.current.delete(record.id);
+      setAngadiaDraft((old) => {
+        const next = { ...old };
+        delete next[record.id];
+        return next;
+      });
+      setAngadiaSaving((old) => ({ ...old, [record.id]: false }));
+    }
+  };
+  const angadiaControl = (record) => (
+    <AngadiaCheckbox
+      checked={angadiaDraft[record.id] ?? record.angadiaService}
+      disabled={!hasStagePermission(Number(record.stage))}
+      saving={angadiaSaving[record.id]}
+      error={angadiaErrors[record.id]}
+      onChange={(checked) => saveAngadia(record, checked)}
+    />
+  );
   const pricing = stageOneTotals(
     savableStageOneRows(form.items.filter((item) => !widthError(item.width))),
   );
@@ -3607,6 +3691,7 @@ export default function Challan() {
     const XLSX = await import("xlsx");
     const rows = shown.map((row) => ({
       "Challan No.": row.number,
+      "Angadia Service": angadiaServiceText(row),
       Party: row.party,
       Date: row.date,
       Type: (row.items || [])
@@ -3646,6 +3731,7 @@ export default function Challan() {
     const itemRows = shown.flatMap((row) =>
       historicalItemsFor(row).map((item) => ({
         "Challan No.": row.number,
+        "Angadia Service": angadiaServiceText(row),
         Stage: "Stage " + row.stage,
         SKU: item.sku || "",
         Shape: shapeName(item.shape) || "",
@@ -3706,48 +3792,7 @@ export default function Challan() {
       setFormError("Please allow pop-ups to print Challans.");
       return;
     }
-    const escape = (value) =>
-      String(value ?? "-").replace(
-        /[&<>"\x27]/g,
-        (character) =>
-          ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            "\x27": "&#039;",
-            '"': "&quot;",
-          })[character],
-      );
-    const body =
-      shown
-        .map((row) => {
-          return (
-            "<tr><td>" +
-            escape(row.number) +
-            "</td><td>" +
-            escape(row.party) +
-            "</td><td>" +
-            escape(row.items.map((item) => item.sku).join(", ")) +
-            "</td><td>" +
-            escape(row.date) +
-            "</td><td>" +
-            row.items.reduce((sum, item) => sum + pieceValue(item.pieces), 0) +
-            "</td><td>Stage " +
-            row.stage +
-            " - " +
-            escape(STAGES[row.stage]) +
-            "</td></tr>"
-          );
-        })
-        .join("") ||
-      "<tr><td colspan=6>No Challans match the current filters.</td></tr>";
-    popup.document.write(
-      "<!doctype html><html><head><title>Challan Management</title><style>body{font-family:Arial,sans-serif;color:#172033;margin:28px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left}th{background:#f1f5f9;font-size:11px;text-transform:uppercase}</style></head><body><h1>Challan Management</h1><p>Filtered list - " +
-        shown.length +
-        " Challans</p><table><thead><tr><th>Challan No.</th><th>Party</th><th>Items</th><th>Date</th><th>Qty</th><th>Stage</th></tr></thead><tbody>" +
-        body +
-        "</tbody></table></body></html>",
-    );
+    popup.document.write(buildChallanListPrint(shown, STAGES));
     popup.document.close();
     popup.focus();
     window.setTimeout(() => popup.print(), 250);
@@ -3785,6 +3830,7 @@ export default function Challan() {
       ["Party", record.party || ""],
       ["Date", record.date || ""],
       ["Stage", "Stage " + stage + " - " + STAGES[stage]],
+      ["Angadia Service", angadiaServiceText(record)],
       ["Notes", record.notes || ""],
       [
         hasWeightedPricing(items) ? "Stage 1 Net Amount" : "Original Amount",
@@ -4053,30 +4099,10 @@ export default function Challan() {
     return (
       <section className="challan-page challan-view">
         {" "}
+        {settlementEditDialog()}
+        {priceDialog()}
+        {settlementDialog()}
         <div className="challan-view-toolbar">
-          {settlementEditDialog()}
-          {priceDialog()}
-          {settlementDialog()}
-          {(stage === 3 ||
-            (stage === 4 && settlementOutstanding(viewRecord) > 0)) &&
-            hasStagePermission(4) && (
-              <button
-                type="button"
-                className="challan-view-print"
-                onClick={() => setFinalSettlementCandidate(viewRecord)}
-              >
-                Record Payment
-              </button>
-            )}
-          {stage === 2 && hasStagePermission(2) && (
-            <button
-              type="button"
-              className="challan-view-print"
-              onClick={() => setStageTwoPriceCandidate(viewRecord)}
-            >
-              Edit Stage 2 Prices
-            </button>
-          )}{" "}
           <button
             className="back"
             type="button"
@@ -4088,21 +4114,54 @@ export default function Challan() {
             {" "}
             <Icon name="back" /> Back to Challans{" "}
           </button>{" "}
-          <button
-            type="button"
-            className="challan-view-print"
-            onClick={() => printChallan(viewRecord)}
-          >
-            {" "}
-            Print{" "}
-          </button>{" "}
-          <button
-            type="button"
-            className="challan-view-print"
-            onClick={() => exportChallan(viewRecord)}
-          >
-            Export
-          </button>{" "}
+          <div className="challan-view-actions">
+            {(stage === 1 ||
+              (stage === 4 && !(settlementOutstanding(viewRecord) > 0))) &&
+              canEditChallan(viewRecord) && (
+                <button
+                  type="button"
+                  className="challan-view-print"
+                  onClick={() => editChallan(viewRecord)}
+                >
+                  Edit
+                </button>
+              )}
+            {(stage === 3 ||
+              (stage === 4 && settlementOutstanding(viewRecord) > 0)) &&
+              hasStagePermission(4) && (
+                <button
+                  type="button"
+                  className="challan-view-print"
+                  onClick={() => setFinalSettlementCandidate(viewRecord)}
+                >
+                  Record Payment
+                </button>
+              )}
+            {stage === 2 && hasStagePermission(2) && (
+              <button
+                type="button"
+                className="challan-view-print"
+                onClick={() => setStageTwoPriceCandidate(viewRecord)}
+              >
+                Edit Stage 2 Prices
+              </button>
+            )}{" "}
+            <button
+              type="button"
+              className="challan-view-print"
+              onClick={() => printChallan(viewRecord)}
+            >
+              {" "}
+              Print{" "}
+            </button>{" "}
+            <button
+              type="button"
+              className="challan-view-print"
+              onClick={() => exportChallan(viewRecord)}
+            >
+              Export
+            </button>{" "}
+          </div>
         </div>{" "}
         <article className="challan-view-card">
           {" "}
@@ -4465,6 +4524,7 @@ export default function Challan() {
             onUpload={uploadImage}
           />
         )}
+        {angadiaControl(viewRecord)}
       </section>
     );
   }
@@ -4873,6 +4933,13 @@ export default function Challan() {
               Cancel{" "}
             </button>{" "}
           </footer>{" "}
+          <AngadiaCheckbox
+            checked={form.angadiaService}
+            disabled={saving}
+            onChange={(checked) =>
+              setForm((old) => ({ ...old, angadiaService: checked }))
+            }
+          />
         </form>{" "}
       </section>
     );
@@ -4904,6 +4971,7 @@ export default function Challan() {
                 date: today(),
                 party: "",
                 notes: "",
+                angadiaService: false,
                 items: [blank()],
               });
               setPage("create");
@@ -5077,7 +5145,15 @@ export default function Challan() {
       </div>{" "}
       <p className="showing">Showing {shown.length} Challans</p>{" "}
       {shown.length ? (
-        <div className="challan-list">
+        <div
+          className="challan-list"
+          onScroll={(event) => {
+            event.currentTarget.style.setProperty(
+              "--challan-scroll-x",
+              `${event.currentTarget.scrollLeft}px`,
+            );
+          }}
+        >
           {" "}
           <div
             className={`list-head ${tab === "all" ? "" : "stage-column-hidden"}`}
@@ -5086,6 +5162,7 @@ export default function Challan() {
             <span>Challan / Party</span> <span>Items</span> <span>Date</span>{" "}
             <span>Total Pcs</span> {tab === "all" && <span>Stage</span>}{" "}
             <span>Aging</span> <span>Actions</span>{" "}
+            <span>Angadia Service</span>{" "}
           </div>{" "}
           {shown.map((row) => (
             <div
@@ -5093,7 +5170,7 @@ export default function Challan() {
               key={row.id}
             >
               {" "}
-              <div>
+              <div className="challan-identity-cell">
                 {" "}
                 <button
                   type="button"
@@ -5106,17 +5183,40 @@ export default function Challan() {
                   {" "}
                   {row.number}{" "}
                 </button>{" "}
-                <small>{row.party}</small>{" "}
+                <small className="challan-party-name">{row.party}</small>{" "}
                 {Number(row.stage) === 4 && (
-                  <small className="challan-payment-status">
-                    {settlementStatus(row)} · Paid:{" "}
-                    {viewCurrency(
-                      settlementForRecord(row)?.amountPaid,
-                      "Unavailable",
-                    )}{" "}
-                    · Outstanding:{" "}
-                    {viewCurrency(settlementOutstanding(row), "Unavailable")}
-                  </small>
+                  <div className="challan-payment-status">
+                    <span
+                      className="challan-payment-tag"
+                      data-payment-state={
+                        settlementOutstanding(row) == null
+                          ? "unknown"
+                          : settlementOutstanding(row) === 0
+                            ? "paid"
+                            : "partial"
+                      }
+                    >
+                      {settlementStatus(row)}
+                    </span>
+                    <span className="challan-payment-line">
+                      <span>Paid Amount:</span>{" "}
+                      <b>
+                        {viewCurrency(
+                          settlementForRecord(row)?.amountPaid,
+                          "Unavailable",
+                        )}
+                      </b>
+                    </span>
+                    <span className="challan-payment-line">
+                      <span>Outstanding:</span>{" "}
+                      <b>
+                        {viewCurrency(
+                          settlementOutstanding(row),
+                          "Unavailable",
+                        )}
+                      </b>
+                    </span>
+                  </div>
                 )}
               </div>{" "}
               <span>{row.items.map((item) => item.sku).join(", ")}</span>{" "}
@@ -5149,7 +5249,9 @@ export default function Challan() {
               ) : (
                 <span className="challan-aging-empty">--</span>
               )}{" "}
-              <span className={`challan-actions${Number(row.stage) === 4 ? " challan-settlement-actions" : ""}`}>
+              <span
+                className={`challan-actions${Number(row.stage) === 4 ? " challan-settlement-actions" : ""}`}
+              >
                 {" "}
                 <button
                   type="button"
@@ -5225,6 +5327,7 @@ export default function Challan() {
                   )}{" "}
                 </span>{" "}
               </span>{" "}
+              <div className="challan-angadia-cell">{angadiaControl(row)}</div>
             </div>
           ))}{" "}
         </div>
@@ -5256,6 +5359,7 @@ export default function Challan() {
                   date: today(),
                   party: "",
                   notes: "",
+                  angadiaService: false,
                   items: [blank()],
                 });
                 setPage("create");

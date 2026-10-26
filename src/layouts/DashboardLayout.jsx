@@ -80,6 +80,15 @@ const Icon = ({ name }) => (
         <path d="M8 9h8M8 13h6M8 17h4" />
       </>
     )}
+    {name === "orders" && (
+      <><rect x="5" y="5" width="14" height="16" rx="2" /><path d="M9 3h6v4H9zM9 12h6M9 16h4" /></>
+    )}
+    {name === "report" && (
+      <><path d="M4 3v18h17M8 16v-4M13 16V8M18 16V5" /></>
+    )}
+    {name === "party-history" && (
+      <><circle cx="9" cy="7" r="3" /><path d="M3 20v-3a6 6 0 0 1 9-5M16 12v4l3 2" /><circle cx="17" cy="17" r="5" /></>
+    )}
     {name === "sun" && (
       <>
         <circle cx="12" cy="12" r="3.5" />
@@ -124,11 +133,11 @@ const operations = [
       "challan-stage-4",
     ],
   },
-  { label: "Order List", to: "/dashboard/order-list", icon: "challan" },
+  { label: "Order List", to: "/dashboard/order-list", icon: "orders" },
 ];
 const reportLinks = [
   { label: "Activity Log", to: "/dashboard/activity-log", icon: "activity" },
-  { label: "Weekly Report", to: "/dashboard/weekly-report", icon: "activity" },
+  { label: "Weekly Report", to: "/dashboard/weekly-report", icon: "report" },
   {
     label: "Vendor Purchase History",
     to: "/dashboard/vendor-purchase-history",
@@ -137,7 +146,7 @@ const reportLinks = [
   {
     label: "Party Challan History",
     to: "/dashboard/party-challan-history",
-    icon: "history",
+    icon: "party-history",
   },
 ];
 const adminLinks = [
@@ -149,320 +158,138 @@ const adminLinks = [
   { label: "Settings", to: "/dashboard/admin-settings", icon: "settings" },
 ];
 const stored = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
 };
 export default function DashboardLayout() {
-  const { user, logout, hasPermission } = useAuth(),
-    location = useLocation();
-  const [expanded, setExpanded] = useState(() =>
-    stored("sidebar-expanded", false),
-  );
-  const [groups, setGroups] = useState(() => stored("sidebar-groups", {}));
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("theme") || "light",
-  );
-  const [hint, setHint] = useState(null);
-  const [collapsedMenu, setCollapsedMenu] = useState(null);
-  const groupButtons = useRef({});
-  const menuRef = useRef(null);
-  const menuWidth = 224;
-  const positionMenu = (button, itemCount) => {
-    const box = button.getBoundingClientRect();
-    const height = 44 + itemCount * 40 + 12;
-    return {
-      left: Math.min(
-        box.right + 10,
-        Math.max(8, window.innerWidth - menuWidth - 8),
-      ),
-      top: Math.max(8, Math.min(box.top, window.innerHeight - height - 8)),
-    };
-  };
-  const hintEvents = (label) => ({
-    onMouseEnter: (event) => {
-      const box = event.currentTarget.getBoundingClientRect();
-      setHint({ label, top: box.top + box.height / 2, left: box.right + 10 });
-    },
-    onMouseLeave: () => setHint(null),
-    onFocus: (event) => {
-      const box = event.currentTarget.getBoundingClientRect();
-      setHint({ label, top: box.top + box.height / 2, left: box.right + 10 });
-    },
-    onBlur: () => setHint(null),
-    onKeyDown: (event) => {
-      if (event.key === "Escape") setHint(null);
-    },
-  });
+  const { user, logout, hasPermission } = useAuth();
+  const location = useLocation();
+  // Separate preference lets the previous sidebar restore with its original state.
+  const [expanded, setExpanded] = useState(() => stored("sidebar-direct-expanded", true));
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [hint, setHint] = useState(null);
+  const focusHint = useRef(null);
+  const navigation = useRef(null);
   const isAdmin = isAdminAccount(user);
   const sections = [
-    {
-      name: "Operations",
-      icon: "inventory",
-      items: operations.filter(
-        (item) =>
-          !item.permission ||
-          isAdmin ||
-          (Array.isArray(item.permission)
-            ? item.permission.some(hasPermission)
-            : hasPermission(item.permission)),
-      ),
-    },
-    ...(isAdmin
-      ? [
-          { name: "Reports", icon: "activity", items: reportLinks },
-          { name: "Admin", icon: "management", items: adminLinks },
-        ]
-      : []),
+    { name: "Operations", items: operations.filter((item) =>
+      !item.permission || isAdmin || (Array.isArray(item.permission)
+        ? item.permission.some(hasPermission) : hasPermission(item.permission))) },
+    ...(isAdmin ? [
+      { name: "Reports", items: reportLinks },
+      { name: "Admin", items: adminLinks },
+    ] : []),
   ].filter((group) => group.items.length);
-  const pageTitle =
-    [...operations, ...reportLinks, ...adminLinks].find(
-      (item) => item.to === location.pathname,
-    )?.label ||
+  const pageTitle = [...operations, ...reportLinks, ...adminLinks]
+    .find((item) => item.to === location.pathname)?.label ||
     (location.pathname.endsWith("/danger-zone") ? "Danger Zone" : "Dashboard");
-  const activeGroup = sections.find((group) =>
-    group.items.some(
-      (item) =>
-        item.to === location.pathname ||
-        location.pathname.startsWith(item.to + "/"),
-    ),
-  )?.name;
   useEffect(() => {
-    localStorage.setItem("sidebar-expanded", JSON.stringify(expanded));
+    localStorage.setItem("sidebar-direct-expanded", JSON.stringify(expanded));
   }, [expanded]);
-  useEffect(() => {
-    localStorage.setItem("sidebar-groups", JSON.stringify(groups));
-  }, [groups]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("theme", theme);
   }, [theme]);
   useEffect(() => {
-    if (expanded && activeGroup)
-      queueMicrotask(() =>
-        setGroups((old) =>
-          old[activeGroup] ? old : { ...old, [activeGroup]: true },
-        ),
-      );
-  }, [expanded, activeGroup]);
+    const nav = navigation.current;
+    const active = nav?.querySelector('a[aria-current="page"]');
+    if (!active) return;
+    const item = active.getBoundingClientRect(), box = nav.getBoundingClientRect();
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      if (item.left < box.left) nav.scrollLeft -= box.left - item.left + 8;
+      else if (item.right > box.right) nav.scrollLeft += item.right - box.right + 8;
+    } else {
+      if (item.top < box.top) nav.scrollTop -= box.top - item.top + 8;
+      else if (item.bottom > box.bottom) nav.scrollTop += item.bottom - box.bottom + 8;
+    }
+  }, [location.pathname, expanded]);
   useEffect(() => {
     if (!logoutConfirm) return;
     const close = (event) => {
       if (event.key === "Escape") setLogoutConfirm(false);
-      if (event.key === "Enter") {
-        event.preventDefault();
-        logout();
-      }
+      if (event.key === "Enter") { event.preventDefault(); logout(); }
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [logoutConfirm, logout]);
   useEffect(() => {
-    if (expanded) queueMicrotask(() => setCollapsedMenu(null));
-  }, [expanded]);
-  useEffect(() => {
-    queueMicrotask(() => setCollapsedMenu(null));
-  }, [location.pathname]);
-  const menuName = collapsedMenu?.name;
-  const menuItemCount = sections.find((group) => group.name === menuName)?.items
-    .length;
-  useEffect(() => {
-    if (!menuName) return;
-    const closeOnOutside = (event) => {
-      if (menuRef.current?.contains(event.target)) return;
-      if (groupButtons.current[menuName]?.contains(event.target)) return;
-      setCollapsedMenu(null);
+    const hide = () => { focusHint.current = null; setHint(null); };
+    const onScroll = () => {
+      const focused = document.activeElement;
+      if (window.matchMedia("(max-width: 760px)").matches || focused?.closest(".sidebar-expanded")) return hide();
+      if (!focused?.matches(".dashboard-sidebar .nav-row") || focusHint.current !== focused.getAttribute("aria-label")) return hide();
+      const box = focused.getBoundingClientRect();
+      setHint({ label: focusHint.current, left: focused.closest("aside").getBoundingClientRect().right + 8,
+        top: Math.max(20, Math.min(window.innerHeight - 20, box.top + box.height / 2)) });
     };
-    const onKeyDown = (event) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      setCollapsedMenu(null);
-      groupButtons.current[menuName]?.focus();
-    };
-    const reposition = () => {
-      const button = groupButtons.current[menuName];
-      if (!button || !menuItemCount) return setCollapsedMenu(null);
-      const next = positionMenu(button, menuItemCount);
-      setCollapsedMenu((old) =>
-        old?.name === menuName ? { ...old, ...next } : old,
-      );
-    };
-    document.addEventListener("pointerdown", closeOnOutside);
-    document.addEventListener("keydown", onKeyDown);
-    window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
-    const first = menuRef.current?.querySelector('[role="menuitem"]');
-    first?.focus();
+    const escape = (event) => { if (event.key === "Escape") hide(); };
+    window.addEventListener("resize", hide);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("keydown", escape);
     return () => {
-      document.removeEventListener("pointerdown", closeOnOutside);
-      document.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", hide);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("keydown", escape);
     };
-  }, [menuName, menuItemCount]);
-  const onMenuKeyDown = (event) => {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-    const items = [...menuRef.current.querySelectorAll('[role="menuitem"]')];
-    if (!items.length) return;
-    event.preventDefault();
-    const current = items.indexOf(document.activeElement);
-    const next =
-      event.key === "Home"
-        ? 0
-        : event.key === "End"
-          ? items.length - 1
-          : event.key === "ArrowDown"
-            ? (current + 1) % items.length
-            : (current - 1 + items.length) % items.length;
-    items[next].focus();
+  }, []);
+  const showHint = (event, label) => {
+    if (expanded || window.matchMedia("(max-width: 760px)").matches) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const edge = event.currentTarget.closest("aside").getBoundingClientRect().right;
+    setHint({ label, left: edge + 8, top: Math.max(20, Math.min(window.innerHeight - 20, box.top + box.height / 2)) });
   };
-  // Keep the selected destination visible without expanding a collapsed sidebar.
-  const groupOpen = (name) =>
-    expanded && (activeGroup === name || Boolean(groups[name]));
+  const focusLink = (event) => {
+    const label = event.currentTarget.getAttribute("aria-label");
+    focusHint.current = label;
+    showHint(event, label);
+  };
+  const blurLink = (event) => {
+    const label = event.currentTarget.getAttribute("aria-label");
+    focusHint.current = null;
+    setHint((current) => current?.label === label ? null : current);
+  };
+  const clearHint = () => { focusHint.current = null; setHint(null); };
   const link = (item) => (
-    <NavLink
-      key={item.to}
-      to={item.to}
-      end={item.to === "/dashboard"}
-      aria-label={item.label}
-      title={expanded ? item.label : undefined}
-      {...(!expanded ? hintEvents(item.label) : {})}
-      className={({ isActive }) => "nav-row " + (isActive ? "active" : "")}
-    >
-      <Icon name={item.icon} />
-      <span>{item.label}</span>
+    <NavLink key={item.to} to={item.to} end={item.to === "/dashboard"}
+      aria-label={item.label} title={expanded ? item.label : undefined}
+      aria-describedby={hint?.label === item.label ? "sidebar-link-tooltip" : undefined}
+      onMouseEnter={(event) => showHint(event, item.label)}
+      onFocus={focusLink}
+      onMouseLeave={(event) => {
+        if (event.currentTarget === document.activeElement) return;
+        setHint((current) => current?.label === item.label ? null : current);
+      }}
+      onBlur={blurLink}
+      onClick={clearHint}
+      className={({ isActive }) => "nav-row " + (isActive ? "active" : "")}>
+      <Icon name={item.icon} /><span>{item.label}</span>
     </NavLink>
   );
   return (
     <div className={"dashboard-shell " + (expanded ? "sidebar-expanded" : "")}>
       <aside className="dashboard-sidebar" aria-label="Main sidebar">
         <div className="nav-brand">
-          <div className="nav-logo">
-            <Icon name="diamond" />
-          </div>
-          {expanded && <b>Grantha Exports</b>}
-          <button
-            type="button"
-            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
-            aria-expanded={expanded}
-            title={expanded ? "Collapse sidebar" : undefined}
-            {...(!expanded ? hintEvents("Expand sidebar") : {})}
-            onClick={() => {
-              setHint(null);
-              setExpanded((value) => !value);
-            }}
-          >
-            <Icon name="chevron" />
-          </button>
+          <div className="nav-logo"><Icon name="diamond" /></div>
+          <b>Grantha Exports</b>
+          <button type="button" aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={expanded} title={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            onClick={() => { setHint(null); setExpanded((value) => !value); }}><Icon name="chevron" /></button>
         </div>
-        <nav aria-label="Application navigation" onScroll={() => setHint(null)}>
-          {isAdmin &&
-            link({ label: "Dashboard", to: "/dashboard", icon: "dashboard" })}
+        <nav ref={navigation} aria-label="Application navigation">
+          {isAdmin && link({ label: "Dashboard", to: "/dashboard", icon: "dashboard" })}
           {sections.map((group) => (
-            <section className="nav-group" key={group.name}>
-              <button
-                className={
-                  "nav-row nav-group-toggle " +
-                  (activeGroup === group.name ? "contains-active" : "")
-                }
-                {...(!expanded ? hintEvents(group.name) : {})}
-                ref={(button) => {
-                  groupButtons.current[group.name] = button;
-                }}
-                aria-label={group.name}
-                aria-haspopup={!expanded ? "menu" : undefined}
-                aria-expanded={
-                  expanded
-                    ? groupOpen(group.name)
-                    : collapsedMenu?.name === group.name
-                }
-                aria-controls={
-                  expanded ? "nav-" + group.name : "collapsed-nav-" + group.name
-                }
-                onClick={(event) => {
-                  setHint(null);
-                  if (!expanded) {
-                    const position = positionMenu(
-                      event.currentTarget,
-                      group.items.length,
-                    );
-                    setCollapsedMenu((old) =>
-                      old?.name === group.name
-                        ? null
-                        : { name: group.name, ...position },
-                    );
-                  } else {
-                    setGroups((old) => ({
-                      ...old,
-                      [group.name]:
-                        activeGroup === group.name || !old[group.name],
-                    }));
-                  }
-                }}
-              >
-                <Icon name={group.icon} />
-                <span>{group.name}</span>
-                <i className={groupOpen(group.name) ? "is-open" : ""}>
-                  <Icon name="chevron" />
-                </i>
-              </button>
-              {groupOpen(group.name) && (
-                <div id={"nav-" + group.name} className="nav-children">
-                  {group.items.map(link)}
-                </div>
-              )}
+            <section className="nav-group" key={group.name} aria-label={group.name}>
+              <h2 className="nav-section-label">{group.name}</h2>
+              <div className="nav-children">{group.items.map(link)}</div>
             </section>
           ))}
         </nav>
       </aside>
-      {!expanded &&
-        !collapsedMenu &&
-        hint &&
-        createPortal(
-          <div
-            className="sidebar-tooltip"
-            role="tooltip"
-            style={{ top: hint.top, left: hint.left }}
-          >
-            {hint.label}
-          </div>,
-          document.body,
-        )}
-      {!expanded &&
-        collapsedMenu &&
-        createPortal(
-          <div
-            ref={menuRef}
-            id={"collapsed-nav-" + collapsedMenu.name}
-            className="sidebar-menu"
-            role="menu"
-            aria-label={collapsedMenu.name}
-            style={{ top: collapsedMenu.top, left: collapsedMenu.left }}
-            onKeyDown={onMenuKeyDown}
-          >
-            <div className="sidebar-menu-heading">{collapsedMenu.name}</div>
-            {sections
-              .find((group) => group.name === collapsedMenu.name)
-              ?.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  role="menuitem"
-                  className={({ isActive }) =>
-                    "sidebar-menu-item" + (isActive ? " active" : "")
-                  }
-                  onClick={() => setCollapsedMenu(null)}
-                >
-                  <Icon name={item.icon} />
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
-          </div>,
-          document.body,
-        )}
+      {!expanded && hint && createPortal(
+        <div id="sidebar-link-tooltip" role="tooltip" className="sidebar-link-tooltip"
+          style={{ left: hint.left, top: hint.top }}>{hint.label}</div>, document.body,
+      )}
       <main className="dashboard-main">
         <header className="dashboard-header">
           <span className="app-page-context">{pageTitle}</span>

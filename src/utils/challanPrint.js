@@ -58,6 +58,43 @@ const total = (items, read, unit = "number") => {
   }
 };
 const pricing = (item) => stageOneFinancials(item);
+export const angadiaServiceText = (record) =>
+  record.angadiaService === true ? "Yes" : "No";
+
+export function buildChallanListPrint(records, stageLabels = {}) {
+  const rows =
+    records
+      .map((record) => {
+        const stage = Number(record.stage || 1);
+        const outstanding = settlementForRecord(record)?.remaining;
+        const values = [
+          escape(record.number),
+          escape(record.party),
+          escape((record.items || []).map((item) => item.sku).join(", ")),
+          escape(record.date),
+          (record.items || []).reduce(
+            (sum, item) => sum + pieces(item.pieces),
+            0,
+          ),
+          `Stage ${stage} - ${escape(stageLabels[stage] || "")}`,
+          angadiaServiceText(record),
+          stage === 4
+            ? outstanding == null
+              ? "Unavailable"
+              : amountOrUnknown(outstanding)
+            : "—",
+        ];
+        return `<tr>${values.map((value) => `<td>${value}</td>`).join("")}</tr>`;
+      })
+      .join("") ||
+    '<tr><td colspan="8">No Challans match the current filters.</td></tr>';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Challan Management</title><style>
+    body{font-family:Arial,sans-serif;color:#172033;margin:28px}table{border-collapse:collapse;width:100%;font-size:12px}
+    th,td{border:1px solid #cbd5e1;padding:9px;text-align:left;overflow-wrap:anywhere}th{background:#f1f5f9;font-size:11px;text-transform:uppercase}
+    td:last-child{font-weight:bold;white-space:nowrap}thead{display:table-header-group}tr{break-inside:avoid}
+    </style></head><body><h1>Challan Management</h1><p>Filtered list - ${records.length} Challans</p>
+    <table><thead><tr>${["Challan No.", "Party", "Items", "Date", "Qty", "Stage", "Angadia Service", "Outstanding Amount"].map((name) => `<th>${name}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></body></html>`;
+}
 export function buildChallanPrint(record) {
   const stage = Number(record.stage || 1);
   const settlement = settlementForRecord(record);
@@ -69,7 +106,11 @@ export function buildChallanPrint(record) {
         : record.items || [];
   const columns = [
     { name: "Sr. No.", cell: (_, index) => index + 1 },
-    { name: "SKU / Item", cell: (item) => escape(item.sku), footer: () => "TOTAL" },
+    {
+      name: "SKU / Item",
+      cell: (item) => escape(item.sku),
+      footer: () => "TOTAL",
+    },
     { name: "Shape", cell: (item) => escape(shapeName(item.shape)) },
     { name: "Size", cell: (item) => escape(item.size || "--") },
     { name: "Width", cell: (item) => escape(item.width || "--") },
@@ -175,7 +216,7 @@ export function buildChallanPrint(record) {
     <table><colgroup>${colgroup}</colgroup><thead><tr>${columns.map((column) => `<th>${column.name}</th>`).join("")}</tr></thead><tbody>${items.map(row).join("")}</tbody></table><div class="copy-ending"><table class="ending-totals"><colgroup>${colgroup}</colgroup><tfoot><tr>${columns.map((column) => `<td>${column.footer?.() || ""}</td>`).join("")}</tr></tfoot></table>
     ${record.paymentSummary && stage === 3 ? `<p class="settlement">Paid to Date: ${amountOrUnknown(record.paymentSummary.amountPaid)} · Discount to Date: ${amountOrUnknown(record.paymentSummary.settlementDiscountAmount)} · Outstanding Amount: ${amountOrUnknown(record.paymentSummary.remaining)}</p>` : ""}
     ${settlement ? `<p class="settlement">Paid: ${amountOrUnknown(settlement.amountPaid)} · Settlement Discount: ${amountOrUnknown(settlement.settlementDiscountAmount)} · Actual Received: ${amountOrUnknown(settlement.actualReceivedAmount)} · <strong>Outstanding Amount: ${amountOrUnknown(settlement.remaining)}</strong></p>` : ""}
-    <p class="notes"><strong>Notes:</strong> ${escape(record.notes || "-")}</p><div class="signature"><span>Customer Signature</span></div></div></section>`;
+    <p class="notes"><strong>Angadia Service:</strong> ${angadiaServiceText(record)}</p><p class="notes"><strong>Notes:</strong> ${escape(record.notes || "-")}</p><div class="signature"><span>Customer Signature</span></div></div></section>`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escape(record.number)}</title><style>
     *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172033;background:#fff;margin:16px}.copy{border:1.5px solid #334155;margin-bottom:20px;padding:16px}.copy header{break-after:avoid;page-break-after:avoid;border-bottom:2px solid #334155;display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:12px}.copy header b{border:1px solid #334155;font-size:11px;letter-spacing:.1em;padding:5px 8px}h1{font-size:18px;margin:0}.details{break-inside:avoid;break-after:avoid;page-break-after:avoid;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}.details p,.notes,.settlement{font-size:11px;margin:4px 0}table{table-layout:fixed;border-collapse:collapse;width:100%;margin:12px 0 0;font-size:9px}th,td{border:1px solid #94a3b8;padding:6px 4px;text-align:center;overflow-wrap:anywhere}th{background:#eef2f7;font-size:8px;text-transform:uppercase}td:nth-child(2){text-align:left}tr{break-inside:avoid}tfoot{font-weight:bold;background:#f1f5f9}.copy-ending{break-inside:avoid;page-break-inside:avoid}.ending-totals{margin-top:0}.notes{white-space:pre-wrap;overflow-wrap:anywhere}.signature{display:flex;justify-content:flex-end;margin-top:5mm;padding-top:22mm;break-inside:avoid;page-break-inside:avoid}.signature span{border-top:1px solid #334155;text-align:center;width:70mm;padding-top:3mm;font-size:12px;font-weight:bold}@page{size:A4;margin:10mm}@media print{body{margin:0}.copy{break-inside:auto}thead{display:table-header-group}tfoot{display:table-row-group}}
     </style></head><body>${copy("ORIGINAL")}${copy("DUPLICATE")}</body></html>`;

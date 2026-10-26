@@ -233,7 +233,7 @@ test("old Stage 4 list/filter/View/Admin correction and later receipt stay consi
   await legacy("2", 4650);
   await login(page, "role-admin", "/dashboard/challan");
   const row = page.locator(".challan-row").filter({ hasText: "A1/1" });
-  await expect(row).toContainText("Paid: ₹3,000.00");
+  await expect(row).toContainText("Paid Amount: ₹3,000.00");
   await expect(row).toContainText("Outstanding: ₹1,650.00");
   await page.getByLabel("Payment Status").selectOption("outstanding");
   await expect(page.locator(".challan-row")).toHaveCount(1);

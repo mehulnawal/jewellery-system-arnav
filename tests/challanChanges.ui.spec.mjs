@@ -143,6 +143,190 @@ const photo = (name, mimeType = "image/png") => ({
   ),
 });
 
+test("Angadia saves in every stage and reaches single/bulk print and Excel with outstanding", async ({
+  page,
+}) => {
+  for (const stage of [1, 2, 3, 4])
+    await seed(stage, "admin", "angadia-" + stage);
+  await db
+    .doc("challans/angadia-4")
+    .update({
+      "finalSettlement.amountPaid": 600,
+      "finalSettlement.actualReceivedAmount": 600,
+    });
+  await asRole(page, "admin");
+  const assertDeliveryColumn = async () => {
+    const heads = page.locator(".challan-list .list-head > span");
+    await expect(heads.last()).toHaveText("Angadia Service");
+    const last = await heads.last().boundingBox(),
+      actions = await heads.nth((await heads.count()) - 2).boundingBox();
+    expect(Math.abs(last.y - actions.y)).toBeLessThan(2);
+    expect(last.x).toBeGreaterThanOrEqual(actions.x + actions.width);
+    const row = page.locator(".challan-row").first();
+    const cell = await row.locator(".challan-angadia-cell").boundingBox(),
+      buttons = await row.locator(".challan-actions").boundingBox();
+    expect(cell.x).toBeGreaterThanOrEqual(buttons.x + buttons.width);
+  };
+  await assertDeliveryColumn();
+  for (const stage of [1, 2, 3, 4]) {
+    const row = page
+      .locator(".challan-row")
+      .filter({ hasText: "B40/" + stage });
+    await expect(
+      row.locator(".challan-actions input[type=checkbox]"),
+    ).toHaveCount(0);
+    await expect(
+      row.locator(".challan-angadia-cell input[type=checkbox]"),
+    ).toHaveCount(1);
+    const check = row.getByLabel("Angadia Service", { exact: true });
+    await expect(check).not.toBeChecked();
+    await check.check();
+    await expect
+      .poll(
+        async () =>
+          (await db.doc("challans/angadia-" + stage).get()).data()
+            .angadiaService,
+      )
+      .toBe(true);
+    await expect(check).toBeChecked();
+  }
+  await page.reload();
+  for (const stage of [1, 2, 3, 4])
+    await expect(
+      page
+        .locator(".challan-row")
+        .filter({ hasText: "B40/" + stage })
+        .getByLabel("Angadia Service"),
+    ).toBeChecked();
+  await page
+    .locator(".challan-row")
+    .filter({ hasText: "B40/2" })
+    .getByLabel("Angadia Service")
+    .uncheck();
+  await expect
+    .poll(
+      async () =>
+        (await db.doc("challans/angadia-2").get()).data().angadiaService,
+    )
+    .toBe(false);
+  await page.evaluate(() => {
+    window.open = () => ({
+      document: {
+        write: (html) => (window.__deliveryPrint = html),
+        close() {},
+      },
+      focus() {},
+      print() {},
+    });
+  });
+  await page
+    .locator(".challan-list-actions")
+    .getByRole("button", { name: "Print", exact: true })
+    .click();
+  let printed = await page.evaluate(() => {
+    const dom = new DOMParser().parseFromString(
+      window.__deliveryPrint,
+      "text/html",
+    );
+    return [...dom.querySelectorAll("tbody tr")].map((row) =>
+      [...row.cells].map((cell) => cell.textContent),
+    );
+  });
+  expect(printed).toHaveLength(4);
+  expect(printed.find((row) => row[0] === "B40/4").slice(-2)).toEqual([
+    "Yes",
+    "₹400",
+  ]);
+  expect(printed.find((row) => row[0] === "B40/1").slice(-2)).toEqual([
+    "Yes",
+    "—",
+  ]);
+  expect(printed.find((row) => row[0] === "B40/2")[6]).toBe("No");
+  await page
+    .locator(".challan-page nav button")
+    .filter({ hasText: "Stage 4" })
+    .click();
+  await assertDeliveryColumn();
+  await page
+    .locator(".challan-row .challan-angadia-cell")
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: "test-results/challan-angadia-column.png",
+    fullPage: true,
+  });
+  await page
+    .locator(".challan-list-actions")
+    .getByRole("button", { name: "Print", exact: true })
+    .click();
+  printed = await page.evaluate(
+    () =>
+      new DOMParser()
+        .parseFromString(window.__deliveryPrint, "text/html")
+        .querySelectorAll("tbody tr").length,
+  );
+  expect(printed).toBe(1);
+  const downloadList = page.waitForEvent("download");
+  await page
+    .locator(".challan-list-actions")
+    .getByRole("button", { name: "Export", exact: true })
+    .click();
+  const listBook = XLSX.read(
+    await readFile(await (await downloadList).path()),
+    { type: "buffer" },
+  );
+  expect(XLSX.utils.sheet_to_json(listBook.Sheets.Challans)[0]).toMatchObject({
+    "Angadia Service": "Yes",
+    "Outstanding Amount": 400,
+  });
+  await page.locator(".challan-row .challan-view-button").click();
+  await expect(page.getByLabel("Angadia Service")).toBeChecked();
+  const toolbar = page.locator(".challan-view-toolbar");
+  await toolbar.getByRole("button", { name: "Print", exact: true }).click();
+  expect(
+    await page.evaluate(
+      () =>
+        (window.__deliveryPrint.match(/Angadia Service:<\/strong> Yes/g) || [])
+          .length,
+    ),
+  ).toBe(2);
+  const downloadSingle = page.waitForEvent("download");
+  await toolbar.getByRole("button", { name: "Export", exact: true }).click();
+  const singleBook = XLSX.read(
+    await readFile(await (await downloadSingle).path()),
+    { type: "buffer" },
+  );
+  expect(
+    XLSX.utils.sheet_to_json(singleBook.Sheets.Challan, { header: 1 }),
+  ).toContainEqual(["Angadia Service", "Yes"]);
+});
+
+test("Angadia starts unticked in new forms and can be saved in a normal Stage 1 edit", async ({
+  page,
+}) => {
+  await seed(1, "admin", "angadia-form");
+  await asRole(page, "admin");
+  await page
+    .locator(".challan-list-actions")
+    .getByRole("button", { name: /Create Challan/ })
+    .click();
+  await expect(page.getByLabel("Angadia Service")).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "Back to Challans", exact: true })
+    .click();
+  await page.locator(".challan-row .challan-edit").click();
+  await page.getByLabel("Angadia Service").check();
+  await page.getByRole("button", { name: "Save Changes", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        (await db.doc("challans/angadia-form").get()).data().angadiaService,
+    )
+    .toBe(true);
+  await expect(
+    page.locator(".challan-row").getByLabel("Angadia Service"),
+  ).toBeChecked();
+});
+
 test.beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: "demo-jewellery-ui",
@@ -310,6 +494,32 @@ for (const stage of [1, 2, 3, 4]) {
     }
     await page.locator(".challan-row .challan-view-button").click();
     const toolbar = page.locator(".challan-view-toolbar");
+    const back = toolbar.getByRole("button", { name: "Back to Challans", exact: true });
+    const actions = toolbar.locator(".challan-view-actions");
+    await expect(actions.getByRole("button")).toHaveText([
+      ["Edit", "Edit Stage 2 Prices", "Record Payment", "Edit"][stage - 1], "Print", "Export",
+    ]);
+    const toolbarBox = await toolbar.boundingBox(), backBox = await back.boundingBox();
+    const actionBox = await actions.boundingBox();
+    expect(Math.abs(backBox.x - toolbarBox.x)).toBeLessThan(2);
+    expect(Math.abs(actionBox.x + actionBox.width - toolbarBox.x - toolbarBox.width)).toBeLessThan(2);
+    expect(actionBox.x).toBeGreaterThan(backBox.x + backBox.width);
+    const buttons = actions.getByRole("button");
+    for (let i = 1; i < 3; i++) {
+      const previous = await buttons.nth(i - 1).boundingBox(), current = await buttons.nth(i).boundingBox();
+      expect(current.x - previous.x - previous.width).toBeGreaterThanOrEqual(8);
+      expect(current.x - previous.x - previous.width).toBeLessThanOrEqual(16);
+    }
+    if (stage === 2) {
+      await page.setViewportSize({width:390,height:800});
+      const mobileButtons = await toolbar.getByRole("button").all();
+      for (const button of mobileButtons) {
+        const box = await button.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(390);
+      }
+      await page.setViewportSize({width:1440,height:1000});
+    }
     await expect(toolbar.getByRole("button", { name: "Print" })).toBeVisible();
     await expect(toolbar.getByRole("button", { name: "Export" })).toBeVisible();
     const downloadPromise = page.waitForEvent("download");

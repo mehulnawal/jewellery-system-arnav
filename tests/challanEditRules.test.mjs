@@ -197,3 +197,48 @@ test("Stage transition starts a server-stamped window even when Stage 1 is old",
   );
   await assertSucceeds(updateDoc(userDoc("staff"), { party: "Fresh Stage 2" }));
 });
+
+test("Angadia delivery flag is a stage-authorized boolean update independent of expired pricing edits", async () => {
+  await env.withSecurityRulesDisabled((context) =>
+    setDoc(doc(context.firestore(), "employeeProfiles", "stage1only"), {
+      role: "employee",
+      active: true,
+      permissions: ["challan-stage-1"],
+    }),
+  );
+  for (const stage of [1, 2, 3, 4]) {
+    await seed(stage, now - 3 * hour, "someone-else");
+    await assertSucceeds(
+      updateDoc(userDoc("staff"), {
+        angadiaService: true,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(userDoc("staff"), {
+        angadiaService: false,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      updateDoc(userDoc("staff"), {
+        angadiaService: "Yes",
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      updateDoc(userDoc("staff"), {
+        angadiaService: true,
+        items: [{ sku: "tampered" }],
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    if (stage !== 1)
+      await assertFails(
+        updateDoc(userDoc("stage1only"), {
+          angadiaService: true,
+          updatedAt: serverTimestamp(),
+        }),
+      );
+  }
+});
