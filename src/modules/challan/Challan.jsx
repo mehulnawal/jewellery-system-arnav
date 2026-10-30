@@ -69,7 +69,6 @@ import {
   updateReturnRows,
   weightMillis,
   wholePieces,
-  unchangedAdvancedStageOne,
   sameStageOneReturnSource,
   sameStageTwoInvoiceSource,
   invoiceReviewRows,
@@ -81,6 +80,11 @@ import {
   sameStageOneEditSnapshot,
 } from "../../utils/challanEditSnapshot.js";
 import { createStageOneChallan } from "../../utils/challanStageOneCreate.js";
+import {
+  advancedEditPreview,
+  advancedEditRows,
+  saveAdvancedChallanEdit,
+} from "../../utils/challanAdvancedEdit.js";
 import {
   parseChallanImport,
   validateImportedStageOneRows,
@@ -568,6 +572,21 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
   } catch {
     /* Incomplete return inputs cannot form finalized movement totals. */
   }
+  const amounts = record.items.map((item, index) => {
+    try {
+      const row = rows[index];
+      const movement = movementFor(item, row.returnPieces, row.returnWeight);
+      const rate = strictMoney(row.price, "Price / Carat");
+      return movement.soldWeight === 0
+        ? 0
+        : priceWeightedItem(movement.soldWeight, rate, item.discount).netAmount;
+    } catch {
+      return null;
+    }
+  });
+  const totalAmount = amounts.every((amount) => amount !== null)
+    ? fromCents(amounts.reduce((sum, amount) => sum + moneyCents(amount), 0n))
+    : null;
   return (
     <div
       className="stage-two-overlay"
@@ -641,7 +660,7 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
               <span>
                 {hasWeightedPricing(record.items) ? "PRICE / CARAT" : "PRICE"}
               </span>{" "}
-              <span>DISCOUNT</span>{" "}
+              <span>DISCOUNT</span> <span>AMOUNT</span>
             </div>{" "}
             {record.items.map((item, index) => {
               const row = rows[index],
@@ -721,6 +740,14 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
                     )}
                   </label>{" "}
                   <span>{viewPercent(item.discount)}</span>{" "}
+                  <span
+                    className="stage-two-line-amount"
+                    aria-label={`${item.sku} Amount`}
+                  >
+                    {amounts[index] === null
+                      ? "--"
+                      : viewCurrency(amounts[index])}
+                  </span>
                 </div>
               );
             })}{" "}
@@ -743,6 +770,13 @@ export const StageTwoModal = ({ record, onClose, onConfirm }) => {
                 {totals ? weightText(totals.soldWeight) : "--"}{" "}
               </strong>{" "}
               <span /> <span />{" "}
+              <strong
+                className="stage-two-total-amount"
+                aria-label="Total Amount"
+                aria-live="polite"
+              >
+                {totalAmount === null ? "--" : viewCurrency(totalAmount)}
+              </strong>
             </div>{" "}
           </div>{" "}
         </div>{" "}
@@ -2600,7 +2634,7 @@ export default function Challan() {
             )
           : item,
       );
-      setFormError(stockError(items, inventory));
+      setFormError(editingId ? "" : stockError(items, inventory));
       return { ...state, items };
     });
   };
@@ -2619,12 +2653,13 @@ export default function Challan() {
                 type: selected.type || "",
                 weight: "",
                 pieces: "",
+                ...(editingId ? { returnPieces: 0, returnWeight: 0 } : {}),
               },
               prices,
             )
           : item,
       );
-      setFormError(stockError(items, inventory));
+      setFormError(editingId ? "" : stockError(items, inventory));
       return { ...state, items };
     });
   };
@@ -2789,8 +2824,11 @@ export default function Challan() {
     if (saving) return;
     setSaving(true);
     try {
-      if (!hasStagePermission(1)) {
-        setFormError("Your account does not have Challan Stage 1 permission.");
+      const editStage = Number(editOriginal.current?.record?.stage || 1);
+      if (!hasStagePermission(editingId ? editStage : 1)) {
+        setFormError(
+          "Your account does not have permission for this Challan stage.",
+        );
         return;
       }
       if (importDraftIssues.length) {
@@ -2858,27 +2896,28 @@ export default function Challan() {
       }
       setFormError("");
       setChallanFieldErrors({});
-      const pricedItems = items.map((item) => {
-        const pieces = wholePieces(
-          item.pieces === "" ? 0 : item.pieces,
-          "Pieces",
-        );
-        const weight = normalizeWeight(item.weight, "Weight");
-        if (weight <= 0)
-          throw new Error("Issued Weight must be greater than zero.");
-        const cleanItem = { ...item };
-        delete cleanItem.importRowNumber;
-        delete cleanItem.importIdentityError;
-        return {
-          ...cleanItem,
-          width: normalizeSize(item.width),
-          pieces,
-          weight,
-          ...(previous?.stage > 1
-            ? stageOneFinancials(item)
-            : priceWeightedItem(weight, item.amount, item.discount)),
-        };
-      });
+      const pricedItems =
+        previous?.stage > 1
+          ? previous.items
+          : items.map((item) => {
+              const pieces = wholePieces(
+                item.pieces === "" ? 0 : item.pieces,
+                "Pieces",
+              );
+              const weight = normalizeWeight(item.weight, "Weight");
+              if (weight <= 0)
+                throw new Error("Issued Weight must be greater than zero.");
+              const cleanItem = { ...item };
+              delete cleanItem.importRowNumber;
+              delete cleanItem.importIdentityError;
+              return {
+                ...cleanItem,
+                width: normalizeSize(item.width),
+                pieces,
+                weight,
+                ...priceWeightedItem(weight, item.amount, item.discount),
+              };
+            });
       const totals =
         previous?.stage > 1
           ? {
@@ -2892,9 +2931,14 @@ export default function Challan() {
         discountAmount: totals.discountAmount,
         netAmount: totals.netAmount,
       };
-      pricing.discount = pricing.amount
-        ? Number(((pricing.discountAmount * 100) / pricing.amount).toFixed(2))
-        : 0;
+      pricing.discount =
+        previous?.stage > 1
+          ? previous.discount
+          : pricing.amount
+            ? Number(
+                ((pricing.discountAmount * 100) / pricing.amount).toFixed(2),
+              )
+            : 0;
       if (
         previous &&
         !editAllowed(previous, user, anchoredNow(clockAnchor.current))
@@ -2902,10 +2946,8 @@ export default function Challan() {
         setFormError("This Challan is no longer editable.");
         return;
       }
-      if (
-        previous?.items?.some(
-          (item) => item.sourceInventoryId || item.inventoryId,
-        ) &&
+      const stageOneStockChanged =
+        Number(previous?.stage) === 1 &&
         (previous.items.length !== pricedItems.length ||
           previous.items.some((item, index) => {
             const next = pricedItems[index];
@@ -2915,22 +2957,8 @@ export default function Challan() {
               Number(item.weight || 0) !== Number(next.weight || 0) ||
               pieceValue(item.pieces) !== pieceValue(next.pieces)
             );
-          }))
-      ) {
-        setFormError(
-          "Issued Inventory quantities cannot be changed after a Challan is created. Edit party, date, comments, or pricing only.",
-        );
-        return;
-      }
-      if (
-        previous &&
-        Number(previous.stage) > 1 &&
-        !unchangedAdvancedStageOne(previous.items, pricedItems)
-      )
-        throw new Error(
-          "Calculation fields are locked after Stage 1. Reopen the Challan to edit notes or party details.",
-        );
-      const record = previous
+          }));
+      let record = previous
         ? {
             ...previous,
             number: form.number,
@@ -2938,8 +2966,9 @@ export default function Challan() {
             date: form.date,
             notes: form.notes,
             angadiaService: form.angadiaService === true,
-            items: pricedItems,
-            ...pricing,
+            ...(Number(previous.stage) === 1
+              ? { items: pricedItems, ...pricing }
+              : {}),
           }
         : {
             id: crypto.randomUUID(),
@@ -2954,7 +2983,15 @@ export default function Challan() {
             createdBy: user?.uid || "",
             createdByRole: user?.role || "staff",
           };
-      if (previous) {
+      if (previous && (Number(previous.stage) > 1 || stageOneStockChanged)) {
+        record = await saveAdvancedChallanEdit(
+          db,
+          previous,
+          { ...form, party },
+          user,
+          () => anchoredNow(clockAnchor.current),
+        );
+      } else if (previous) {
         await runTransaction(db, async (tx) => {
           const ref = doc(db, "challans", record.id);
           const snapshot = await tx.get(ref);
@@ -2986,8 +3023,9 @@ export default function Challan() {
             date: form.date,
             notes: form.notes,
             angadiaService: form.angadiaService === true,
-            items: pricedItems,
-            ...pricing,
+            ...(Number(previous.stage) === 1
+              ? { items: pricedItems, ...pricing }
+              : {}),
           });
         });
       } else {
@@ -3124,6 +3162,16 @@ export default function Challan() {
         if (!inventorySnapshot.exists())
           throw new Error(`Inventory item ${item.sku} is no longer available.`);
         const stock = inventorySnapshot.data();
+        const reservation = stock.challanReservations?.[previous.id];
+        if (
+          reservation &&
+          (reservation.weightMillis !==
+            Number(weightMillis(item.issuedWeight)) ||
+            reservation.pieces !== item.issuedPieces)
+        )
+          throw new Error(
+            "Inventory reservation changed. Reopen this Challan before processing the return.",
+          );
         tx.update(inventorySnapshot.ref, {
           weight: fromMillis(
             weightMillis(stock.weight || 0) + weightMillis(item.returnWeight),
@@ -3134,6 +3182,24 @@ export default function Challan() {
               "Inventory Pieces",
             ) + item.returnPieces,
           updatedAt: serverTimestamp(),
+          challanReturn: {
+            challanId: previous.id,
+            index,
+            id: crypto.randomUUID(),
+          },
+          ...(reservation
+            ? {
+                challanReservations: {
+                  ...stock.challanReservations,
+                  [previous.id]: {
+                    weightMillis:
+                      reservation.weightMillis -
+                      Number(weightMillis(item.returnWeight)),
+                    pieces: reservation.pieces - item.returnPieces,
+                  },
+                },
+              }
+            : {}),
         });
       });
       const current = latestSnapshot.data();
@@ -3178,6 +3244,8 @@ export default function Challan() {
     const previous = stageTwoPriceCandidate;
     if (!previous || !hasStagePermission(2))
       throw new Error("Stage 2 permission is required.");
+    if (!editAllowed(previous, user, anchoredNow(clockAnchor.current)))
+      throw new Error("This Challan is no longer editable.");
     const savedPrices = Object.fromEntries(
       Object.entries(prices).map(([key, value]) => [
         key,
@@ -3196,6 +3264,8 @@ export default function Challan() {
         throw new Error(
           "This Challan is no longer available for Stage 2 price changes.",
         );
+      if (!editAllowed(current, user, anchoredNow(clockAnchor.current)))
+        throw new Error("This Challan is no longer editable.");
       if (
         !sameStageTwoInvoiceSource(
           stageTwoPricedItems(previous),
@@ -3507,9 +3577,13 @@ export default function Challan() {
       party: record.party,
       notes: record.notes || "",
       angadiaService: record.angadiaService === true,
-      items: record.items.map((item) =>
+      items: (Number(record.stage) > 1
+        ? advancedEditRows(record)
+        : record.items
+      ).map((item) =>
         savedPriceItem({
           ...item,
+          inventoryId: item.sourceInventoryId || item.inventoryId || "",
           id: item.id || crypto.randomUUID(),
           amount: item.amount ?? "",
           discount: item.discount ?? "",
@@ -4137,15 +4211,17 @@ export default function Challan() {
                   Record Payment
                 </button>
               )}
-            {stage === 2 && hasStagePermission(2) && (
-              <button
-                type="button"
-                className="challan-view-print"
-                onClick={() => setStageTwoPriceCandidate(viewRecord)}
-              >
-                Edit Stage 2 Prices
-              </button>
-            )}{" "}
+            {stage === 2 &&
+              hasStagePermission(2) &&
+              canEditChallan(viewRecord) && (
+                <button
+                  type="button"
+                  className="challan-view-print"
+                  onClick={() => setStageTwoPriceCandidate(viewRecord)}
+                >
+                  Edit Stage 2 Prices
+                </button>
+              )}{" "}
             <button
               type="button"
               className="challan-view-print"
@@ -4528,10 +4604,30 @@ export default function Challan() {
       </section>
     );
   }
+  const editingRecord = records.find((row) => row.id === editingId);
+  const advancedEditing = editingId && Number(editingRecord?.stage) > 1;
+  const editedBilling = advancedEditing
+    ? advancedEditPreview(editingRecord, form.items)
+    : null;
+  const editedMovement = (item) => {
+    try {
+      return movementFor(item, item.returnPieces, item.returnWeight);
+    } catch {
+      return null;
+    }
+  };
+  let editedMovementTotals = null;
+  if (advancedEditing) {
+    try {
+      editedMovementTotals = stageTwoTotals(form.items, form.items);
+    } catch {
+      /* Incomplete return quantities do not have finalized totals. */
+    }
+  }
   if (page === "create")
     return (
       <section className="challan-page challan-create">
-        {" "}
+        {priceDialog()}{" "}
         <button
           className="back"
           type="button"
@@ -4700,6 +4796,13 @@ export default function Challan() {
           <article>
             {" "}
             <h3>Inventory Items</h3>{" "}
+            {advancedEditing && (
+              <p>
+                Changing goods or quantities adjusts Inventory when you save.
+                Amounts use Sold Weight after returns and update with the edited
+                rate and discount.
+              </p>
+            )}
             {canImportChallan(page, editingId, hasStagePermission(1)) && (
               <p className="challan-import-help">
                 Import one .xlsx or .csv file containing multiple Stage 1
@@ -4748,159 +4851,255 @@ export default function Challan() {
                 {formError}{" "}
               </p>
             )}{" "}
-            <div className="item-head">
-              {" "}
-              <span>
-                {" "}
-                Inventory SKU *{" "}
-                <em className="live-weight-label">live weight</em>{" "}
-              </span>{" "}
-              <span>Width</span>
-              <span>Shape</span> <span>Size</span> <span>Type</span>{" "}
-              <span>Weight / Carat</span> <span>Pieces</span> <span>Price</span>{" "}
-              <span>Discount %</span> <span>Net Amount</span>{" "}
-              <span>Net Amount After Discount</span> <span />{" "}
-            </div>{" "}
-            {form.items.map((item) => (
-              <div className="challan-item" key={item.id}>
-                {" "}
-                <InventoryPicker
-                  value={item.sku}
-                  inventoryId={item.inventoryId}
-                  inventory={inventory}
-                  error={inventoryError}
-                  onChange={(value) => itemChange(item.id, "sku", value)}
-                  onSelect={(selected) => selectSku(item.id, selected)}
-                  autoFocus={focusSkuId === item.id}
-                />{" "}
-                <label className="challan-width">
-                  <input
-                    aria-label="Width"
-                    placeholder="Width (optional)"
-                    inputMode="decimal"
-                    value={item.width ?? ""}
-                    aria-invalid={Boolean(widthError(item.width))}
-                    onChange={(event) =>
-                      itemChange(item.id, "width", event.target.value)
-                    }
-                    onBlur={() => {
-                      if (!widthError(item.width))
-                        itemChange(item.id, "width", normalizeSize(item.width));
-                    }}
-                  />
-                  {widthError(item.width) && (
-                    <small role="alert">{widthError(item.width)}</small>
-                  )}
-                </label>
-                {["shape", "size", "type", "weight", "pieces"].map((key) => (
-                  <input
-                    key={key}
-                    type={
-                      key === "weight" || key === "pieces" ? "number" : "text"
-                    }
-                    min={key === "pieces" ? "0" : undefined}
-                    step={
-                      key === "pieces"
-                        ? "1"
-                        : key === "weight"
-                          ? "any"
-                          : undefined
-                    }
-                    inputMode={key === "pieces" ? "numeric" : undefined}
-                    value={
-                      key === "size" ? normalizeSize(item[key]) : item[key]
-                    }
-                    readOnly={["shape", "size", "type"].includes(key)}
-                    aria-invalid={
-                      key === "pieces" &&
-                      Boolean(formError && /Pieces/.test(formError))
-                    }
-                    onChange={(event) => {
-                      if (
-                        key !== "pieces" ||
-                        /^\d*$/.test(event.target.value)
-                      ) {
-                        itemChange(item.id, key, event.target.value);
-                        if (
-                          key === "pieces" &&
-                          /^\d*$/.test(event.target.value)
-                        )
-                          setFormError("");
-                      }
-                    }}
-                    placeholder={key === "weight" ? "Weight (ct)" : key}
-                  />
-                ))}{" "}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  required={Boolean(item.sku.trim())}
-                  value={item.amount}
-                  onChange={(event) =>
-                    itemChange(item.id, "amount", event.target.value)
-                  }
-                  placeholder="Price"
-                />{" "}
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  list="challan-discounts"
-                  value={item.discount}
-                  onChange={(event) =>
-                    itemChange(item.id, "discount", event.target.value)
-                  }
-                  placeholder="Discount %"
-                />{" "}
-                <span className="item-price-summary">
-                  {viewCurrency(
-                    pricingFor(item.weight, item.amount, item.discount)
-                      ?.grossAmount,
-                  )}
-                </span>{" "}
-                <span className="item-price-summary">
-                  {viewCurrency(
-                    pricingFor(item.weight, item.amount, item.discount)
-                      ?.netAmount,
-                  )}
-                </span>{" "}
-                <button
-                  className="remove-item"
-                  type="button"
-                  disabled={form.items.length === 1}
-                  onClick={() =>
-                    setForm((state) => ({
-                      ...state,
-                      items: state.items.filter((row) => row.id !== item.id),
-                    }))
-                  }
-                >
-                  {" "}
-                  Remove{" "}
-                </button>{" "}
-              </div>
-            ))}{" "}
-            <div
-              className="challan-item-totals"
-              aria-label="Challan item totals"
+            <fieldset
+              className={advancedEditing ? "challan-edit-goods" : undefined}
+              style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
             >
-              <strong>Total Items: {pricing.itemCount}</strong>
-              <strong>Total Weight: {pricing.weight.toFixed(3)} ct</strong>
-              <strong>Total Pieces: {pricing.pieces} pcs</strong>
-              <strong>Total Net Amount: {viewCurrency(pricing.amount)}</strong>
-              <strong>
-                Total Discount Amount: {viewCurrency(pricing.discountAmount)}
-              </strong>
-              <strong>
-                Total Net Amount After Discount:{" "}
-                {viewCurrency(pricing.netAmount)}
-              </strong>
-            </div>{" "}
-            <button type="button" className="add" onClick={addItem}>
-              {" "}
-              <Icon name="plus" /> Add Another Item{" "}
-            </button>{" "}
+              <div className="item-head">
+                {" "}
+                <span>
+                  {" "}
+                  Inventory SKU *{" "}
+                  <em className="live-weight-label">live weight</em>{" "}
+                </span>{" "}
+                <span>Width</span>
+                <span>Shape</span> <span>Size</span> <span>Type</span>{" "}
+                <span>
+                  {advancedEditing ? "Issued Weight" : "Weight / Carat"}
+                </span>
+                <span>{advancedEditing ? "Issued Pieces" : "Pieces"}</span>
+                {advancedEditing && (
+                  <>
+                    <span>Return Weight</span>
+                    <span>Return Pieces</span>
+                    <span>Sold Weight</span>
+                    <span>Sold Pieces</span>
+                  </>
+                )}
+                <span>Price</span> <span>Discount %</span>{" "}
+                <span>Net Amount</span> <span>Net Amount After Discount</span>{" "}
+                <span />{" "}
+              </div>{" "}
+              {form.items.map((item, index) => (
+                <div className="challan-item" key={item.id}>
+                  {" "}
+                  <InventoryPicker
+                    value={item.sku}
+                    inventoryId={item.inventoryId}
+                    inventory={inventory}
+                    error={inventoryError}
+                    onChange={(value) => itemChange(item.id, "sku", value)}
+                    onSelect={(selected) => selectSku(item.id, selected)}
+                    autoFocus={focusSkuId === item.id}
+                  />{" "}
+                  <label className="challan-width">
+                    <input
+                      aria-label="Width"
+                      placeholder="Width (optional)"
+                      inputMode="decimal"
+                      value={item.width ?? ""}
+                      aria-invalid={Boolean(widthError(item.width))}
+                      onChange={(event) =>
+                        itemChange(item.id, "width", event.target.value)
+                      }
+                      onBlur={() => {
+                        if (!widthError(item.width))
+                          itemChange(
+                            item.id,
+                            "width",
+                            normalizeSize(item.width),
+                          );
+                      }}
+                    />
+                    {widthError(item.width) && (
+                      <small role="alert">{widthError(item.width)}</small>
+                    )}
+                  </label>
+                  {["shape", "size", "type", "weight", "pieces"].map((key) => (
+                    <input
+                      key={key}
+                      type={
+                        key === "weight" || key === "pieces" ? "number" : "text"
+                      }
+                      min={key === "pieces" ? "0" : undefined}
+                      step={
+                        key === "pieces"
+                          ? "1"
+                          : key === "weight"
+                            ? "any"
+                            : undefined
+                      }
+                      inputMode={key === "pieces" ? "numeric" : undefined}
+                      value={
+                        key === "size" ? normalizeSize(item[key]) : item[key]
+                      }
+                      readOnly={["shape", "size", "type"].includes(key)}
+                      aria-invalid={
+                        key === "pieces" &&
+                        Boolean(formError && /Pieces/.test(formError))
+                      }
+                      onChange={(event) => {
+                        if (
+                          key !== "pieces" ||
+                          /^\d*$/.test(event.target.value)
+                        ) {
+                          itemChange(item.id, key, event.target.value);
+                          if (
+                            key === "pieces" &&
+                            /^\d*$/.test(event.target.value)
+                          )
+                            setFormError("");
+                        }
+                      }}
+                      placeholder={key === "weight" ? "Weight (ct)" : key}
+                    />
+                  ))}{" "}
+                  {advancedEditing && (
+                    <>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        aria-label={`${item.sku} Return Weight`}
+                        value={item.returnWeight ?? ""}
+                        onChange={(event) =>
+                          itemChange(
+                            item.id,
+                            "returnWeight",
+                            event.target.value,
+                          )
+                        }
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        aria-label={`${item.sku} Return Pieces`}
+                        value={item.returnPieces ?? ""}
+                        onChange={(event) =>
+                          itemChange(
+                            item.id,
+                            "returnPieces",
+                            event.target.value,
+                          )
+                        }
+                      />
+                      <span className="item-price-summary">
+                        {editedMovement(item)
+                          ? weightText(editedMovement(item).soldWeight)
+                          : "--"}
+                      </span>
+                      <span className="item-price-summary">
+                        {editedMovement(item)?.soldPieces ?? "--"}
+                      </span>
+                    </>
+                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required={Boolean(item.sku.trim())}
+                    value={item.amount}
+                    onChange={(event) =>
+                      itemChange(item.id, "amount", event.target.value)
+                    }
+                    placeholder="Price"
+                  />{" "}
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    list="challan-discounts"
+                    value={item.discount}
+                    onChange={(event) =>
+                      itemChange(item.id, "discount", event.target.value)
+                    }
+                    placeholder="Discount %"
+                  />{" "}
+                  <span className="item-price-summary">
+                    {viewCurrency(
+                      editedBilling
+                        ? editedBilling.rows[index]?.grossAmount
+                        : pricingFor(item.weight, item.amount, item.discount)
+                            ?.grossAmount,
+                    )}
+                  </span>{" "}
+                  <span className="item-price-summary">
+                    {viewCurrency(
+                      editedBilling
+                        ? editedBilling.rows[index]?.netAmount
+                        : pricingFor(item.weight, item.amount, item.discount)
+                            ?.netAmount,
+                    )}
+                  </span>{" "}
+                  <button
+                    className="remove-item"
+                    type="button"
+                    disabled={form.items.length === 1}
+                    onClick={() =>
+                      setForm((state) => ({
+                        ...state,
+                        items: state.items.filter((row) => row.id !== item.id),
+                      }))
+                    }
+                  >
+                    {" "}
+                    Remove{" "}
+                  </button>{" "}
+                </div>
+              ))}{" "}
+              <div
+                className="challan-item-totals"
+                aria-label="Challan item totals"
+              >
+                <strong>TOTAL</strong>
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <strong aria-label="Total Weight">
+                  {pricing.weight.toFixed(3)} ct
+                </strong>
+                <strong aria-label="Total Pieces">{pricing.pieces} pcs</strong>
+                {advancedEditing && (
+                  <>
+                    <strong aria-label="Total Return Weight">
+                      {editedMovementTotals
+                        ? weightText(editedMovementTotals.returnWeight) + " ct"
+                        : "--"}
+                    </strong>
+                    <strong aria-label="Total Return Pieces">
+                      {editedMovementTotals?.returnPieces ?? "--"}
+                    </strong>
+                    <strong aria-label="Total Sold Weight">
+                      {editedMovementTotals
+                        ? weightText(editedMovementTotals.soldWeight) + " ct"
+                        : "--"}
+                    </strong>
+                    <strong aria-label="Total Sold Pieces">
+                      {editedMovementTotals?.soldPieces ?? "--"}
+                    </strong>
+                  </>
+                )}
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <strong aria-label="Total Net Amount">
+                  {viewCurrency(
+                    editedBilling ? editedBilling.grossAmount : pricing.amount,
+                  )}
+                </strong>
+                <strong aria-label="Total Net Amount After Discount">
+                  {viewCurrency(
+                    editedBilling ? editedBilling.netAmount : pricing.netAmount,
+                  )}
+                </strong>
+                <span aria-hidden="true" />
+              </div>{" "}
+              <button type="button" className="add" onClick={addItem}>
+                {" "}
+                <Icon name="plus" /> Add Another Item{" "}
+              </button>{" "}
+            </fieldset>
           </article>{" "}
           <article>
             {" "}

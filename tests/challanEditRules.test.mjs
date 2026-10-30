@@ -89,7 +89,7 @@ const userDoc = (uid) =>
   doc(env.authenticatedContext(uid).firestore(), "challans", "one");
 
 test("Stage 2 prices allow Admin/Stage 2 staff only, without changing movement or Stage 1 data", async () => {
-  await seed(2, now - 5 * hour);
+  await seed(2, now - 10 * 60 * 1000);
   await env.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     await updateDoc(doc(db, "challans", "one"), {
@@ -124,6 +124,13 @@ test("Stage 2 prices allow Admin/Stage 2 staff only, without changing movement o
   await assertFails(
     updateDoc(userDoc("staff"), { stage2Prices: { 0: 800, 1: 800 } }),
   );
+  await env.withSecurityRulesDisabled((context) =>
+    updateDoc(doc(context.firestore(), "challans", "one"), {
+      "stageHistory.stage2.enteredAt": Timestamp.fromMillis(now - 2 * hour),
+    }),
+  );
+  await assertFails(updateDoc(userDoc("staff"), { stage2Prices: { 0: 700 } }));
+  await assertFails(updateDoc(userDoc("admin"), { stage2Prices: { 0: 700 } }));
   for (const stage of [1, 3, 4]) {
     await seed(stage, now - 5 * hour);
     await assertFails(
@@ -159,7 +166,9 @@ for (const stage of [2, 3, 4]) {
     async () => {
       await seed(stage, now - 30 * 60 * 1000);
       await assertSucceeds(updateDoc(userDoc("staff"), { party: "Staff" }));
-      await assertSucceeds(updateDoc(userDoc("admin"), { party: "Admin" }));
+      await (stage === 4 ? assertFails : assertSucceeds)(
+        updateDoc(userDoc("admin"), { party: "Admin" }),
+      );
       await assertFails(
         updateDoc(userDoc("staff"), {
           stageHistory: {
@@ -172,16 +181,18 @@ for (const stage of [2, 3, 4]) {
       await assertFails(
         updateDoc(userDoc("staff"), { party: "Expired Staff" }),
       );
-      await (stage === 4 ? assertSucceeds : assertFails)(
+      await assertFails(
         updateDoc(userDoc("admin"), { party: "Expired Admin" }),
       );
     },
   );
 }
-test("Stage 4 keeps Staff delete blocked and Admin delete available", async () => {
-  await seed(4, now);
-  await assertFails(deleteDoc(userDoc("staff")));
-  await assertSucceeds(deleteDoc(userDoc("admin")));
+test("Every stage keeps Staff delete blocked and Admin delete available after edit expiry", async () => {
+  for (const stage of [1, 2, 3, 4]) {
+    await seed(stage, now - 24 * hour);
+    await assertFails(deleteDoc(userDoc("staff")));
+    await assertSucceeds(deleteDoc(userDoc("admin")));
+  }
 });
 test("Stage transition starts a server-stamped window even when Stage 1 is old", async () => {
   await seed(1, now);
@@ -196,6 +207,51 @@ test("Stage transition starts a server-stamped window even when Stage 1 is old",
     }),
   );
   await assertSucceeds(updateDoc(userDoc("staff"), { party: "Fresh Stage 2" }));
+});
+
+test("Expired Stage 2 can advance to Stage 3 and gets a fresh server-stamped edit window", async () => {
+  await seed(2, now - 2 * hour);
+  await assertFails(updateDoc(userDoc("admin"), { notes: "Expired Stage 2" }));
+  await assertSucceeds(
+    updateDoc(userDoc("admin"), {
+      stage: 3,
+      finalInvoice: {
+        items: [],
+        finalInvoiceAmount: 0,
+        confirmedAtMs: Date.now(),
+      },
+      "stageHistory.stage3": {
+        enteredAt: serverTimestamp(),
+        enteredAtMs: Date.now(),
+      },
+    }),
+  );
+  await assertSucceeds(updateDoc(userDoc("admin"), { notes: "Fresh Stage 3" }));
+  await assertSucceeds(
+    updateDoc(userDoc("staff"), { party: "Fresh Stage 3 staff" }),
+  );
+  await assertFails(
+    updateDoc(userDoc("staff"), {
+      "stageHistory.stage3.enteredAt": serverTimestamp(),
+    }),
+  );
+});
+
+test("Stage 2 and 3 metadata edits cannot silently rewrite the original quote or confirmed invoice", async () => {
+  for (const stage of [2, 3]) {
+    await seed(stage, now - 10 * 60000);
+    await assertSucceeds(
+      updateDoc(userDoc("admin"), { notes: "Valid metadata" }),
+    );
+    await assertFails(
+      updateDoc(userDoc("admin"), { items: [{ amount: 100 }] }),
+    );
+    await assertFails(updateDoc(userDoc("staff"), { amount: 100 }));
+    if (stage === 3)
+      await assertFails(
+        updateDoc(userDoc("admin"), { "finalInvoice.finalInvoiceAmount": 100 }),
+      );
+  }
 });
 
 test("Angadia delivery flag is a stage-authorized boolean update independent of expired pricing edits", async () => {

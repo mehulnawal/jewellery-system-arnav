@@ -51,9 +51,9 @@ for (const stage of [2, 3, 4]) {
     const row = record(stage);
     assert.equal(challanEditRemaining(row, now), 30 * 60 * 1000);
     assert.equal(canEditChallan(row, staff, now), true);
-    assert.equal(canEditChallan(row, admin, now), true);
+    assert.equal(canEditChallan(row, admin, now), stage !== 4);
     assert.equal(canEditChallan(row, staff, now + 29 * 60 * 1000), true);
-    assert.equal(canEditChallan(row, admin, now + 30 * 60 * 1000), stage === 4);
+    assert.equal(canEditChallan(row, admin, now + 30 * 60 * 1000), false);
     assert.equal(canEditChallan(row, staff, now + 30 * 60 * 1000), false);
   });
 }
@@ -67,4 +67,22 @@ test("Staff ownership and permission still apply", () => {
     canEditChallan(record(2), { ...staff, permissions: [] }, now),
     false,
   );
+});
+
+test("Stage 2 to Stage 3 starts a fresh hour without inheriting the old deadline", () => {
+  const row = record(2);
+  row.stageHistory.stage2.enteredAt = new Date(now - 2 * hour);
+  assert.equal(canEditChallan(row, admin, now), false);
+  row.stage = 3;
+  row.stageHistory.stage3 = { enteredAt: new Date(now) };
+  assert.equal(challanEditRemaining(row, now), hour);
+  assert.equal(canEditChallan(row, admin, now + hour - 1), true);
+  assert.equal(canEditChallan(row, staff, now + hour - 1), true);
+  assert.equal(canEditChallan(row, admin, now + hour), false);
+  assert.equal(canEditChallan(row, staff, now + hour), false);
+});
+
+test("Neither administrator role can edit Stage 4, even during the first minute", () => {
+  for (const role of ["admin", "superadmin"])
+    assert.equal(canEditChallan(record(4), { ...staff, role }, now), false);
 });

@@ -22,20 +22,18 @@ test.afterAll(async () => {
 test.beforeEach(async () => {
   await env.clearFirestore();
   for (const uid of ["admin", "role-admin", "baseline", "staff"])
-    await db
-      .doc("employeeProfiles/" + uid)
-      .set({
-        active: true,
-        uid,
-        accessId: uid,
-        role:
-          uid === "admin"
-            ? "superadmin"
-            : uid === "role-admin"
-              ? "admin"
-              : "employee",
-        permissions: uid === "staff" ? ["challan-stage-4"] : [],
-      });
+    await db.doc("employeeProfiles/" + uid).set({
+      active: true,
+      uid,
+      accessId: uid,
+      role:
+        uid === "admin"
+          ? "superadmin"
+          : uid === "role-admin"
+            ? "admin"
+            : "employee",
+      permissions: uid === "staff" ? ["challan-stage-4"] : [],
+    });
 });
 const login = async (page, uid, path) => {
   await page.addInitScript(
@@ -45,18 +43,26 @@ const login = async (page, uid, path) => {
   await page.goto(path);
 };
 
-test("Stage 4 receipt-backed edits save and actual concurrent edits remain protected", async ({ page }) => {
-  await legacy("ledger", 3000);
+test("Stage 4 Staff receipt-backed edits save within the hour and actual concurrent edits remain protected", async ({
+  page,
+}) => {
+  await legacy("ledger", 3000, "staff", 10 * 60000);
   const ref = db.doc("challans/ledger");
   const source = (await ref.get()).data();
   const update = recordSettlementPayment(
     { ...source, stage: 3, finalSettlement: undefined },
-    "3000", "350", "receipt-1", Date.now(),
+    "3000",
+    "350",
+    "receipt-1",
+    Date.now(),
     { uid: "admin", role: "superadmin", accessId: "admin" },
   );
   await ref.update(update);
-  await login(page, "admin", "/dashboard/challan");
-  await page.locator(".challan-page nav button").filter({ hasText: "Stage 4" }).click();
+  await login(page, "staff", "/dashboard/challan");
+  await page
+    .locator(".challan-page nav button")
+    .filter({ hasText: "Stage 4" })
+    .click();
   const row = page.locator(".challan-row").filter({ hasText: "A1/ledger" });
   await row.locator(".challan-edit").click();
   const edit = page.getByRole("dialog", { name: "Edit Stage 4 Settlement" });
@@ -74,7 +80,9 @@ test("Stage 4 receipt-backed edits save and actual concurrent edits remain prote
   await ref.update({ notes: "Another user's change" });
   await edit.locator("textarea").fill("Stale draft");
   await edit.getByRole("button", { name: "Save Settlement Changes" }).click();
-  await expect(edit.getByRole("alert")).toContainText("Settlement changed while you were editing");
+  await expect(edit.getByRole("alert")).toContainText(
+    "Settlement changed while you were editing",
+  );
   expect((await ref.get()).data().notes).toBe("Another user's change");
 });
 const fillOrder = async (modal) => {
@@ -198,40 +206,42 @@ test("Order List pagination, filters, sort, and responsive cards retain full det
     }
 });
 async function legacy(id, paid, owner = "staff", age = 5 * 86400000) {
-  await db
-    .doc("challans/" + id)
-    .set({
-      id,
-      stage: 4,
-      number: "A1/" + id,
-      party: "Rohan",
-      date: "2026-10-26",
-      notes: "",
-      items: [],
-      createdBy: owner,
-      createdByRole: "employee",
-      createdAt: Timestamp.now(),
-      stageHistory: {
-        stage4: {
-          enteredAt: Timestamp.fromMillis(Date.now() - age),
-          enteredAtMs: 123,
-        },
+  await db.doc("challans/" + id).set({
+    id,
+    stage: 4,
+    number: "A1/" + id,
+    party: "Rohan",
+    date: "2026-10-26",
+    notes: "",
+    items: [],
+    createdBy: owner,
+    createdByRole: "employee",
+    createdAt: Timestamp.now(),
+    stageHistory: {
+      stage4: {
+        enteredAt: Timestamp.fromMillis(Date.now() - age),
+        enteredAtMs: 123,
       },
-      finalInvoice: { finalInvoiceAmount: 5000, items: [] },
-      finalSettlement: {
-        amountPaid: paid,
-        settlementDiscountAmount: 350,
-        remaining: 0,
-        completedAtMs: 123,
-      },
-    });
+    },
+    finalInvoice: { finalInvoiceAmount: 5000, items: [] },
+    finalSettlement: {
+      amountPaid: paid,
+      settlementDiscountAmount: 350,
+      remaining: 0,
+      completedAtMs: 123,
+    },
+  });
 }
-test("old Stage 4 list/filter/View/Admin correction and later receipt stay consistent", async ({
+test("Stage 4 list/filter/View/Staff correction and later receipt stay consistent", async ({
   page,
 }) => {
-  await legacy("1", 3000);
+  await legacy("1", 3000, "staff", 10 * 60000);
   await legacy("2", 4650);
-  await login(page, "role-admin", "/dashboard/challan");
+  await login(page, "staff", "/dashboard/challan");
+  await page
+    .locator(".challan-page nav button")
+    .filter({ hasText: "Stage 4" })
+    .click();
   const row = page.locator(".challan-row").filter({ hasText: "A1/1" });
   await expect(row).toContainText("Paid Amount: ₹3,000.00");
   await expect(row).toContainText("Outstanding: ₹1,650.00");
@@ -249,7 +259,9 @@ test("old Stage 4 list/filter/View/Admin correction and later receipt stay consi
         theme,
       );
       await page.setViewportSize({ width, height: 800 });
-      await expect(edit.getByRole("button", {name: "Save Settlement Changes"})).toBeInViewport();
+      await expect(
+        edit.getByRole("button", { name: "Save Settlement Changes" }),
+      ).toBeInViewport();
       const bounds = await edit.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);

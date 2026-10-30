@@ -46,7 +46,7 @@ test("contradictory Pieces and Weight cannot be submitted", async ({
   expect(await page.evaluate(() => window.__savedReturnRows)).toBeUndefined();
 });
 
-test("Stage 2 totals align under the same ten columns and edited rate reaches confirmation", async ({
+test("Stage 2 totals align under the same eleven columns and edited rate reaches confirmation", async ({
   page,
 }) => {
   await page.goto("/tests/challanCalculations.browser.html");
@@ -69,10 +69,69 @@ test("Stage 2 totals align under the same ten columns and edited rate reaches co
       .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
   expect(await grid(".stage-two-totals")).toBe(await grid(".stage-two-head"));
   expect(await grid(".stage-two-row")).toBe(await grid(".stage-two-head"));
+  await expect(totals.locator(":scope > *")).toHaveCount(11);
   await page.getByRole("button", { name: /Move to Stage 2/ }).click();
   await expect
     .poll(() => page.evaluate(() => window.__savedReturnRows?.[0].price))
     .toBe("900.25");
+});
+
+test("Stage 2 Amount and its aligned total update live with rates, return weights and discounts", async ({
+  page,
+}) => {
+  await page.goto(
+    "/tests/challanCalculations.browser.html?mode=return-pricing",
+  );
+  const rows = page.locator(".stage-two-row");
+  const total = page.getByLabel("Total Amount", { exact: true });
+  await expect(total).toHaveText("--");
+  for (const row of await rows.all())
+    await row.locator("input").nth(0).fill("0");
+  await rows.nth(0).locator("input").nth(1).fill("5");
+  await rows.nth(1).locator("input").nth(1).fill("7");
+  await expect(page.getByLabel("Pear Amount", { exact: true })).toHaveText(
+    "₹10,000.00",
+  );
+  await expect(page.getByLabel("Marquise Amount", { exact: true })).toHaveText(
+    "₹9,660.00",
+  );
+  await expect(total).toHaveText("₹19,660.00");
+  await page
+    .getByRole("spinbutton", { name: "Pear Price / Carat" })
+    .fill("2100");
+  await expect(total).toHaveText("₹20,160.00");
+  await rows.nth(1).locator("input").nth(1).fill("8");
+  await expect(total).toHaveText("₹16,940.00");
+  await page.getByRole("spinbutton", { name: "Pear Price / Carat" }).fill("");
+  await expect(total).toHaveText("--");
+  await page
+    .getByRole("spinbutton", { name: "Pear Price / Carat" })
+    .fill("2100");
+  await rows.nth(0).locator("input").nth(1).fill("10");
+  await expect(page.getByLabel("Pear Amount", { exact: true })).toHaveText(
+    "₹0.00",
+  );
+  await expect(total).toHaveText("₹6,440.00");
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const cells = async (selector) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((row) =>
+          [...row.children].map((cell) => ({
+            x: cell.getBoundingClientRect().x,
+            w: cell.getBoundingClientRect().width,
+          })),
+        );
+    const header = await cells(".stage-two-head"),
+      footer = await cells(".stage-two-totals");
+    expect(header).toHaveLength(11);
+    for (let index = 0; index < header.length; index++) {
+      expect(Math.abs(header[index].x - footer[index].x)).toBeLessThan(1);
+      expect(Math.abs(header[index].w - footer[index].w)).toBeLessThan(1);
+    }
+  }
 });
 
 test("existing Stage 2 pricing modal defaults to the quote and validates edited rates", async ({

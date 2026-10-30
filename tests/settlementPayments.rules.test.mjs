@@ -173,14 +173,16 @@ async function correct(uid, paid = "2900", discount = "350", id = "c1") {
 test("legacy carry-forward and corrections keep history/summary consistent and Staff edits timed", async () => {
   await seedLegacy();
   await assertFails(correct("staff"));
-  await assertSucceeds(correct("role-admin"));
-  await assertSucceeds(correct("admin", "2800", "350", "c2"));
+  await assertFails(correct("role-admin"));
+  await assertFails(correct("admin", "2800", "350", "c2"));
+  await seedLegacy(30);
+  await assertSucceeds(correct("staff", "2800", "350", "c2"));
   await assertSucceeds(pay("staff", "1000", "", "r1"));
   const current = (await getDoc(doc(dbFor("admin"), "challans", "one"))).data();
   if (
     current.paymentSummary.remaining !== 850 ||
     current.settlementPayments.length !== 1 ||
-    current.settlementCorrections.length !== 2
+    current.settlementCorrections.length !== 1
   )
     throw Error("Legacy cumulative state lost or fictional receipts added");
   const ref = doc(dbFor("admin"), "challans", "one");
@@ -200,16 +202,22 @@ test("legacy carry-forward and corrections keep history/summary consistent and S
   await assertSucceeds(correct("staff"));
 });
 
-test("role-admin query/read and metadata edit exception remains scoped to Stage 4", async () => {
+test("Stage 4 administrator reads and outstanding payments remain available but edits are forbidden", async () => {
   await seedLegacy(5 * 24 * 60);
   const db = dbFor("role-admin");
   await assertSucceeds(
     getDocs(query(collection(db, "challans"), where("stage", "==", 4))),
   );
   await assertFails(getDocs(collection(db, "challans")));
-  await assertSucceeds(
+  await assertFails(
     updateDoc(doc(db, "challans", "one"), { notes: "Edited days later" }),
   );
+  await assertFails(
+    updateDoc(doc(dbFor("admin"), "challans", "one"), {
+      notes: "Admin edit forbidden",
+    }),
+  );
+  await assertSucceeds(pay("admin", "100", "", "outstanding-after-expiry"));
   for (const stage of [1, 2, 3]) {
     await env.withSecurityRulesDisabled((c) =>
       updateDoc(doc(c.firestore(), "challans", "one"), { stage }),
@@ -221,8 +229,8 @@ test("role-admin query/read and metadata edit exception remains scoped to Stage 
   }
 });
 test("legacy metadata save can synchronize totals without inventing receipt events", async () => {
-  await seedLegacy();
-  const db = dbFor("admin"),
+  await seedLegacy(30);
+  const db = dbFor("staff"),
     ref = doc(db, "challans", "one");
   const current = (await getDoc(ref)).data();
   await assertSucceeds(

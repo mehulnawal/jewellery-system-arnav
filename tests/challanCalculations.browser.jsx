@@ -43,21 +43,45 @@ const record = {
 };
 const mode = new URLSearchParams(location.search).get("mode");
 const returnRecord =
-  mode === "weight-only"
+  mode === "return-pricing"
     ? {
         ...record,
         items: [
           {
-            id: "manual",
-            sku: "MANUAL",
+            id: "a",
+            sku: "Pear",
+            shape: "Pear",
             pieces: 0,
-            weight: 5,
-            amount: 1000,
-            discount: 6,
+            weight: 10,
+            amount: 2000,
+            discount: 0,
+          },
+          {
+            id: "b",
+            sku: "Marquise",
+            shape: "Marquise",
+            pieces: 0,
+            weight: 10,
+            amount: 3500,
+            discount: 8,
           },
         ],
       }
-    : record;
+    : mode === "weight-only"
+      ? {
+          ...record,
+          items: [
+            {
+              id: "manual",
+              sku: "MANUAL",
+              pieces: 0,
+              weight: 5,
+              amount: 1000,
+              discount: 6,
+            },
+          ],
+        }
+      : record;
 const invoiceRecord = {
   ...record,
   stage: 2,
@@ -413,9 +437,27 @@ const modal = mode?.startsWith("bulk-review") ? (
         ? {
             finalInvoice: {
               finalInvoiceAmount: 5000,
-              items: [{ ...weightedItem, weight: 5, discount: 0, discountAmount: 0, grossAmount: 5000, netAmount: 5000,
-                issuedPieces: 0, issuedWeight: 5, returnPieces: 0, returnWeight: 0, soldPieces: 0, soldWeight: 5,
-                stage1GrossAmount: 5000, stage1DiscountPercent: 0, stage1DiscountAmount: 0, stage1NetAmount: 5000, finalAmount: 5000 }],
+              items: [
+                {
+                  ...weightedItem,
+                  weight: 5,
+                  discount: 0,
+                  discountAmount: 0,
+                  grossAmount: 5000,
+                  netAmount: 5000,
+                  issuedPieces: 0,
+                  issuedWeight: 5,
+                  returnPieces: 0,
+                  returnWeight: 0,
+                  soldPieces: 0,
+                  soldWeight: 5,
+                  stage1GrossAmount: 5000,
+                  stage1DiscountPercent: 0,
+                  stage1DiscountAmount: 0,
+                  stage1NetAmount: 5000,
+                  finalAmount: 5000,
+                },
+              ],
             },
             finalSettlement: {
               amountPaid: 3000,

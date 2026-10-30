@@ -38,7 +38,7 @@ export const challanEditRemaining = (record, now) => {
 export const canEditChallan = (record, user, now) => {
   const stage = Number(record.stage || 1);
   if (stage < 1 || stage > 4 || !user?.uid) return false;
-  if (stage === 4 && ["admin", "superadmin"].includes(user.role)) return true;
+  if (stage === 4 && ["admin", "superadmin"].includes(user.role)) return false;
   if (user.role === "superadmin")
     return stage === 1 || challanEditRemaining(record, now) > 0;
   return Boolean(

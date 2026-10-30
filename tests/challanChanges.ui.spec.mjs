@@ -148,12 +148,10 @@ test("Angadia saves in every stage and reaches single/bulk print and Excel with 
 }) => {
   for (const stage of [1, 2, 3, 4])
     await seed(stage, "admin", "angadia-" + stage);
-  await db
-    .doc("challans/angadia-4")
-    .update({
-      "finalSettlement.amountPaid": 600,
-      "finalSettlement.actualReceivedAmount": 600,
-    });
+  await db.doc("challans/angadia-4").update({
+    "finalSettlement.amountPaid": 600,
+    "finalSettlement.actualReceivedAmount": 600,
+  });
   await asRole(page, "admin");
   const assertDeliveryColumn = async () => {
     const heads = page.locator(".challan-list .list-head > span");
@@ -473,7 +471,9 @@ for (const stage of [1, 2, 3, 4]) {
   }) => {
     await seed(stage);
     await asRole(page, "admin");
-    await page.locator(".challan-row .challan-edit").click();
+    if (stage !== 4) await page.locator(".challan-row .challan-edit").click();
+    else
+      await expect(page.locator(".challan-row .challan-edit")).toHaveCount(0);
     await expect(
       page
         .locator(".challan-create-actions")
@@ -484,41 +484,47 @@ for (const stage of [1, 2, 3, 4]) {
         .locator(".challan-create-actions")
         .getByRole("button", { name: "Export" }),
     ).toHaveCount(0);
-    if (stage === 4) {
-      await page
-        .getByRole("dialog", { name: "Edit Stage 4 Settlement" })
-        .getByRole("button", { name: "Cancel" })
-        .click();
-    } else {
+    if (stage !== 4) {
       await page.getByRole("button", { name: "Back to Challans" }).click();
     }
     await page.locator(".challan-row .challan-view-button").click();
     const toolbar = page.locator(".challan-view-toolbar");
-    const back = toolbar.getByRole("button", { name: "Back to Challans", exact: true });
+    const back = toolbar.getByRole("button", {
+      name: "Back to Challans",
+      exact: true,
+    });
     const actions = toolbar.locator(".challan-view-actions");
     await expect(actions.getByRole("button")).toHaveText([
-      ["Edit", "Edit Stage 2 Prices", "Record Payment", "Edit"][stage - 1], "Print", "Export",
+      ...(stage === 4
+        ? []
+        : [["Edit", "Edit Stage 2 Prices", "Record Payment"][stage - 1]]),
+      "Print",
+      "Export",
     ]);
-    const toolbarBox = await toolbar.boundingBox(), backBox = await back.boundingBox();
+    const toolbarBox = await toolbar.boundingBox(),
+      backBox = await back.boundingBox();
     const actionBox = await actions.boundingBox();
     expect(Math.abs(backBox.x - toolbarBox.x)).toBeLessThan(2);
-    expect(Math.abs(actionBox.x + actionBox.width - toolbarBox.x - toolbarBox.width)).toBeLessThan(2);
+    expect(
+      Math.abs(actionBox.x + actionBox.width - toolbarBox.x - toolbarBox.width),
+    ).toBeLessThan(2);
     expect(actionBox.x).toBeGreaterThan(backBox.x + backBox.width);
     const buttons = actions.getByRole("button");
-    for (let i = 1; i < 3; i++) {
-      const previous = await buttons.nth(i - 1).boundingBox(), current = await buttons.nth(i).boundingBox();
+    for (let i = 1; i < (await buttons.count()); i++) {
+      const previous = await buttons.nth(i - 1).boundingBox(),
+        current = await buttons.nth(i).boundingBox();
       expect(current.x - previous.x - previous.width).toBeGreaterThanOrEqual(8);
       expect(current.x - previous.x - previous.width).toBeLessThanOrEqual(16);
     }
     if (stage === 2) {
-      await page.setViewportSize({width:390,height:800});
+      await page.setViewportSize({ width: 390, height: 800 });
       const mobileButtons = await toolbar.getByRole("button").all();
       for (const button of mobileButtons) {
         const box = await button.boundingBox();
         expect(box.x).toBeGreaterThanOrEqual(0);
         expect(box.x + box.width).toBeLessThanOrEqual(390);
       }
-      await page.setViewportSize({width:1440,height:1000});
+      await page.setViewportSize({ width: 1440, height: 1000 });
     }
     await expect(toolbar.getByRole("button", { name: "Print" })).toBeVisible();
     await expect(toolbar.getByRole("button", { name: "Export" })).toBeVisible();
@@ -1296,6 +1302,384 @@ test("Stage 1 metadata-only write permits Save, but a concurrent Price change bl
   expect((await db.doc("challans/" + id).get()).data().notes).toBe(
     "After metadata",
   );
+});
+
+for (const [stage, role] of [
+  [2, "admin"],
+  [3, "admin"],
+  [2, "stage-two"],
+  [3, "staff"],
+]) {
+  test(`edit policy Stage ${stage} ${role} saves notes without rewriting calculations and locks at expiry`, async ({
+    page,
+  }) => {
+    const id = await seed(stage, role, "policy-edit");
+    const ref = db.doc("challans/" + id);
+    const before = (await ref.get()).data();
+    // Historical rows may use sourceInventoryId without inventoryId.
+    const historicalItem = { ...before.items[0], pieces: "0" };
+    delete historicalItem.inventoryId;
+    await ref.update({
+      items: [historicalItem],
+      createdAt: Timestamp.fromMillis(Date.now() - 3 * 86400000),
+      [`stageHistory.stage${stage}.enteredAt`]: Timestamp.fromMillis(
+        Date.now() - 10 * 60000,
+      ),
+    });
+    await asRole(page, role);
+    await page.locator(".challan-row .challan-edit").click();
+    await page.locator(".challan-create textarea").fill("Policy notes saved");
+    await page
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    await expect
+      .poll(async () => (await ref.get()).data().notes)
+      .toBe("Policy notes saved");
+    const saved = (await ref.get()).data();
+    expect(saved.items).toEqual([historicalItem]);
+    expect(saved.stage2Return).toEqual(before.stage2Return);
+    expect(saved.finalInvoice).toEqual(before.finalInvoice);
+    await ref.update({
+      [`stageHistory.stage${stage}.enteredAt`]: Timestamp.fromMillis(
+        Date.now() - 61 * 60000,
+      ),
+    });
+    await expect(page.locator(".challan-row .challan-edit")).toHaveCount(0);
+    if (stage === 2) {
+      await page.locator(".challan-row .challan-view-button").click();
+      await expect(
+        page.getByRole("button", { name: "Edit Stage 2 Prices" }),
+      ).toHaveCount(0);
+    }
+  });
+}
+
+for (const stage of [1, 2, 3]) {
+  test(`Stage ${stage} edit item totals align exactly under their columns`, async ({
+    page,
+  }) => {
+    const id = await seed(stage, "admin", "aligned-edit");
+    await db.doc("challans/" + id).update({
+      items: [
+        {
+          ...item,
+          id: "first",
+          weight: 10,
+          amount: 2000,
+          discount: 0,
+          grossAmount: 20000,
+          discountAmount: 0,
+          netAmount: 20000,
+          pricingVersion: "weight-rate-v1",
+        },
+        {
+          ...item,
+          id: "second",
+          weight: 10,
+          amount: 3000,
+          discount: 7,
+          grossAmount: 30000,
+          discountAmount: 2100,
+          netAmount: 27900,
+          pricingVersion: "weight-rate-v1",
+        },
+      ],
+    });
+    if (stage > 1) {
+      const source = (await db.doc("challans/" + id).get()).data();
+      await db.doc("challans/" + id).update({
+        "stage2Return.items": source.items.map((row) => ({
+          ...row,
+          issuedWeight: row.weight,
+          issuedPieces: row.pieces,
+          returnWeight: 0,
+          returnPieces: 0,
+          soldWeight: row.weight,
+          soldPieces: row.pieces,
+        })),
+      });
+    }
+    if (stage === 3)
+      await db.doc("challans/" + id).update({
+        "finalInvoice.items": [{ finalAmount: 20000 }, { finalAmount: 27900 }],
+        "finalInvoice.finalInvoiceAmount": 47900,
+      });
+    await asRole(page, "admin");
+    await page.locator(".challan-row .challan-edit").click();
+    const total = page.locator(".challan-item-totals");
+    await expect(total.getByLabel("Total Weight", { exact: true })).toHaveText(
+      "20.000 ct",
+    );
+    await expect(total.getByLabel("Total Pieces", { exact: true })).toHaveText(
+      "2 pcs",
+    );
+    await expect(
+      total.getByLabel("Total Net Amount", { exact: true }),
+    ).toHaveText("₹50,000.00");
+    await expect(
+      total.getByLabel("Total Net Amount After Discount", { exact: true }),
+    ).toHaveText("₹47,900.00");
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const positions = async (selector) =>
+        page
+          .locator(selector)
+          .first()
+          .evaluate((row) =>
+            [...row.children].map((cell) => ({
+              x: cell.getBoundingClientRect().x,
+              width: cell.getBoundingClientRect().width,
+            })),
+          );
+      const head = await positions(".item-head"),
+        row = await positions(".challan-item"),
+        sums = await positions(".challan-item-totals");
+      const columns = stage === 1 ? 12 : 16;
+      expect(head).toHaveLength(columns);
+      expect(sums).toHaveLength(columns);
+      for (let index = 0; index < columns; index++) {
+        expect(Math.abs(head[index].x - row[index].x)).toBeLessThan(1);
+        expect(Math.abs(head[index].x - sums[index].x)).toBeLessThan(1);
+        expect(Math.abs(head[index].width - sums[index].width)).toBeLessThan(1);
+      }
+    }
+    if (stage === 1) {
+      await page
+        .locator('.challan-item input[placeholder="Price"]')
+        .first()
+        .fill("2500");
+      await expect(
+        total.getByLabel("Total Net Amount", { exact: true }),
+      ).toHaveText("₹55,000.00");
+      await expect(
+        total.getByLabel("Total Net Amount After Discount", { exact: true }),
+      ).toHaveText("₹52,900.00");
+    }
+  });
+}
+
+for (const [stage, role] of [
+  [2, "admin"],
+  [2, "stage-two"],
+  [3, "admin"],
+  [3, "staff"],
+]) {
+  test(`Stage ${stage} ${role} edits SKU, weight, pieces, price and discount with atomic Inventory reconciliation`, async ({
+    page,
+  }) => {
+    const id = await seed(stage, role, "editable-goods");
+    await db.doc("inventory/stock").set({
+      sku: item.sku,
+      shape: item.shape,
+      size: item.size,
+      type: item.type,
+      weight: 9,
+      pieces: 9,
+    });
+    await db.doc("inventory/new-stock").set({
+      sku: "2_Oval_HP",
+      shape: "Oval",
+      size: "2",
+      type: "HP",
+      weight: 8,
+      pieces: 8,
+    });
+    const before = (await db.doc("challans/" + id).get()).data();
+    await asRole(page, role);
+    await page.locator(".challan-row .challan-edit").click();
+    const row = page.locator(".challan-item");
+    await expect(
+      row.getByRole("combobox", { name: "Inventory picker" }),
+    ).toBeEnabled();
+    await row
+      .getByRole("combobox", { name: "Inventory picker" })
+      .fill("2_Oval_HP");
+    await page.getByRole("option").filter({ hasText: "2_Oval_HP" }).click();
+    await row.locator('input[placeholder="Weight (ct)"]').fill("2");
+    await row.locator('input[placeholder="pieces"]').fill("2");
+    await row.locator('input[placeholder="Price"]').fill("3000");
+    await row.locator('input[placeholder="Discount %"]').fill("10");
+    await row.getByLabel("2_Oval_HP Return Weight").fill("1");
+    await row.getByLabel("2_Oval_HP Return Pieces").fill("1");
+    await expect(
+      page.getByLabel("Total Sold Weight", { exact: true }),
+    ).toHaveText("1.000 ct");
+    await page
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    await expect
+      .poll(
+        async () => (await db.doc("challans/" + id).get()).data().items[0].sku,
+      )
+      .toBe("2_Oval_HP");
+    expect((await db.doc("inventory/stock").get()).data().weight).toBe(10);
+    expect((await db.doc("inventory/new-stock").get()).data().weight).toBe(7);
+    const saved = (await db.doc("challans/" + id).get()).data();
+    expect(saved.items[0]).toMatchObject({
+      amount: 3000,
+      discount: 10,
+      weight: 2,
+      pieces: 2,
+      sourceInventoryId: "new-stock",
+    });
+    expect(saved.stage2Return.items[0]).toMatchObject({
+      returnWeight: 1,
+      returnPieces: 1,
+      soldWeight: 1,
+      soldPieces: 1,
+    });
+    expect(saved.stageHistory).toEqual(before.stageHistory);
+    if (stage === 3) expect(saved.finalInvoice.finalInvoiceAmount).toBe(2700);
+  });
+}
+
+for (const role of ["admin", "staff"]) {
+  test(`Stage 1 ${role} can replace issued Inventory and continue through Stage 2`, async ({
+    page,
+  }) => {
+    const id = await seed(1, role, "stage-one-goods");
+    if (role === "admin")
+      await db
+        .doc("challans/" + id)
+        .update({ createdAt: Timestamp.fromMillis(Date.now() - 2 * 86400000) });
+    await db
+      .doc("inventory/stock")
+      .set({
+        sku: item.sku,
+        shape: item.shape,
+        size: item.size,
+        type: item.type,
+        weight: 9,
+        pieces: 9,
+      });
+    await db
+      .doc("inventory/new-stock")
+      .set({
+        sku: "2_Oval_HP",
+        shape: "Oval",
+        size: "2",
+        type: "HP",
+        weight: 8,
+        pieces: 8,
+      });
+    await asRole(page, role);
+    await page.locator(".challan-row .challan-edit").click();
+    const row = page.locator(".challan-item");
+    await row
+      .getByRole("combobox", { name: "Inventory picker" })
+      .fill("2_Oval_HP");
+    await page.getByRole("option").filter({ hasText: "2_Oval_HP" }).click();
+    await row.locator('input[placeholder="Weight (ct)"]').fill("2");
+    await row.locator('input[placeholder="pieces"]').fill("2");
+    await row.locator('input[placeholder="Price"]').fill("3000");
+    await row.locator('input[placeholder="Discount %"]').fill("10");
+    await page
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    await expect
+      .poll(
+        async () => (await db.doc("challans/" + id).get()).data().items[0].sku,
+      )
+      .toBe("2_Oval_HP");
+    expect((await db.doc("inventory/stock").get()).data().weight).toBe(10);
+    expect((await db.doc("inventory/new-stock").get()).data().weight).toBe(6);
+    expect(
+      (await db.doc("challans/" + id).get()).data().stage2Return,
+    ).toBeUndefined();
+    await page
+      .getByRole("button", { name: /Process Return.*Move to Stage 2/ })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Process Return / Move to Stage 2",
+    });
+    await dialog.locator(".stage-two-row input").nth(0).fill("1");
+    await dialog.locator(".stage-two-row input").nth(1).fill("1");
+    await dialog.getByRole("button", { name: /Move to Stage 2/ }).click();
+    await expect
+      .poll(async () => (await db.doc("challans/" + id).get()).data().stage)
+      .toBe(2);
+    expect((await db.doc("inventory/new-stock").get()).data().weight).toBe(7);
+    expect(
+      (await db.doc("inventory/new-stock").get()).data().challanReservations[id]
+        .weightMillis,
+    ).toBe(1000);
+    await page
+      .locator(".challan-page nav button")
+      .filter({ hasText: "Stage 2" })
+      .click();
+    await page.locator(".challan-row .challan-edit").click();
+    await page.locator('.challan-item input[placeholder="Price"]').fill("4000");
+    await page
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
+    await expect
+      .poll(
+        async () =>
+          (await db.doc("challans/" + id).get()).data().items[0].amount,
+      )
+      .toBe(4000);
+    expect((await db.doc("inventory/new-stock").get()).data().weight).toBe(7);
+  });
+}
+
+test("edit policy Stage 2 rates save within the hour but an expired open dialog cannot save", async ({
+  page,
+}) => {
+  const id = await seed(2, "admin", "policy-rates");
+  const ref = db.doc("challans/" + id);
+  await asRole(page, "admin");
+  await page.locator(".challan-row .challan-view-button").click();
+  await page
+    .getByRole("button", { name: "Edit Stage 2 Prices", exact: true })
+    .click();
+  const modal = page.getByRole("dialog", { name: "Edit Stage 2 Prices" });
+  await modal.getByRole("spinbutton").fill("900");
+  await modal.getByRole("button", { name: "Save Stage 2 Prices" }).click();
+  await expect(modal).not.toBeVisible();
+  expect((await ref.get()).data().stage2Prices).toEqual({ 0: 900 });
+  await page
+    .getByRole("button", { name: "Edit Stage 2 Prices", exact: true })
+    .click();
+  await modal.getByRole("spinbutton").fill("800");
+  await ref.update({
+    "stageHistory.stage2.enteredAt": Timestamp.fromMillis(
+      Date.now() - 61 * 60000,
+    ),
+  });
+  await modal.getByRole("button", { name: "Save Stage 2 Prices" }).click();
+  await expect(modal.getByRole("alert")).toContainText("no longer editable");
+  expect((await ref.get()).data().stage2Prices).toEqual({ 0: 900 });
+});
+
+test("edit policy Admin Stage 4 has no Edit while outstanding remains collectible", async ({
+  page,
+}) => {
+  const id = await seed(4, "staff", "policy-outstanding");
+  const ref = db.doc("challans/" + id);
+  await ref.update({
+    "finalSettlement.amountPaid": 600,
+    "finalSettlement.actualReceivedAmount": 600,
+    "finalSettlement.finalInvoiceAmount": 1000,
+    "finalSettlement.remaining": 400,
+    "stageHistory.stage4.enteredAt": Timestamp.fromMillis(
+      Date.now() - 3 * 86400000,
+    ),
+  });
+  await asRole(page, "admin");
+  await expect(page.locator(".challan-row .challan-edit")).toHaveCount(0);
+  await expect(page.locator(".challan-row .challan-delete")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Record Outstanding Payment" })
+    .click();
+  const modal = page.getByRole("dialog", { name: "Final Settlement" });
+  await modal.getByLabel("Amount Paid by Customer").fill("100");
+  await modal
+    .getByRole("button", { name: /Record Payment|Save Part Payment/ })
+    .click();
+  await expect
+    .poll(async () => (await ref.get()).data().finalSettlement.remaining)
+    .toBe(300);
+  await expect(page.locator(".challan-row .challan-edit")).toHaveCount(0);
 });
 
 test("Stage 1 edit blocks a concurrent Stage 2 advance", async ({ page }) => {

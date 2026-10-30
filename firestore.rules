@@ -210,7 +210,7 @@ service cloud.firestore {
       allow create: if businessUnlocked() && currentBusinessGeneration() && (claimedInventoryIdentity(entry) && (admin() || (inventoryEmployee() && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time) || (purchaseEmployee() && request.resource.data.sourcePurchaseId is string && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time)));
       // Preserve the deployed 60-minute Inventory and 10-minute Purchase windows.
       // Creation ownership/timing fields cannot be changed to extend that window.
-      allow update: if businessUnlocked() && currentBusinessGeneration() && ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(["size", "shape", "type", "sku"]) || claimedInventoryIdentity(entry)) && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && (!resource.data.keys().hasAll(['pieces']) || request.resource.data.pieces <= resource.data.pieces))));
+      allow update: if businessUnlocked() && currentBusinessGeneration() && (request.resource.data.diff(resource.data).affectedKeys().hasAny(['challanReturn']) ? challanReturnInventoryUpdate(entry) : request.resource.data.diff(resource.data).affectedKeys().hasAny(['challanEdit', 'challanReservations']) ? challanAdvancedInventoryUpdate(entry) : ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(["size", "shape", "type", "sku"]) || claimedInventoryIdentity(entry)) && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m") && request.resource.data.createdBy == resource.data.createdBy && request.resource.data.createdAt == resource.data.createdAt) || (challanStageOneEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["weight", "pieces", "updatedAt"]) && request.resource.data.weight is number && request.resource.data.weight >= 0 && request.resource.data.weight <= resource.data.weight && request.resource.data.pieces is number && request.resource.data.pieces >= 0 && (!resource.data.keys().hasAll(['pieces']) || request.resource.data.pieces <= resource.data.pieces)))));
       allow delete: if businessUnlocked() && (!identitySetupInProgress() && (admin() || (inventoryEmployee() && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(60, "m")) || (purchaseEmployee() && resource.data.sourcePurchaseId is string && resource.data.createdBy == request.auth.uid && request.time < resource.data.createdAt + duration.value(10, "m"))));
     }
     match /shapes/{entry} {
@@ -245,18 +245,106 @@ service cloud.firestore {
         && value >= request.time.toMillis() - 120000
         && value <= request.time.toMillis() + 30000;
     }
+    function challanEditActor(data) {
+      let stage = data.stage;
+      return admin()
+        ? (stage == 1 || (stage in [2, 3] && request.time < challanStageStart(data) + duration.value(60, 'm')))
+        : (activeOrGraceEmployee() && !(stage == 4 && profile().role == 'admin')
+          && data.createdBy == request.auth.uid && data.get('createdByRole', '') != 'superadmin'
+          && profile().permissions.hasAny(['challan-stage-' + string(stage)])
+          && request.time < challanStageStart(data) + duration.value(60, 'm'));
+    }
+    function challanAdvancedEditAllowed() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return before.stage in [1, 2, 3] && after.stage == before.stage && challanEditActor(before)
+        && changed.hasOnly(['number', 'party', 'date', 'notes', 'angadiaService', 'items', 'amount', 'discount', 'discountAmount', 'netAmount', 'stage2Return', 'stage2Prices', 'finalInvoice', 'stockEdit', 'updatedAt'])
+        && after.updatedAt == request.time
+        && after.stockEdit.keys().hasOnly(['id', 'actorUid', 'at', 'inventoryIds'])
+        && after.stockEdit.id is string && after.stockEdit.id != before.get('stockEdit', {}).get('id', '')
+        && after.stockEdit.actorUid == request.auth.uid && after.stockEdit.at == request.time
+        && after.items is list && after.items.size() > 0
+        && after.stockEdit.inventoryIds is list && after.stockEdit.inventoryIds.size() == after.items.size()
+        && after.stockEdit.inventoryIds.toSet().size() == after.items.size()
+        && (before.stage == 1 ? !changed.hasAny(['stage2Return', 'stage2Prices', 'finalInvoice'])
+          : (after.stage2Return.items.size() == after.items.size()
+            && after.stage2Return.diff(before.stage2Return).affectedKeys().hasOnly(['items'])
+            && after.stage2Prices == {}))
+        && !before.keys().hasAny(['finalSettlement', 'settlementPayments'])
+        && (before.stage in [1, 2] ? !after.keys().hasAny(['finalInvoice'])
+          : after.finalInvoice.diff(before.finalInvoice).affectedKeys().hasOnly(['items', 'calculationVersion', 'grossAmount', 'stage1DiscountAmount', 'stage1NetAmount', 'finalInvoiceAmount']));
+    }
+    function challanStockRowValid(data, index, entry, sku) {
+      let row = index >= 0 && index < data.items.size() ? data.items[index] : {};
+      let returned = data.stage == 1 ? {'returnWeight': 0, 'returnPieces': 0} : (index >= 0 && index < data.stage2Return.items.size() ? data.stage2Return.items[index] : {});
+      return index == -1 || (index >= 0 && index < data.items.size()
+        && row.get('sourceInventoryId', row.get('inventoryId', '')) == entry && row.sku == sku
+        && row.weight is number && row.weight > 0 && row.pieces is int && row.pieces >= 0
+        && returned.returnWeight is number && returned.returnWeight >= 0 && returned.returnWeight <= row.weight
+        && returned.returnPieces is int && returned.returnPieces >= 0 && returned.returnPieces <= row.pieces);
+    }
+    function challanReserved(data, index, weight) {
+      return index == -1 ? 0 : (weight
+        ? math.round(data.items[index].weight * 1000) - (data.stage == 1 ? 0 : math.round(data.stage2Return.items[index].returnWeight * 1000))
+        : data.items[index].pieces - (data.stage == 1 ? 0 : data.stage2Return.items[index].returnPieces));
+    }
+    function challanAdvancedInventoryUpdate(entry) {
+      let next = request.resource.data;
+      let edit = next.challanEdit;
+      let before = get(/databases/$(database)/documents/challans/$(edit.challanId)).data;
+      let after = getAfter(/databases/$(database)/documents/challans/$(edit.challanId)).data;
+      let oldReservation = resource.data.get('challanReservations', {}).get(edit.challanId, {});
+      let nextReservation = next.challanReservations[edit.challanId];
+      let oldWeight = oldReservation.get('weightMillis', before.get('stockEdit', null) == null ? challanReserved(before, edit.oldIndex, true) : 0);
+      let oldPieces = oldReservation.get('pieces', before.get('stockEdit', null) == null ? challanReserved(before, edit.oldIndex, false) : 0);
+      return before.stage in [1, 2, 3] && after.stage == before.stage && challanEditActor(before)
+        && next.diff(resource.data).affectedKeys().hasOnly(['weight', 'pieces', 'updatedAt', 'challanEdit', 'challanReservations'])
+        && next.challanReservations.diff(resource.data.get('challanReservations', {})).affectedKeys().hasOnly([edit.challanId])
+        && nextReservation.keys().hasOnly(['weightMillis', 'pieces'])
+        && nextReservation.weightMillis == challanReserved(after, edit.newIndex, true)
+        && nextReservation.pieces == challanReserved(after, edit.newIndex, false)
+        && next.updatedAt == request.time && after.stockEdit.at == request.time
+        && after.stockEdit.id == edit.id && after.stockEdit.actorUid == request.auth.uid
+        && after.stockEdit.id != before.get('stockEdit', {}).get('id', '')
+        && edit.oldIndex is int && edit.newIndex is int && (edit.oldIndex >= 0 || edit.newIndex >= 0)
+        && challanStockRowValid(before, edit.oldIndex, entry, resource.data.sku)
+        && challanStockRowValid(after, edit.newIndex, entry, resource.data.sku)
+        && (edit.newIndex == -1 ? !after.stockEdit.inventoryIds.hasAny([entry]) : after.stockEdit.inventoryIds[edit.newIndex] == entry)
+        && next.weight is number && next.weight >= 0 && next.pieces is int && next.pieces >= 0
+        && math.round(next.weight * 1000) == math.round(resource.data.weight * 1000)
+          + oldWeight - nextReservation.weightMillis
+        && next.pieces == resource.data.get('pieces', resource.data.get('quantity', resource.data.get('qty', 0)))
+          + oldPieces - nextReservation.pieces;
+    }
+    function challanReturnInventoryUpdate(entry) {
+      let marker = request.resource.data.challanReturn;
+      let before = get(/databases/$(database)/documents/challans/$(marker.challanId)).data;
+      let after = getAfter(/databases/$(database)/documents/challans/$(marker.challanId)).data;
+      let row = after.stage2Return.items[marker.index];
+      let reservation = resource.data.get('challanReservations', {}).get(marker.challanId, null);
+      return before.stage == 1 && after.stage == 2
+        && (admin() || (activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-2'])))
+        && after.stageHistory.stage2.enteredAt == request.time && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['weight', 'pieces', 'updatedAt', 'challanReturn', 'challanReservations'])
+        && challanStockRowValid(before, marker.index, entry, resource.data.sku)
+        && challanStockRowValid(after, marker.index, entry, resource.data.sku)
+        && before.items[marker.index].weight == row.issuedWeight && before.items[marker.index].pieces == row.issuedPieces
+        && math.round(request.resource.data.weight * 1000) == math.round(resource.data.weight * 1000) + math.round(row.returnWeight * 1000)
+        && request.resource.data.pieces == resource.data.get('pieces', resource.data.get('quantity', resource.data.get('qty', 0))) + row.returnPieces
+        && (reservation == null ? request.resource.data.get('challanReservations', {}) == resource.data.get('challanReservations', {})
+          : (request.resource.data.challanReservations.diff(resource.data.challanReservations).affectedKeys().hasOnly([marker.challanId])
+            && request.resource.data.challanReservations[marker.challanId].weightMillis == reservation.weightMillis - math.round(row.returnWeight * 1000)
+            && request.resource.data.challanReservations[marker.challanId].pieces == reservation.pieces - row.returnPieces));
+    }
     function challanEditAllowed() {
       let data = resource.data;
       let stage = data.stage;
       let fields = request.resource.data.diff(data).affectedKeys();
       return stage in [1, 2, 3, 4] && request.resource.data.stage == stage
         && fields.hasOnly(['number', 'party', 'date', 'notes', 'angadiaService', 'items', 'amount', 'discount', 'discountAmount', 'netAmount', 'stage1Images', 'stage2Images', 'updatedAt'])
-        && (admin() || (stage == 4 && activeOrGraceEmployee() && profile().role == 'admin')
-          ? (stage == 1 || stage == 4 || request.time < challanStageStart(data) + duration.value(60, 'm'))
-          : (activeOrGraceEmployee() && data.createdBy == request.auth.uid
-            && data.get('createdByRole', '') != 'superadmin'
-            && ((stage == 1 && profile().permissions.hasAny(['challan-stage-1'])) || (stage == 2 && profile().permissions.hasAny(['challan-stage-2'])) || (stage == 3 && profile().permissions.hasAny(['challan-stage-3'])) || (stage == 4 && profile().permissions.hasAny(['challan-stage-4'])))
-            && request.time < challanStageStart(data) + duration.value(60, 'm')));
+        && (stage == 1 || fields.hasOnly(['number', 'party', 'date', 'notes', 'angadiaService', 'stage1Images', 'stage2Images', 'updatedAt']))
+        && challanEditActor(data);
     }
     function challanStageTransition() {
       let before = resource.data;
@@ -296,8 +384,7 @@ service cloud.firestore {
               && after.finalSettlement.completedAtMs == newHistory.stage4.enteredAtMs))));
     }
     function stageFourEditor() {
-      return admin() || (activeOrGraceEmployee() && profile().role == 'admin')
-        || (activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-4'])
+      return !admin() && (activeOrGraceEmployee() && profile().role != 'admin' && profile().permissions.hasAny(['challan-stage-4'])
           && resource.data.createdBy == request.auth.uid && resource.data.get('createdByRole', '') != 'superadmin'
           && request.time < challanStageStart(resource.data) + duration.value(60, 'm'));
     }
@@ -402,7 +489,7 @@ service cloud.firestore {
         && after.finalSettlement.get('completedAtMs', null) == before.finalSettlement.get('completedAtMs', null);
     }
     function stageTwoPriceEditAllowed() {
-      return (admin() || (activeOrGraceEmployee() && profile().permissions.hasAny(['challan-stage-2'])))
+      return challanEditActor(resource.data)
         && resource.data.stage == 2
         && !resource.data.keys().hasAny(['finalInvoice'])
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stage2Prices'])
@@ -426,6 +513,7 @@ service cloud.firestore {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasAny(['angadiaService']) && changed.hasOnly(['angadiaService', 'updatedAt'])
         ? angadiaServiceUpdateAllowed()
+        : changed.hasAny(['stockEdit']) ? challanAdvancedEditAllowed()
         : changed.hasAny(['settlementCorrections'])
         ? settlementCorrectionAllowed()
         : changed.hasAny(['settlementPayments', 'paymentSummary', 'settlementOpening'])
